@@ -1,8 +1,9 @@
 package au.id.tindall.distalg.raft.log;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class Term {
+public class Term implements Serializable, Comparable<Term> {
 
     private final int number;
 
@@ -11,7 +12,20 @@ public class Term {
     }
 
     public boolean isLessThan(Term otherTerm) {
-        return number < otherTerm.number;
+        return compareTo(otherTerm) < 0;
+    }
+
+    public boolean isGreaterThan(Term otherTerm) {
+        return compareTo(otherTerm) > 0;
+    }
+
+    public Term next() {
+        return new Term(number + 1);
+    }
+
+    @Override
+    public int compareTo(Term otherTerm) {
+        return number - otherTerm.number;
     }
 
     @Override
