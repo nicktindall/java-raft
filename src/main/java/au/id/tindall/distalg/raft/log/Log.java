@@ -5,6 +5,7 @@ import static java.util.Collections.unmodifiableList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class Log {
 
@@ -41,6 +42,16 @@ public class Log {
 
     public List<LogEntry> getEntries() {
         return unmodifiableList(entries);
+    }
+
+    public int getLastLogIndex() {
+        return entries.size();
+    }
+
+    public Optional<Term> getLastLogTerm() {
+        return entries.size() > 0 ?
+                Optional.of(entries.get(entries.size() - 1).getTerm())
+                : Optional.empty();
     }
 
     private boolean hasEntry(int index) {

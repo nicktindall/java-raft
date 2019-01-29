@@ -75,6 +75,26 @@ public class LogTest {
         assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).containsPreviousEntry(5, TERM_1)).isFalse();
     }
 
+    @Test
+    public void getLastLogIndex_WillReturnIndexOfLastLogEntry() {
+        assertThat(logContaining(ENTRY_1, ENTRY_2).getLastLogIndex()).isEqualTo(2);
+    }
+
+    @Test
+    public void getLastLogIndex_WillReturnZero_WhenLogIsEmpty() {
+        assertThat(logContaining().getLastLogIndex()).isZero();
+    }
+
+    @Test
+    public void getLastLogTerm_WillReturnTermOfLastEntry() {
+        assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getLastLogTerm()).contains(TERM_1);
+    }
+
+    @Test
+    public void getLastLogTerm_WillReturnEmptyWhenLogIsEmpty() {
+        assertThat(logContaining().getLastLogTerm()).isEmpty();
+    }
+
     private Log logContaining(LogEntry... entries) {
         Log log = new Log();
         log.appendEntries(0, Arrays.asList(entries));
