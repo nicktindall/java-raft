@@ -1,3 +1,5 @@
 .gradle/
 target/
+build/
+out/
 
