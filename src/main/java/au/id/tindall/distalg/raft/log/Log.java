@@ -54,6 +54,10 @@ public class Log {
                 : Optional.empty();
     }
 
+    public LogSummary getSummary() {
+        return new LogSummary(getLastLogTerm(), getLastLogIndex());
+    }
+
     private boolean hasEntry(int index) {
         if (index < 1) {
             throw new IllegalArgumentException("Log indices start at 1");

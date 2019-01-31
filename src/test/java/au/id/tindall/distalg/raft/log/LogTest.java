@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.Test;
 
@@ -93,6 +94,11 @@ public class LogTest {
     @Test
     public void getLastLogTerm_WillReturnEmptyWhenLogIsEmpty() {
         assertThat(logContaining().getLastLogTerm()).isEmpty();
+    }
+
+    @Test
+    public void getSummary_WillReturnLastLogTermAndIndex() {
+        assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getSummary()).isEqualTo(new LogSummary(Optional.of(TERM_1), 3));
     }
 
     private Log logContaining(LogEntry... entries) {
