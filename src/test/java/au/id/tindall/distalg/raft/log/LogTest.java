@@ -1,8 +1,8 @@
 package au.id.tindall.distalg.raft.log;
 
+import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -99,11 +99,5 @@ public class LogTest {
     @Test
     public void getSummary_WillReturnLastLogTermAndIndex() {
         assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getSummary()).isEqualTo(new LogSummary(Optional.of(TERM_1), 3));
-    }
-
-    private Log logContaining(LogEntry... entries) {
-        Log log = new Log();
-        log.appendEntries(0, Arrays.asList(entries));
-        return log;
     }
 }

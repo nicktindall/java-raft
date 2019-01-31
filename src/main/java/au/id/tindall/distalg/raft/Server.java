@@ -4,11 +4,14 @@ import static au.id.tindall.distalg.raft.ServerState.CANDIDATE;
 import static au.id.tindall.distalg.raft.ServerState.FOLLOWER;
 
 import java.io.Serializable;
+import java.util.Optional;
 
 import au.id.tindall.distalg.raft.comms.MessageDispatcher;
 import au.id.tindall.distalg.raft.log.Log;
+import au.id.tindall.distalg.raft.log.LogSummary;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
+import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
 
 public class Server<ID extends Serializable> {
 
@@ -39,6 +42,37 @@ public class Server<ID extends Serializable> {
         messageDispatcher.broadcastMessage(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
     }
 
+    public RequestVoteResponse handle(RequestVoteRequest<ID> requestVote) {
+        if (requestVote.getTerm().isLessThan(currentTerm)) {
+            return new RequestVoteResponse(currentTerm, false);
+        }
+
+        updateTerm(requestVote.getTerm());
+
+        boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote)
+                && candidatesLogIsAtLeastUpToDateAsMine(requestVote);
+        if (grantVote) {
+            votedFor = requestVote.getCandidateId();
+        }
+        return new RequestVoteResponse(currentTerm, grantVote);
+    }
+
+    private void updateTerm(Term rpcTerm) {
+        if (rpcTerm.isGreaterThan(currentTerm)) {
+            state = FOLLOWER;
+            currentTerm = rpcTerm;
+            votedFor = null;
+        }
+    }
+
+    private boolean candidatesLogIsAtLeastUpToDateAsMine(RequestVoteRequest<ID> requestVote) {
+        return log.getSummary().compareTo(new LogSummary(requestVote.getLastLogTerm(), requestVote.getLastLogIndex())) <= 0;
+    }
+
+    private boolean haveNotVotedOrHaveAlreadyVotedForCandidate(RequestVoteRequest<ID> requestVote) {
+        return votedFor == null || votedFor.equals(requestVote.getCandidateId());
+    }
+
     public ID getId() {
         return id;
     }
@@ -51,8 +85,8 @@ public class Server<ID extends Serializable> {
         return state;
     }
 
-    public ID getVotedFor() {
-        return votedFor;
+    public Optional<ID> getVotedFor() {
+        return Optional.ofNullable(votedFor);
     }
 
     public Log getLog() {
