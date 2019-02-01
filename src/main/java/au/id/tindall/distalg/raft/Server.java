@@ -38,7 +38,7 @@ public class Server<ID extends Serializable> {
     public void electionTimeout() {
         state = CANDIDATE;
         currentTerm = currentTerm.next();
-        votedFor = id;
+        votedFor = null;
         cluster.broadcastMessage(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
     }
 

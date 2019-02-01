@@ -114,10 +114,10 @@ public class ServerTest {
     }
 
     @Test
-    public void electionTimeout_WillVoteForSelf() {
+    public void electionTimeout_WillSetVotedForToNull() {
         Server<Long> server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
         server.electionTimeout();
-        assertThat(server.getVotedFor()).contains(SERVER_ID);
+        assertThat(server.getVotedFor()).isEmpty();
     }
 
     @Test
