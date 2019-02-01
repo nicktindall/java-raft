@@ -2,14 +2,20 @@ package au.id.tindall.distalg.raft;
 
 import static au.id.tindall.distalg.raft.ServerState.CANDIDATE;
 import static au.id.tindall.distalg.raft.ServerState.FOLLOWER;
+import static au.id.tindall.distalg.raft.ServerState.LEADER;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableSet;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogSummary;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
 
@@ -21,6 +27,8 @@ public class Server<ID extends Serializable> {
     private ServerState state;
     private ID votedFor;
     private Log log;
+    private Set<ID> receivedVotes;
+    private int commitIndex;
 
     public Server(ID id, Cluster<ID> cluster) {
         this(id, new Term(0), null, new Log(), cluster);
@@ -32,12 +40,15 @@ public class Server<ID extends Serializable> {
         this.votedFor = votedFor;
         this.log = log;
         this.cluster = cluster;
+        this.commitIndex = 0;
+        this.receivedVotes = new HashSet<>();
         state = FOLLOWER;
     }
 
     public void electionTimeout() {
         state = CANDIDATE;
         currentTerm = currentTerm.next();
+        receivedVotes = new HashSet<>();
         votedFor = null;
         cluster.broadcastMessage(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
     }
@@ -55,6 +66,34 @@ public class Server<ID extends Serializable> {
             votedFor = requestVote.getCandidateId();
         }
         return new RequestVoteResponse<>(id, currentTerm, grantVote);
+    }
+
+    public void handle(RequestVoteResponse<ID> requestVoteResponse) {
+        if (responseIsStale(requestVoteResponse.getTerm())) {
+            return;
+        }
+
+        updateTerm(requestVoteResponse.getTerm());
+
+        if (requestVoteResponse.isVoteGranted()) {
+            recordVoteAndClaimLeadershipIfEligible(requestVoteResponse.getSource());
+        }
+    }
+
+    private void recordVoteAndClaimLeadershipIfEligible(ID voter) {
+        this.receivedVotes.add(voter);
+        if (state == CANDIDATE && cluster.isQuorum(getReceivedVotes())) {
+            state = LEADER;
+            sendHeartbeatMessage();
+        }
+    }
+
+    private void sendHeartbeatMessage() {
+        cluster.broadcastMessage(new AppendEntriesRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm(), emptyList(), commitIndex));
+    }
+
+    private boolean responseIsStale(Term responseTerm) {
+        return responseTerm.isLessThan(currentTerm);
     }
 
     private void updateTerm(Term rpcTerm) {
@@ -91,5 +130,9 @@ public class Server<ID extends Serializable> {
 
     public Log getLog() {
         return log;
+    }
+
+    public Set<ID> getReceivedVotes() {
+        return unmodifiableSet(receivedVotes);
     }
 }
