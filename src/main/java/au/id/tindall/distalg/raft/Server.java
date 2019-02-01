@@ -44,7 +44,7 @@ public class Server<ID extends Serializable> {
 
     public RequestVoteResponse handle(RequestVoteRequest<ID> requestVote) {
         if (requestVote.getTerm().isLessThan(currentTerm)) {
-            return new RequestVoteResponse(currentTerm, false);
+            return new RequestVoteResponse<>(id, currentTerm, false);
         }
 
         updateTerm(requestVote.getTerm());
@@ -54,7 +54,7 @@ public class Server<ID extends Serializable> {
         if (grantVote) {
             votedFor = requestVote.getCandidateId();
         }
-        return new RequestVoteResponse(currentTerm, grantVote);
+        return new RequestVoteResponse<>(id, currentTerm, grantVote);
     }
 
     private void updateTerm(Term rpcTerm) {

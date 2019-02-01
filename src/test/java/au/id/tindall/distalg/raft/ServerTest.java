@@ -131,7 +131,7 @@ public class ServerTest {
     public void handleRequestVote_WillNotGrantVote_WhenRequesterTermIsLowerThanLocalTerm() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_3, null, new Log(), cluster);
         assertThat(server.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 100, Optional.of(TERM_2))))
-                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse(TERM_3, false));
+                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse<>(SERVER_ID, TERM_3, false));
         assertThat(server.getVotedFor()).isEmpty();
     }
 
@@ -139,7 +139,7 @@ public class ServerTest {
     public void handleRequestVote_WillNotGrantVote_WhenServerHasAlreadyVoted() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_3, SERVER_ID, new Log(), cluster);
         assertThat(server.handle(new RequestVoteRequest<>(TERM_3, OTHER_SERVER_ID, 100, Optional.of(TERM_2))))
-                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse(TERM_3, false));
+                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse<>(SERVER_ID, TERM_3, false));
         assertThat(server.getVotedFor()).contains(SERVER_ID);
     }
 
@@ -147,7 +147,7 @@ public class ServerTest {
     public void handleRequestVote_WillNotGrantVote_WhenServerLogIsMoreUpToDateThanRequesterLog() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         assertThat(server.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0))))
-                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse(TERM_2, false));
+                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse<>(SERVER_ID, TERM_2, false));
         assertThat(server.getVotedFor()).isEmpty();
     }
 
@@ -155,7 +155,7 @@ public class ServerTest {
     public void handleRequestVote_WillGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasNotAlreadyVoted() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         assertThat(server.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1))))
-                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse(TERM_2, true));
+                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse<>(SERVER_ID, TERM_2, true));
         assertThat(server.getVotedFor()).contains(OTHER_SERVER_ID);
     }
 
@@ -163,7 +163,7 @@ public class ServerTest {
     public void handleRequestVote_WillGrantVote_WhenRequesterTermIsEqualServerLogIsLessUpToDateAndServerHasNotAlreadyVoted() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_2, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         assertThat(server.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1))))
-                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse(TERM_2, true));
+                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse<>(SERVER_ID, TERM_2, true));
         assertThat(server.getVotedFor()).contains(OTHER_SERVER_ID);
     }
 
@@ -171,7 +171,7 @@ public class ServerTest {
     public void handleRequestVote_WillGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasAlreadyVotedForRequester() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_2, OTHER_SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         assertThat(server.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1))))
-                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse(TERM_2, true));
+                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse<>(SERVER_ID, TERM_2, true));
         assertThat(server.getVotedFor()).contains(OTHER_SERVER_ID);
     }
 
@@ -179,7 +179,7 @@ public class ServerTest {
     public void handleRequestVote_WillGrantVoteAndAdvanceTerm_WhenRequesterTermIsGreaterLogsAreSameAndServerHasAlreadyVoted() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         assertThat(server.handle(new RequestVoteRequest<>(TERM_3, OTHER_SERVER_ID, 3, Optional.of(TERM_1))))
-                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse(TERM_3, true));
+                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse<>(SERVER_ID, TERM_3, true));
         assertThat(server.getVotedFor()).contains(OTHER_SERVER_ID);
     }
 
@@ -188,7 +188,7 @@ public class ServerTest {
         Server<Long> server = new Server<>(SERVER_ID, TERM_1, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         server.electionTimeout();
         assertThat(server.handle(new RequestVoteRequest<>(TERM_3, OTHER_SERVER_ID, 3, Optional.of(TERM_1))))
-                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse(TERM_3, true));
+                .isEqualToComparingFieldByFieldRecursively(new RequestVoteResponse<>(SERVER_ID, TERM_3, true));
         assertThat(server.getState()).isEqualTo(FOLLOWER);
         assertThat(server.getCurrentTerm()).isEqualTo(TERM_3);
     }
