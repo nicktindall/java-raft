@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft.log;
 
+import static au.id.tindall.distalg.raft.SerializationUtils.roundTripSerializeDeserialize;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.util.Arrays;
 
@@ -9,6 +11,11 @@ import org.junit.Test;
 public class LogEntryTest {
 
     private static final Term TERM_1 = new Term(1);
+
+    @Test
+    public void isSerializable() {
+        assertThatCode(() -> roundTripSerializeDeserialize(new LogEntry(new Term(2), "command bytes".getBytes()))).doesNotThrowAnyException();
+    }
 
     @Test
     public void constructor_WillCopyCommandBytes() {
