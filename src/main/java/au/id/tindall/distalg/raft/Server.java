@@ -6,7 +6,7 @@ import static au.id.tindall.distalg.raft.ServerState.FOLLOWER;
 import java.io.Serializable;
 import java.util.Optional;
 
-import au.id.tindall.distalg.raft.comms.MessageDispatcher;
+import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogSummary;
 import au.id.tindall.distalg.raft.log.Term;
@@ -16,22 +16,22 @@ import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
 public class Server<ID extends Serializable> {
 
     private final ID id;
-    private final MessageDispatcher<ID> messageDispatcher;
+    private final Cluster<ID> cluster;
     private Term currentTerm;
     private ServerState state;
     private ID votedFor;
     private Log log;
 
-    public Server(ID id, MessageDispatcher<ID> messageDispatcher) {
-        this(id, new Term(0), null, new Log(), messageDispatcher);
+    public Server(ID id, Cluster<ID> cluster) {
+        this(id, new Term(0), null, new Log(), cluster);
     }
 
-    public Server(ID id, Term currentTerm, ID votedFor, Log log, MessageDispatcher<ID> messageDispatcher) {
+    public Server(ID id, Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
         this.id = id;
         this.currentTerm = currentTerm;
         this.votedFor = votedFor;
         this.log = log;
-        this.messageDispatcher = messageDispatcher;
+        this.cluster = cluster;
         state = FOLLOWER;
     }
 
@@ -39,7 +39,7 @@ public class Server<ID extends Serializable> {
         state = CANDIDATE;
         currentTerm = currentTerm.next();
         votedFor = id;
-        messageDispatcher.broadcastMessage(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
+        cluster.broadcastMessage(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
     }
 
     public RequestVoteResponse handle(RequestVoteRequest<ID> requestVote) {

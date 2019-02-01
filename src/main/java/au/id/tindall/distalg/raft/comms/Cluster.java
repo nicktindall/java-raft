@@ -1,6 +1,6 @@
 package au.id.tindall.distalg.raft.comms;
 
-public interface MessageDispatcher<ID> {
+public interface Cluster<ID> {
 
     void sendMessage(ID destination, Object message);
 
