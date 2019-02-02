@@ -54,11 +54,11 @@ public class Server<ID extends Serializable> {
     }
 
     public RequestVoteResponse handle(RequestVoteRequest<ID> requestVote) {
+        updateTerm(requestVote.getTerm());
+
         if (requestVote.getTerm().isLessThan(currentTerm)) {
             return new RequestVoteResponse<>(id, currentTerm, false);
         }
-
-        updateTerm(requestVote.getTerm());
 
         boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote)
                 && candidatesLogIsAtLeastUpToDateAsMine(requestVote);
@@ -69,11 +69,11 @@ public class Server<ID extends Serializable> {
     }
 
     public void handle(RequestVoteResponse<ID> requestVoteResponse) {
+        updateTerm(requestVoteResponse.getTerm());
+
         if (responseIsStale(requestVoteResponse.getTerm())) {
             return;
         }
-
-        updateTerm(requestVoteResponse.getTerm());
 
         if (requestVoteResponse.isVoteGranted()) {
             recordVoteAndClaimLeadershipIfEligible(requestVoteResponse.getSource());
