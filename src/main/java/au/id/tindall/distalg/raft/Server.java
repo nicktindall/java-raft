@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft;
 import static au.id.tindall.distalg.raft.ServerState.CANDIDATE;
 import static au.id.tindall.distalg.raft.ServerState.FOLLOWER;
 import static au.id.tindall.distalg.raft.ServerState.LEADER;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableSet;
 
@@ -18,6 +19,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
+import au.id.tindall.distalg.raft.rpc.RpcMessage;
 
 public class Server<ID extends Serializable> {
 
@@ -53,6 +55,22 @@ public class Server<ID extends Serializable> {
         cluster.send(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
     }
 
+    public void handle(RpcMessage<ID> message) {
+        if (message instanceof RequestVoteRequest) {
+            handle((RequestVoteRequest<ID>) message);
+        } else if (message instanceof RequestVoteResponse) {
+            handle((RequestVoteResponse<ID>) message);
+        } else if (message instanceof AppendEntriesRequest) {
+            handle((AppendEntriesRequest<ID>) message);
+        } else {
+            throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
+        }
+    }
+
+    public void handle(AppendEntriesRequest<ID> appendEntriesRequest) {
+        // Do nothing
+    }
+
     public void handle(RequestVoteRequest<ID> requestVote) {
         updateTerm(requestVote.getTerm());
 
@@ -62,7 +80,7 @@ public class Server<ID extends Serializable> {
             boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote)
                     && candidatesLogIsAtLeastUpToDateAsMine(requestVote);
             if (grantVote) {
-            votedFor = requestVote.getCandidateId();
+                votedFor = requestVote.getCandidateId();
             }
             cluster.send(new RequestVoteResponse<>(id, requestVote.getCandidateId(), currentTerm, grantVote));
         }
