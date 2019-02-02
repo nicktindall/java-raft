@@ -5,11 +5,13 @@ import static au.id.tindall.distalg.raft.ServerState.CANDIDATE;
 import static au.id.tindall.distalg.raft.ServerState.FOLLOWER;
 import static au.id.tindall.distalg.raft.ServerState.LEADER;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singleton;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -122,10 +124,10 @@ public class ServerTest {
     }
 
     @Test
-    public void electionTimeout_WillSetVotedForToNull() {
+    public void electionTimeout_WillVoteForSelf() {
         Server<Long> server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
         server.electionTimeout();
-        assertThat(server.getVotedFor()).isEmpty();
+        assertThat(server.getVotedFor()).contains(SERVER_ID);
     }
 
     @Test
@@ -133,6 +135,14 @@ public class ServerTest {
         Server<Long> server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
         server.electionTimeout();
         verify(cluster).send(refEq(new RequestVoteRequest<>(RESTORED_TERM.next(), SERVER_ID, RESTORED_LOG.getLastLogIndex(), RESTORED_LOG.getLastLogTerm())));
+    }
+
+    @Test
+    public void electionTimeout_WillTransitionToLeaderAndSendHeartbeat_WhenOwnVoteIsQuorum() {
+        Server<Long> server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
+        when(cluster.isQuorum(singleton(SERVER_ID))).thenReturn(true);
+        server.electionTimeout();
+        verify(cluster).send(refEq(new AppendEntriesRequest<>(RESTORED_TERM.next(), SERVER_ID, RESTORED_LOG.getLastLogIndex(), RESTORED_LOG.getLastLogTerm(), emptyList(), 0)));
     }
 
     @Test
@@ -234,6 +244,7 @@ public class ServerTest {
     public void handleRequestVoteResponse_WillIgnoreResponse_WhenItIsStale() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         server.electionTimeout();
+        reset(cluster);
         server.handle(new RequestVoteResponse<>(OTHER_SERVER_ID, SERVER_ID, TERM_2, true));
         verify(cluster, never()).send(any(AppendEntriesRequest.class));
         verify(cluster, never()).isQuorum(anySet());
@@ -246,6 +257,7 @@ public class ServerTest {
     public void handleRequestVoteResponse_WillRevertToFollowerStateAndClearVotedFor_WhenResponseHasNewerTermThanServer() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_0, SERVER_ID, logContaining(ENTRY_1, ENTRY_2), cluster);
         server.electionTimeout();
+        reset(cluster);
         server.handle(new RequestVoteResponse<>(OTHER_SERVER_ID, SERVER_ID, TERM_2, false));
         verify(cluster, never()).send(any(AppendEntriesRequest.class));
         verify(cluster, never()).isQuorum(anySet());

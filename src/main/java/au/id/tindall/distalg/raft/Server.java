@@ -51,7 +51,8 @@ public class Server<ID extends Serializable> {
         state = CANDIDATE;
         currentTerm = currentTerm.next();
         receivedVotes = new HashSet<>();
-        votedFor = null;
+        votedFor = id;
+        recordVoteAndClaimLeadershipIfEligible(id);
         cluster.send(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
     }
 
