@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft;
 
+import static au.id.tindall.distalg.raft.ServerState.CANDIDATE;
 import static au.id.tindall.distalg.raft.ServerState.FOLLOWER;
 import static au.id.tindall.distalg.raft.ServerState.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,5 +32,16 @@ public class ServerInteractionTest {
         assertThat(server1.getState()).isEqualTo(LEADER);
         assertThat(server2.getState()).isEqualTo(FOLLOWER);
         assertThat(server3.getState()).isEqualTo(FOLLOWER);
+    }
+
+    @Test
+    public void concurrentElectionTimeoutResultsInNoLeaderElection() {
+        server1.electionTimeout();
+        server2.electionTimeout();
+        server3.electionTimeout();
+        cluster.fullyFlush();
+        assertThat(server1.getState()).isEqualTo(CANDIDATE);
+        assertThat(server2.getState()).isEqualTo(CANDIDATE);
+        assertThat(server3.getState()).isEqualTo(CANDIDATE);
     }
 }
