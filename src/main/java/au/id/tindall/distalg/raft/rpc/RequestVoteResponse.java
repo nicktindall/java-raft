@@ -4,20 +4,15 @@ import java.io.Serializable;
 
 import au.id.tindall.distalg.raft.log.Term;
 
-public class RequestVoteResponse<ID extends Serializable> implements Serializable {
+public class RequestVoteResponse<ID extends Serializable> extends UnicastMessage<ID> {
 
-    private final ID source;
     private final Term term;
     private final boolean voteGranted;
 
-    public RequestVoteResponse(ID source, Term term, boolean voteGranted) {
-        this.source = source;
+    public RequestVoteResponse(ID source, ID destination, Term term, boolean voteGranted) {
+        super(source, destination);
         this.term = term;
         this.voteGranted = voteGranted;
-    }
-
-    public ID getSource() {
-        return source;
     }
 
     public Term getTerm() {
@@ -26,5 +21,13 @@ public class RequestVoteResponse<ID extends Serializable> implements Serializabl
 
     public boolean isVoteGranted() {
         return voteGranted;
+    }
+
+    @Override
+    public String toString() {
+        return "RequestVoteResponse{" +
+                "term=" + term +
+                ", voteGranted=" + voteGranted +
+                "} " + super.toString();
     }
 }

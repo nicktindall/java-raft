@@ -5,7 +5,7 @@ import java.util.Optional;
 
 import au.id.tindall.distalg.raft.log.Term;
 
-public class RequestVoteRequest<ID extends Serializable> implements Serializable {
+public class RequestVoteRequest<ID extends Serializable> extends BroadcastMessage<ID> {
 
     private final Term term;
     private final ID candidateId;
@@ -13,6 +13,7 @@ public class RequestVoteRequest<ID extends Serializable> implements Serializable
     private final Term lastLogTerm;
 
     public RequestVoteRequest(Term term, ID candidateId, int lastLogIndex, Optional<Term> lastLogTerm) {
+        super(candidateId);
         this.term = term;
         this.candidateId = candidateId;
         this.lastLogIndex = lastLogIndex;
@@ -42,6 +43,6 @@ public class RequestVoteRequest<ID extends Serializable> implements Serializable
                 ", candidateId=" + candidateId +
                 ", lastLogIndex=" + lastLogIndex +
                 ", lastLogTerm=" + lastLogTerm +
-                '}';
+                "} " + super.toString();
     }
 }

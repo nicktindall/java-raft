@@ -50,22 +50,22 @@ public class Server<ID extends Serializable> {
         currentTerm = currentTerm.next();
         receivedVotes = new HashSet<>();
         votedFor = null;
-        cluster.broadcastMessage(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
+        cluster.send(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
     }
 
-    public RequestVoteResponse handle(RequestVoteRequest<ID> requestVote) {
+    public void handle(RequestVoteRequest<ID> requestVote) {
         updateTerm(requestVote.getTerm());
 
         if (requestVote.getTerm().isLessThan(currentTerm)) {
-            return new RequestVoteResponse<>(id, currentTerm, false);
-        }
-
-        boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote)
-                && candidatesLogIsAtLeastUpToDateAsMine(requestVote);
-        if (grantVote) {
+            cluster.send(new RequestVoteResponse<>(id, requestVote.getCandidateId(), currentTerm, false));
+        } else {
+            boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote)
+                    && candidatesLogIsAtLeastUpToDateAsMine(requestVote);
+            if (grantVote) {
             votedFor = requestVote.getCandidateId();
+            }
+            cluster.send(new RequestVoteResponse<>(id, requestVote.getCandidateId(), currentTerm, grantVote));
         }
-        return new RequestVoteResponse<>(id, currentTerm, grantVote);
     }
 
     public void handle(RequestVoteResponse<ID> requestVoteResponse) {
@@ -89,7 +89,7 @@ public class Server<ID extends Serializable> {
     }
 
     private void sendHeartbeatMessage() {
-        cluster.broadcastMessage(new AppendEntriesRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm(), emptyList(), commitIndex));
+        cluster.send(new AppendEntriesRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm(), emptyList(), commitIndex));
     }
 
     private boolean responseIsStale(Term responseTerm) {

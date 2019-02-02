@@ -9,7 +9,7 @@ import java.util.Optional;
 import au.id.tindall.distalg.raft.log.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
 
-public class AppendEntriesRequest<ID extends Serializable> implements Serializable {
+public class AppendEntriesRequest<ID extends Serializable> extends BroadcastMessage<ID> {
 
     private final Term term;
     private final ID leaderId;
@@ -19,6 +19,7 @@ public class AppendEntriesRequest<ID extends Serializable> implements Serializab
     private final int leaderCommit;
 
     public AppendEntriesRequest(Term term, ID leaderId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entries, int leaderCommit) {
+        super(leaderId);
         this.term = term;
         this.leaderId = leaderId;
         this.prevLogIndex = prevLogIndex;
@@ -60,6 +61,6 @@ public class AppendEntriesRequest<ID extends Serializable> implements Serializab
                 ", prevLogTerm=" + prevLogTerm +
                 ", entries=" + entries +
                 ", leaderCommit=" + leaderCommit +
-                '}';
+                "} " + super.toString();
     }
 }
