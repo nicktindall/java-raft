@@ -26,7 +26,7 @@ public class ServerInteractionTest {
     }
 
     @Test
-    public void singleElectionTimeoutResultsInUnanimousLeaderElection() {
+    public void singleElectionTimeout_WillResultInUnanimousLeaderElection() {
         server1.electionTimeout();
         cluster.fullyFlush();
         assertThat(server1.getState()).isEqualTo(LEADER);
@@ -35,7 +35,20 @@ public class ServerInteractionTest {
     }
 
     @Test
-    public void concurrentElectionTimeoutResultsInNoLeaderElection() {
+    public void singleElectionTimeout_WillResultInLeaderElection_AfterSplitElection() {
+        server1.electionTimeout();
+        server2.electionTimeout();
+        server3.electionTimeout();
+        cluster.fullyFlush();
+        server2.electionTimeout();
+        cluster.fullyFlush();
+        assertThat(server1.getState()).isEqualTo(FOLLOWER);
+        assertThat(server2.getState()).isEqualTo(LEADER);
+        assertThat(server3.getState()).isEqualTo(FOLLOWER);
+    }
+
+    @Test
+    public void concurrentElectionTimeout_WillResultInNoLeaderElection_WhenNoQuorumIsReached() {
         server1.electionTimeout();
         server2.electionTimeout();
         server3.electionTimeout();
@@ -43,5 +56,15 @@ public class ServerInteractionTest {
         assertThat(server1.getState()).isEqualTo(CANDIDATE);
         assertThat(server2.getState()).isEqualTo(CANDIDATE);
         assertThat(server3.getState()).isEqualTo(CANDIDATE);
+    }
+
+    @Test
+    public void concurrentElectionTimeout_WillElectALeader_WhenAQuorumIsReached() {
+        server1.electionTimeout();
+        server3.electionTimeout();
+        cluster.fullyFlush();
+        assertThat(server1.getState()).isEqualTo(LEADER);
+        assertThat(server2.getState()).isEqualTo(FOLLOWER);
+        assertThat(server3.getState()).isEqualTo(FOLLOWER);
     }
 }
