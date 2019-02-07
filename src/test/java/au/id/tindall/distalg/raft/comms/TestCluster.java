@@ -42,6 +42,11 @@ public class TestCluster implements Cluster<Long> {
         return receivedVotes.size() > (servers.size() / 2f);
     }
 
+    @Override
+    public Set<Long> getMemberIds() {
+        return servers.keySet();
+    }
+
     public void flush() {
         List<RpcMessage<Long>> oldMessages = messageQueue;
         messageQueue = new ArrayList<>();

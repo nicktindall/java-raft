@@ -6,10 +6,15 @@ import static au.id.tindall.distalg.raft.ServerState.LEADER;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -33,6 +38,8 @@ public class Server<ID extends Serializable> {
     private Log log;
     private Set<ID> receivedVotes;
     private int commitIndex;
+    private Map<ID, Integer> nextIndices;
+    private Map<ID, Integer> matchIndices;
 
     public Server(ID id, Cluster<ID> cluster) {
         this(id, new Term(0), null, new Log(), cluster);
@@ -135,7 +142,20 @@ public class Server<ID extends Serializable> {
         if (state == CANDIDATE && cluster.isQuorum(getReceivedVotes())) {
             state = LEADER;
             sendHeartbeatMessage();
+            initializeNextIndices();
+            initializeMatchIndices();
         }
+    }
+
+    private void initializeMatchIndices() {
+        matchIndices = new HashMap<>(cluster.getMemberIds().stream()
+                .collect(toMap(identity(), id -> 0)));
+    }
+
+    private void initializeNextIndices() {
+        int defaultNextIndex = log.getLastLogIndex() + 1;
+        nextIndices = new HashMap<>(cluster.getMemberIds().stream()
+                .collect(toMap(identity(), id -> defaultNextIndex)));
     }
 
     private void sendHeartbeatMessage() {
@@ -188,5 +208,13 @@ public class Server<ID extends Serializable> {
 
     public int getCommitIndex() {
         return commitIndex;
+    }
+
+    public Map<ID, Integer> getNextIndices() {
+        return unmodifiableMap(nextIndices);
+    }
+
+    public Map<ID, Integer> getMatchIndices() {
+        return unmodifiableMap(matchIndices);
     }
 }

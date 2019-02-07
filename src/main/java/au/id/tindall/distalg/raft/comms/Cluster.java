@@ -10,4 +10,6 @@ public interface Cluster<ID extends Serializable> {
     void send(RpcMessage<ID> message);
 
     boolean isQuorum(Set<ID> receivedVotes);
+
+    Set<ID> getMemberIds();
 }

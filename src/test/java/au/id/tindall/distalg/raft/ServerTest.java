@@ -16,6 +16,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -236,9 +237,22 @@ public class ServerTest {
         Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         server.electionTimeout();
         when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(true);
+        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID));
         server.handle(new RequestVoteResponse<>(SERVER_ID, SERVER_ID, TERM_3, true));
         verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_3, SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
         assertThat(server.getState()).isEqualTo(LEADER);
+    }
+
+    @Test
+    public void handleRequestVoteResponse_WillInitializeLeaderState_WhenAQuorumIsReached() {
+        Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+        server.electionTimeout();
+        when(cluster.isQuorum(Set.of(SERVER_ID, OTHER_SERVER_ID))).thenReturn(true);
+        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
+        server.handle(new RequestVoteResponse<>(OTHER_SERVER_ID, SERVER_ID, TERM_3, true));
+        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_3, SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
+        assertThat(server.getNextIndices()).isEqualTo(Map.of(SERVER_ID, 4, OTHER_SERVER_ID, 4));
+        assertThat(server.getMatchIndices()).isEqualTo(Map.of(SERVER_ID, 0, OTHER_SERVER_ID, 0));
     }
 
     @Test
