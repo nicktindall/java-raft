@@ -16,6 +16,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -296,35 +297,35 @@ public class ServerTest {
     public void handleAppendEntriesRequest_WillRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         server.handle(new AppendEntriesRequest<>(TERM_0, OTHER_SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, false)));
+        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, false, Optional.empty())));
     }
 
     @Test
     public void handleAppendEntriesRequest_WillRejectRequest_PrevLogEntryHasIncorrectTerm() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         server.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, 2, Optional.of(TERM_1), emptyList(), 0));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, false)));
+        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, false, Optional.empty())));
     }
 
     @Test
     public void handleAppendEntriesRequest_WillAcceptRequest_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         server.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, true)));
+        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, true, Optional.of(3))));
     }
 
     @Test
     public void handleAppendEntriesRequest_WillAcceptRequest_AndAdvanceTerm_WhenPreviousLogIndexMatches_AndLeaderTermIsGreaterThanLocalTerm() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_2, true)));
+        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_2, true, Optional.of(3))));
     }
 
     @Test
     public void handleAppendEntriesRequest_WillAcceptRequest_AndAdvanceCommitIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLocal() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         server.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 2));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, true)));
+        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, true, Optional.of(3))));
         assertThat(server.getCommitIndex()).isEqualTo(2);
     }
 
@@ -332,7 +333,7 @@ public class ServerTest {
     public void handleAppendEntriesRequest_WillAcceptRequest_AndAdvanceCommitIndexToLastLocalIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLastLocalIndex() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         server.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 10));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, true)));
+        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_1, true, Optional.of(3))));
         assertThat(server.getCommitIndex()).isEqualTo(3);
     }
 
@@ -342,5 +343,49 @@ public class ServerTest {
         server.electionTimeout();
         server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
         assertThat(server.getState()).isEqualTo(FOLLOWER);
+    }
+
+    @Test
+    public void handleAppendEntriesRequest_WillReturnLastAppendedIndex_WhenAppendIsSuccessful() {
+        Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+        server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, 1, Optional.of(TERM_0), List.of(ENTRY_2), 0));
+        verify(cluster).send(refEq(new AppendEntriesResponse<>(SERVER_ID, OTHER_SERVER_ID, TERM_2, true, Optional.of(2))));
+    }
+
+    @Test
+    public void handleAppendEntriesResponse_WillUpdateNextIndex_WhenResultIsSuccess() {
+        Server<Long> server = electedLeader();
+        server.handle(new AppendEntriesResponse<>(OTHER_SERVER_ID, SERVER_ID, TERM_3, true, Optional.of(5)));
+        assertThat(server.getNextIndices().get(OTHER_SERVER_ID)).isEqualTo(6);
+    }
+
+    @Test
+    public void handleAppendEntriesResponse_WillUpdateMatchIndex_WhenResultIsSuccess() {
+        Server<Long> server = electedLeader();
+        server.handle(new AppendEntriesResponse<>(OTHER_SERVER_ID, SERVER_ID, TERM_3, true, Optional.of(5)));
+        assertThat(server.getMatchIndices().get(OTHER_SERVER_ID)).isEqualTo(5);
+    }
+
+    @Test
+    public void handleAppendEntriesResponse_WillDecrementNextIndex_WhenResultIsFail() {
+        Server<Long> server = electedLeader();
+        server.handle(new AppendEntriesResponse<>(OTHER_SERVER_ID, SERVER_ID, TERM_3, false, Optional.empty()));
+        assertThat(server.getNextIndices().get(OTHER_SERVER_ID)).isEqualTo(3);
+    }
+
+    @Test
+    public void handleAppendEntriesResponse_WillNotUpdateMatchIndex_WhenResultIsFail() {
+        Server<Long> server = electedLeader();
+        server.handle(new AppendEntriesResponse<>(OTHER_SERVER_ID, SERVER_ID, TERM_3, false, Optional.empty()));
+        assertThat(server.getMatchIndices().get(OTHER_SERVER_ID)).isEqualTo(0);
+    }
+
+    private Server<Long> electedLeader() {
+        Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+        server.electionTimeout();
+        when(cluster.isQuorum(Set.of(SERVER_ID, OTHER_SERVER_ID))).thenReturn(true);
+        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
+        server.handle(new RequestVoteResponse<>(OTHER_SERVER_ID, SERVER_ID, TERM_3, true));
+        return server;
     }
 }

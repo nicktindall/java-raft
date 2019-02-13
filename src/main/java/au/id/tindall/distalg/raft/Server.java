@@ -3,11 +3,13 @@ package au.id.tindall.distalg.raft;
 import static au.id.tindall.distalg.raft.ServerState.CANDIDATE;
 import static au.id.tindall.distalg.raft.ServerState.FOLLOWER;
 import static au.id.tindall.distalg.raft.ServerState.LEADER;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
+import static java.util.Optional.empty;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
@@ -83,7 +85,7 @@ public class Server<ID extends Serializable> {
         updateTerm(appendEntriesRequest.getTerm());
 
         if (appendEntriesRequest.getTerm().isLessThan(currentTerm)) {
-            cluster.send(new AppendEntriesResponse<>(id, appendEntriesRequest.getLeaderId(), currentTerm, false));
+            cluster.send(new AppendEntriesResponse<>(id, appendEntriesRequest.getLeaderId(), currentTerm, false, empty()));
             return;
         }
 
@@ -91,13 +93,32 @@ public class Server<ID extends Serializable> {
 
         if (appendEntriesRequest.getPrevLogIndex() > 0 &&
                 !log.containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
-            cluster.send(new AppendEntriesResponse<>(id, appendEntriesRequest.getLeaderId(), currentTerm, false));
+            cluster.send(new AppendEntriesResponse<>(id, appendEntriesRequest.getLeaderId(), currentTerm, false, empty()));
             return;
         }
 
         log.appendEntries(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getEntries());
         commitIndex = min(log.getLastLogIndex(), appendEntriesRequest.getLeaderCommit());
-        cluster.send(new AppendEntriesResponse<>(id, appendEntriesRequest.getLeaderId(), currentTerm, true));
+        int indexOfLastEntryAppended = appendEntriesRequest.getPrevLogIndex() + appendEntriesRequest.getEntries().size();
+        cluster.send(new AppendEntriesResponse<>(id, appendEntriesRequest.getLeaderId(), currentTerm, true, Optional.of(indexOfLastEntryAppended)));
+    }
+
+    public void handle(AppendEntriesResponse<ID> appendEntriesResponse) {
+        updateTerm(appendEntriesResponse.getTerm());
+
+        if (responseIsStale(appendEntriesResponse.getTerm())) {
+            return;
+        }
+
+        ID remoteServerId = appendEntriesResponse.getSource();
+        if (appendEntriesResponse.isSuccess()) {
+            int lastAppendedIndex = appendEntriesResponse.getAppendedIndex()
+                    .orElseThrow(() -> new IllegalStateException("Append entries response was success with no appendedIndex"));
+            nextIndices.put(remoteServerId, lastAppendedIndex + 1);
+            matchIndices.put(remoteServerId, lastAppendedIndex);
+        } else {
+            nextIndices.put(remoteServerId, max(nextIndices.get(remoteServerId) - 1, 1));
+        }
     }
 
     private void becomeFollowerIfCandidate() {
@@ -131,10 +152,6 @@ public class Server<ID extends Serializable> {
         if (requestVoteResponse.isVoteGranted()) {
             recordVoteAndClaimLeadershipIfEligible(requestVoteResponse.getSource());
         }
-    }
-
-    public void handle(AppendEntriesResponse<ID> appendEntriesResponse) {
-        // TODO
     }
 
     private void recordVoteAndClaimLeadershipIfEligible(ID voter) {
