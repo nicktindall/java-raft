@@ -351,41 +351,4 @@ public class ServerTest {
         server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, 1, Optional.of(TERM_0), List.of(ENTRY_2), 0));
         verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, true, Optional.of(2))));
     }
-
-    @Test
-    public void handleAppendEntriesResponse_WillUpdateNextIndex_WhenResultIsSuccess() {
-        Server<Long> server = electedLeader();
-        server.handle(new AppendEntriesResponse<>(TERM_3, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-        assertThat(server.getNextIndices().get(OTHER_SERVER_ID)).isEqualTo(6);
-    }
-
-    @Test
-    public void handleAppendEntriesResponse_WillUpdateMatchIndex_WhenResultIsSuccess() {
-        Server<Long> server = electedLeader();
-        server.handle(new AppendEntriesResponse<>(TERM_3, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-        assertThat(server.getMatchIndices().get(OTHER_SERVER_ID)).isEqualTo(5);
-    }
-
-    @Test
-    public void handleAppendEntriesResponse_WillDecrementNextIndex_WhenResultIsFail() {
-        Server<Long> server = electedLeader();
-        server.handle(new AppendEntriesResponse<>(TERM_3, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
-        assertThat(server.getNextIndices().get(OTHER_SERVER_ID)).isEqualTo(3);
-    }
-
-    @Test
-    public void handleAppendEntriesResponse_WillNotUpdateMatchIndex_WhenResultIsFail() {
-        Server<Long> server = electedLeader();
-        server.handle(new AppendEntriesResponse<>(TERM_3, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
-        assertThat(server.getMatchIndices().get(OTHER_SERVER_ID)).isEqualTo(0);
-    }
-
-    private Server<Long> electedLeader() {
-        Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
-        server.electionTimeout();
-        when(cluster.isQuorum(Set.of(SERVER_ID, OTHER_SERVER_ID))).thenReturn(true);
-        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
-        server.handle(new RequestVoteResponse<>(TERM_3, OTHER_SERVER_ID, SERVER_ID, true));
-        return server;
-    }
 }

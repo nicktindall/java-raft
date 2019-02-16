@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft;
 
+import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
+import static java.util.Collections.emptyMap;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -11,6 +13,7 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.RpcMessage;
+import au.id.tindall.distalg.raft.serverstates.Leader;
 import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
@@ -44,7 +47,17 @@ public class Server<ID extends Serializable> {
     }
 
     public void electionTimeout() {
-        state.electionTimeout();
+        state = new ServerState<>(
+                state.getId(),
+                state.getCurrentTerm().next(),
+                CANDIDATE,
+                state.getId(),
+                state.getLog(),
+                state.getCluster());
+        state = state.recordVoteAndClaimLeadershipIfEligible(state.getId()).getNextState();
+        if (state.getServerStateType().equals(CANDIDATE)) {
+            state.requestVotes();
+        }
     }
 
     public ID getId() {
@@ -76,10 +89,16 @@ public class Server<ID extends Serializable> {
     }
 
     public Map<ID, Integer> getNextIndices() {
-        return state.getNextIndices();
+        if (state instanceof Leader) {
+            return ((Leader<ID>) state).getNextIndices();
+        }
+        return emptyMap();
     }
 
     public Map<ID, Integer> getMatchIndices() {
-        return state.getMatchIndices();
+        if (state instanceof Leader) {
+            return ((Leader<ID>) state).getMatchIndices();
+        }
+        return emptyMap();
     }
 }
