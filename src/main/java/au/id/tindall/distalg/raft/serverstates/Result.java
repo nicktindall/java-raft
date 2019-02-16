@@ -27,4 +27,12 @@ public class Result<ID extends Serializable> {
     public ServerState<ID> getNextState() {
         return nextState;
     }
+
+    @Override
+    public String toString() {
+        return "Result{" +
+                "finished=" + finished +
+                ", nextState=" + nextState +
+                '}';
+    }
 }

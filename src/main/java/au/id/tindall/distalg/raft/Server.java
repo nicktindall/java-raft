@@ -1,8 +1,8 @@
 package au.id.tindall.distalg.raft;
 
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -13,6 +13,7 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.RpcMessage;
+import au.id.tindall.distalg.raft.serverstates.Candidate;
 import au.id.tindall.distalg.raft.serverstates.Leader;
 import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
@@ -21,6 +22,10 @@ import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 public class Server<ID extends Serializable> {
 
     private ServerState<ID> state;
+
+    public Server(ServerState<ID> state) {
+        this.state = state;
+    }
 
     public Server(ID id, Cluster<ID> cluster) {
         this(id, new Term(0), null, new Log(), cluster);
@@ -47,16 +52,14 @@ public class Server<ID extends Serializable> {
     }
 
     public void electionTimeout() {
-        state = new ServerState<>(
+        Candidate<ID> nextState = new Candidate<>(
                 state.getId(),
                 state.getCurrentTerm().next(),
-                CANDIDATE,
-                state.getId(),
                 state.getLog(),
                 state.getCluster());
-        state = state.recordVoteAndClaimLeadershipIfEligible(state.getId()).getNextState();
-        if (state.getServerStateType().equals(CANDIDATE)) {
-            state.requestVotes();
+        state = nextState.recordVoteAndClaimLeadershipIfEligible(state.getId()).getNextState();
+        if (state instanceof Candidate) {
+            ((Candidate)state).requestVotes();
         }
     }
 
@@ -81,7 +84,10 @@ public class Server<ID extends Serializable> {
     }
 
     public Set<ID> getReceivedVotes() {
-        return state.getReceivedVotes();
+        if (state instanceof Candidate) {
+            return ((Candidate<ID>) state).getReceivedVotes();
+        }
+        return emptySet();
     }
 
     public int getCommitIndex() {

@@ -105,6 +105,6 @@ public class LeaderTest {
     }
 
     private Leader<Long> electedLeader() {
-        return new Leader<>(SERVER_ID, TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+        return new Leader<>(SERVER_ID, TERM_2, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
     }
 }

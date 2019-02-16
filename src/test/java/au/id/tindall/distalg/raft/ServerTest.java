@@ -3,23 +3,16 @@ package au.id.tindall.distalg.raft;
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singleton;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.refEq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
@@ -29,6 +22,8 @@ import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
+import au.id.tindall.distalg.raft.serverstates.Candidate;
+import au.id.tindall.distalg.raft.serverstates.ServerState;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -215,84 +210,6 @@ public class ServerTest {
         assertThat(server.getCurrentTerm()).isEqualTo(TERM_3);
     }
 
-    @Test(expected = UnsupportedOperationException.class)
-    public void getReceivedVotes_WillReturnUnmodifiableSet() {
-        Server<Long> server = new Server<>(SERVER_ID, cluster);
-        server.getReceivedVotes().add(OTHER_SERVER_ID);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    public void handleRequestVoteResponse_WillRecordVote_WhenResponseIsNotStaleAndQuorumIsNotReached() {
-        Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
-        server.electionTimeout();
-        when(cluster.isQuorum(anySet())).thenReturn(false);
-        server.handle(new RequestVoteResponse<>(TERM_3, OTHER_SERVER_ID, SERVER_ID, true));
-        verify(cluster, never()).send(any(AppendEntriesRequest.class));
-        assertThat(server.getState()).isEqualTo(CANDIDATE);
-        assertThat(server.getReceivedVotes()).contains(OTHER_SERVER_ID);
-    }
-
-    @Test
-    public void handleRequestVoteResponse_WillTransitionToLeaderStateAndSendHeartbeat_WhenAQuorumIsReached() {
-        Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
-        server.electionTimeout();
-        when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(true);
-        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID));
-        server.handle(new RequestVoteResponse<>(TERM_3, SERVER_ID, SERVER_ID, true));
-        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_3, SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
-        assertThat(server.getState()).isEqualTo(LEADER);
-    }
-
-    @Test
-    public void handleRequestVoteResponse_WillInitializeLeaderState_WhenAQuorumIsReached() {
-        Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
-        server.electionTimeout();
-        when(cluster.isQuorum(Set.of(SERVER_ID, OTHER_SERVER_ID))).thenReturn(true);
-        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
-        server.handle(new RequestVoteResponse<>(TERM_3, OTHER_SERVER_ID, SERVER_ID, true));
-        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_3, SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
-        assertThat(server.getNextIndices()).isEqualTo(Map.of(SERVER_ID, 4, OTHER_SERVER_ID, 4));
-        assertThat(server.getMatchIndices()).isEqualTo(Map.of(SERVER_ID, 0, OTHER_SERVER_ID, 0));
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    public void handleRequestVoteResponse_WillIgnoreResponse_WhenItIsStale() {
-        Server<Long> server = new Server<>(SERVER_ID, TERM_2, SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
-        server.electionTimeout();
-        reset(cluster);
-        server.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
-        verify(cluster, never()).send(any(AppendEntriesRequest.class));
-        verify(cluster, never()).isQuorum(anySet());
-        assertThat(server.getReceivedVotes()).doesNotContain(OTHER_SERVER_ID);
-        assertThat(server.getState()).isEqualTo(CANDIDATE);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    public void handleRequestVoteResponse_WillRevertToFollowerStateAndClearVotedFor_WhenResponseHasNewerTermThanServer() {
-        Server<Long> server = new Server<>(SERVER_ID, TERM_0, SERVER_ID, logContaining(ENTRY_1, ENTRY_2), cluster);
-        server.electionTimeout();
-        reset(cluster);
-        server.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false));
-        verify(cluster, never()).send(any(AppendEntriesRequest.class));
-        verify(cluster, never()).isQuorum(anySet());
-        assertThat(server.getReceivedVotes()).doesNotContain(OTHER_SERVER_ID);
-        assertThat(server.getState()).isEqualTo(FOLLOWER);
-        assertThat(server.getVotedFor()).isEmpty();
-    }
-
-    @Test
-    public void handleRequestVoteResponse_WillNotAttemptToBecomeLeader_WhenStateIsNotCandidate() {
-        Server<Long> server = new Server<>(SERVER_ID, TERM_0, null, logContaining(ENTRY_1, ENTRY_2), cluster);
-        server.handle(new RequestVoteResponse<>(TERM_0, OTHER_SERVER_ID, SERVER_ID, true));
-        verify(cluster, never()).isQuorum(anySet());
-        assertThat(server.getReceivedVotes()).contains(OTHER_SERVER_ID);
-        assertThat(server.getState()).isEqualTo(FOLLOWER);
-        assertThat(server.getVotedFor()).isEmpty();
-    }
-
     @Test
     public void handleAppendEntriesRequest_WillRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
@@ -338,17 +255,18 @@ public class ServerTest {
     }
 
     @Test
-    public void handleAppendEntriesRequest_WillTransitionToFollower_WhenServerIsCandidate_AndTermIsGreaterThanOrEqualToLocalTerm() {
-        Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
-        server.electionTimeout();
-        server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
-        assertThat(server.getState()).isEqualTo(FOLLOWER);
-    }
-
-    @Test
     public void handleAppendEntriesRequest_WillReturnLastAppendedIndex_WhenAppendIsSuccessful() {
         Server<Long> server = new Server<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, 1, Optional.of(TERM_0), List.of(ENTRY_2), 0));
         verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, true, Optional.of(2))));
+    }
+
+    @Test
+    public void handleRequest_WillRevertToFollowerStateAndClearVotedFor_WhenMessageHasNewerTermThanServer() {
+        Log log = logContaining(ENTRY_1, ENTRY_2);
+        Server<Long> server = new Server<>(new Candidate<>(SERVER_ID, TERM_0, log, cluster));
+        RequestVoteResponse<Long> rpcMessage = new RequestVoteResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, false);
+        server.handle(rpcMessage);
+        assertThat(server.getState()).isEqualToComparingFieldByField(new ServerState<>(SERVER_ID, TERM_1, FOLLOWER, null, log, cluster));
     }
 }

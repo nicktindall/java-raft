@@ -1,18 +1,12 @@
 package au.id.tindall.distalg.raft.serverstates;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
-import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableSet;
 import static java.util.Optional.empty;
 
 import java.io.Serializable;
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
@@ -32,7 +26,6 @@ public class ServerState<ID extends Serializable> {
     private final ServerStateType serverStateType;
     private ID votedFor;
     private Log log;
-    private Set<ID> receivedVotes;
     private int commitIndex;
 
     public ServerState(ID id, Term currentTerm, ServerStateType serverStateType, ID votedFor, Log log, Cluster<ID> cluster) {
@@ -42,12 +35,7 @@ public class ServerState<ID extends Serializable> {
         this.log = log;
         this.cluster = cluster;
         this.commitIndex = 0;
-        this.receivedVotes = new HashSet<>();
         this.serverStateType = serverStateType;
-    }
-
-    public void requestVotes() {
-        cluster.send(new RequestVoteRequest<>(currentTerm, id, log.getLastLogIndex(), log.getLastLogTerm()));
     }
 
     public Result<ID> handle(RpcMessage<ID> message) {
@@ -58,7 +46,7 @@ public class ServerState<ID extends Serializable> {
         } else if (message instanceof AppendEntriesRequest) {
             return handle((AppendEntriesRequest<ID>) message);
         } else if (message instanceof AppendEntriesResponse) {
-            handle((AppendEntriesResponse<ID>) message);
+            return handle((AppendEntriesResponse<ID>) message);
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
@@ -66,14 +54,9 @@ public class ServerState<ID extends Serializable> {
     }
 
     public Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
-        if (appendEntriesRequest.getTerm().isLessThan(currentTerm)) {
+        if (messageIsStale(appendEntriesRequest)) {
             cluster.send(new AppendEntriesResponse<>(currentTerm, id, appendEntriesRequest.getLeaderId(), false, empty()));
             return complete(this);
-        }
-
-        // become follower if candidate
-        if (serverStateType.equals(CANDIDATE)) {
-            return incomplete(new ServerState<>(id, currentTerm, FOLLOWER, null, log, cluster));
         }
 
         if (appendEntriesRequest.getPrevLogIndex() > 0 &&
@@ -89,8 +72,9 @@ public class ServerState<ID extends Serializable> {
         return complete(this);
     }
 
-    public void handle(AppendEntriesResponse<ID> appendEntriesResponse) {
+    public Result<ID> handle(AppendEntriesResponse<ID> appendEntriesResponse) {
         // Only leaders are interested in these
+        return complete(this);
     }
 
     public void handle(RequestVoteRequest<ID> requestVote) {
@@ -107,27 +91,16 @@ public class ServerState<ID extends Serializable> {
     }
 
     public Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
-        if (!responseIsStale(requestVoteResponse.getTerm())) {
-            if (requestVoteResponse.isVoteGranted()) {
-                return recordVoteAndClaimLeadershipIfEligible(requestVoteResponse.getSource());
-            }
-        }
+        // Only candidates are interested in this
         return complete(this);
     }
 
-    public Result<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
-        this.receivedVotes.add(voter);
-        if (serverStateType == CANDIDATE && cluster.isQuorum(getReceivedVotes())) {
-            Leader<ID> leaderState = new Leader<>(id, currentTerm, null, log, cluster);
-            leaderState.sendHeartbeatMessage();
-            return complete(leaderState);
-        } else {
-            return complete(this);
-        }
+    protected boolean messageIsStale(RpcMessage<ID> message) {
+        return message.getTerm().isLessThan(currentTerm);
     }
 
-    protected boolean responseIsStale(Term responseTerm) {
-        return responseTerm.isLessThan(currentTerm);
+    protected boolean messageIsNotStale(RpcMessage<ID> message) {
+        return !messageIsStale(message);
     }
 
     private boolean candidatesLogIsAtLeastUpToDateAsMine(RequestVoteRequest<ID> requestVote) {
@@ -160,10 +133,6 @@ public class ServerState<ID extends Serializable> {
 
     public Cluster<ID> getCluster() {
         return cluster;
-    }
-
-    public Set<ID> getReceivedVotes() {
-        return unmodifiableSet(receivedVotes);
     }
 
     public int getCommitIndex() {
