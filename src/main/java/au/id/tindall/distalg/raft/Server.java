@@ -1,12 +1,7 @@
 package au.id.tindall.distalg.raft;
 
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.emptySet;
-
 import java.io.Serializable;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
@@ -14,7 +9,6 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.RpcMessage;
 import au.id.tindall.distalg.raft.serverstates.Candidate;
 import au.id.tindall.distalg.raft.serverstates.Follower;
-import au.id.tindall.distalg.raft.serverstates.Leader;
 import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
@@ -81,30 +75,5 @@ public class Server<ID extends Serializable> {
 
     public Log getLog() {
         return state.getLog();
-    }
-
-    public Set<ID> getReceivedVotes() {
-        if (state instanceof Candidate) {
-            return ((Candidate<ID>) state).getReceivedVotes();
-        }
-        return emptySet();
-    }
-
-    public int getCommitIndex() {
-        return state.getCommitIndex();
-    }
-
-    public Map<ID, Integer> getNextIndices() {
-        if (state instanceof Leader) {
-            return ((Leader<ID>) state).getNextIndices();
-        }
-        return emptyMap();
-    }
-
-    public Map<ID, Integer> getMatchIndices() {
-        if (state instanceof Leader) {
-            return ((Leader<ID>) state).getMatchIndices();
-        }
-        return emptyMap();
     }
 }
