@@ -2,12 +2,20 @@ package au.id.tindall.distalg.raft.rpc;
 
 import java.io.Serializable;
 
+import au.id.tindall.distalg.raft.log.Term;
+
 public abstract class RpcMessage<ID extends Serializable> implements Serializable {
 
+    private final Term term;
     private final ID source;
 
-    public RpcMessage(ID source) {
+    public RpcMessage(Term term, ID source) {
+        this.term = term;
         this.source = source;
+    }
+
+    public Term getTerm() {
+        return term;
     }
 
     public ID getSource() {
@@ -17,7 +25,8 @@ public abstract class RpcMessage<ID extends Serializable> implements Serializabl
     @Override
     public String toString() {
         return "RpcMessage{" +
-                "source=" + source +
+                "term=" + term +
+                ", source=" + source +
                 '}';
     }
 }

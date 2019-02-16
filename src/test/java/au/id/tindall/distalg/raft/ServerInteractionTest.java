@@ -1,8 +1,8 @@
 package au.id.tindall.distalg.raft;
 
-import static au.id.tindall.distalg.raft.ServerState.CANDIDATE;
-import static au.id.tindall.distalg.raft.ServerState.FOLLOWER;
-import static au.id.tindall.distalg.raft.ServerState.LEADER;
+import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
+import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
+import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import au.id.tindall.distalg.raft.comms.TestCluster;

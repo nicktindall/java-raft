@@ -7,19 +7,13 @@ import au.id.tindall.distalg.raft.log.Term;
 
 public class AppendEntriesResponse<ID extends Serializable> extends UnicastMessage<ID> {
 
-    private final Term term;
     private final boolean success;
     private final Integer appendedIndex;
 
-    public AppendEntriesResponse(ID source, ID destination, Term term, boolean success, Optional<Integer> appendedIndex) {
-        super(source, destination);
-        this.term = term;
+    public AppendEntriesResponse(Term term, ID source, ID destination, boolean success, Optional<Integer> appendedIndex) {
+        super(term, source, destination);
         this.success = success;
         this.appendedIndex = appendedIndex.orElse(null);
-    }
-
-    public Term getTerm() {
-        return term;
     }
 
     public boolean isSuccess() {
@@ -33,8 +27,7 @@ public class AppendEntriesResponse<ID extends Serializable> extends UnicastMessa
     @Override
     public String toString() {
         return "AppendEntriesResponse{" +
-                "term=" + term +
-                ", success=" + success +
+                "success=" + success +
                 ", appendedIndex=" + appendedIndex +
                 "} " + super.toString();
     }

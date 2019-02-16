@@ -11,7 +11,6 @@ import au.id.tindall.distalg.raft.log.Term;
 
 public class AppendEntriesRequest<ID extends Serializable> extends BroadcastMessage<ID> {
 
-    private final Term term;
     private final ID leaderId;
     private final int prevLogIndex;
     private final Term prevLogTerm;
@@ -19,17 +18,12 @@ public class AppendEntriesRequest<ID extends Serializable> extends BroadcastMess
     private final int leaderCommit;
 
     public AppendEntriesRequest(Term term, ID leaderId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entries, int leaderCommit) {
-        super(leaderId);
-        this.term = term;
+        super(term, leaderId);
         this.leaderId = leaderId;
         this.prevLogIndex = prevLogIndex;
         this.prevLogTerm = prevLogTerm.orElse(null);
         this.entries = copyOf(entries);
         this.leaderCommit = leaderCommit;
-    }
-
-    public Term getTerm() {
-        return term;
     }
 
     public ID getLeaderId() {
@@ -55,8 +49,7 @@ public class AppendEntriesRequest<ID extends Serializable> extends BroadcastMess
     @Override
     public String toString() {
         return "AppendEntriesRequest{" +
-                "term=" + term +
-                ", leaderId=" + leaderId +
+                "leaderId=" + leaderId +
                 ", prevLogIndex=" + prevLogIndex +
                 ", prevLogTerm=" + prevLogTerm +
                 ", entries=" + entries +

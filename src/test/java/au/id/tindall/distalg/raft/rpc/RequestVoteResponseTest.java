@@ -10,6 +10,6 @@ public class RequestVoteResponseTest {
 
     @Test
     public void isSerializable() {
-        assertThatCode(() -> roundTripSerializeDeserialize(new RequestVoteResponse<>(123L, 456L, new Term(12), true))).doesNotThrowAnyException();
+        assertThatCode(() -> roundTripSerializeDeserialize(new RequestVoteResponse<>(new Term(12), 123L, 456L, true))).doesNotThrowAnyException();
     }
 }

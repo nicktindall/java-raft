@@ -6,17 +6,11 @@ import au.id.tindall.distalg.raft.log.Term;
 
 public class RequestVoteResponse<ID extends Serializable> extends UnicastMessage<ID> {
 
-    private final Term term;
     private final boolean voteGranted;
 
-    public RequestVoteResponse(ID source, ID destination, Term term, boolean voteGranted) {
-        super(source, destination);
-        this.term = term;
+    public RequestVoteResponse(Term term, ID source, ID destination, boolean voteGranted) {
+        super(term, source, destination);
         this.voteGranted = voteGranted;
-    }
-
-    public Term getTerm() {
-        return term;
     }
 
     public boolean isVoteGranted() {
@@ -26,8 +20,7 @@ public class RequestVoteResponse<ID extends Serializable> extends UnicastMessage
     @Override
     public String toString() {
         return "RequestVoteResponse{" +
-                "term=" + term +
-                ", voteGranted=" + voteGranted +
+                "voteGranted=" + voteGranted +
                 "} " + super.toString();
     }
 }

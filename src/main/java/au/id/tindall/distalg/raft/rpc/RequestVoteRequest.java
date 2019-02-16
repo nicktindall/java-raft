@@ -7,21 +7,15 @@ import au.id.tindall.distalg.raft.log.Term;
 
 public class RequestVoteRequest<ID extends Serializable> extends BroadcastMessage<ID> {
 
-    private final Term term;
     private final ID candidateId;
     private final int lastLogIndex;
     private final Term lastLogTerm;
 
     public RequestVoteRequest(Term term, ID candidateId, int lastLogIndex, Optional<Term> lastLogTerm) {
-        super(candidateId);
-        this.term = term;
+        super(term, candidateId);
         this.candidateId = candidateId;
         this.lastLogIndex = lastLogIndex;
         this.lastLogTerm = lastLogTerm.orElse(null);
-    }
-
-    public Term getTerm() {
-        return term;
     }
 
     public ID getCandidateId() {
@@ -39,8 +33,7 @@ public class RequestVoteRequest<ID extends Serializable> extends BroadcastMessag
     @Override
     public String toString() {
         return "RequestVoteRequest{" +
-                "term=" + term +
-                ", candidateId=" + candidateId +
+                "candidateId=" + candidateId +
                 ", lastLogIndex=" + lastLogIndex +
                 ", lastLogTerm=" + lastLogTerm +
                 "} " + super.toString();

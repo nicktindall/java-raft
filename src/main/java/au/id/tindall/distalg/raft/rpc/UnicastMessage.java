@@ -2,12 +2,14 @@ package au.id.tindall.distalg.raft.rpc;
 
 import java.io.Serializable;
 
+import au.id.tindall.distalg.raft.log.Term;
+
 public class UnicastMessage<ID extends Serializable> extends RpcMessage<ID> {
 
     private final ID destination;
 
-    public UnicastMessage(ID source, ID destination) {
-        super(source);
+    public UnicastMessage(Term term, ID source, ID destination) {
+        super(term, source);
         this.destination = destination;
     }
 
