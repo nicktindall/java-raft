@@ -30,7 +30,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     }
 
     @Override
-    public Result<ID> handle(AppendEntriesResponse<ID> appendEntriesResponse) {
+    protected Result<ID> handle(AppendEntriesResponse<ID> appendEntriesResponse) {
         if (messageIsStale(appendEntriesResponse)) {
             return complete(this);
         } else {

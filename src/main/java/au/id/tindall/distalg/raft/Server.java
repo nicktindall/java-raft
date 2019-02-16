@@ -1,6 +1,5 @@
 package au.id.tindall.distalg.raft;
 
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 
@@ -14,6 +13,7 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.RpcMessage;
 import au.id.tindall.distalg.raft.serverstates.Candidate;
+import au.id.tindall.distalg.raft.serverstates.Follower;
 import au.id.tindall.distalg.raft.serverstates.Leader;
 import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
@@ -32,7 +32,7 @@ public class Server<ID extends Serializable> {
     }
 
     public Server(ID id, Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
-        state = new ServerState<>(id, currentTerm, FOLLOWER, votedFor, log, cluster);
+        state = new Follower<>(id, currentTerm, votedFor, log, cluster);
     }
 
     public void handle(RpcMessage<ID> message) {
@@ -47,7 +47,7 @@ public class Server<ID extends Serializable> {
 
     private void revertToFollowerStateIfTermHasIncreased(Term rpcTerm) {
         if (rpcTerm.isGreaterThan(state.getCurrentTerm())) {
-            state = new ServerState<>(state.getId(), rpcTerm, FOLLOWER, null, state.getLog(), state.getCluster());
+            state = new Follower<>(state.getId(), rpcTerm,null, state.getLog(), state.getCluster());
         }
     }
 

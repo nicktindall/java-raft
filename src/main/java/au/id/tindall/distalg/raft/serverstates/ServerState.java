@@ -1,9 +1,7 @@
 package au.id.tindall.distalg.raft.serverstates;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
-import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Optional.empty;
 
 import java.io.Serializable;
 import java.util.Optional;
@@ -18,7 +16,7 @@ import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.RpcMessage;
 
-public class ServerState<ID extends Serializable> {
+public abstract class ServerState<ID extends Serializable> {
 
     private final ID id;
     private final Cluster<ID> cluster;
@@ -53,31 +51,15 @@ public class ServerState<ID extends Serializable> {
         return new Result<>(true, this);
     }
 
-    public Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
-        if (messageIsStale(appendEntriesRequest)) {
-            cluster.send(new AppendEntriesResponse<>(currentTerm, id, appendEntriesRequest.getLeaderId(), false, empty()));
-            return complete(this);
-        }
-
-        if (appendEntriesRequest.getPrevLogIndex() > 0 &&
-                !log.containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
-            cluster.send(new AppendEntriesResponse<>(currentTerm, id, appendEntriesRequest.getLeaderId(), false, empty()));
-            return complete(this);
-        }
-
-        log.appendEntries(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getEntries());
-        commitIndex = min(log.getLastLogIndex(), appendEntriesRequest.getLeaderCommit());
-        int indexOfLastEntryAppended = appendEntriesRequest.getPrevLogIndex() + appendEntriesRequest.getEntries().size();
-        cluster.send(new AppendEntriesResponse<>(currentTerm, id, appendEntriesRequest.getLeaderId(), true, Optional.of(indexOfLastEntryAppended)));
+    protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
         return complete(this);
     }
 
-    public Result<ID> handle(AppendEntriesResponse<ID> appendEntriesResponse) {
-        // Only leaders are interested in these
+    protected Result<ID> handle(AppendEntriesResponse<ID> appendEntriesResponse) {
         return complete(this);
     }
 
-    public void handle(RequestVoteRequest<ID> requestVote) {
+    protected void handle(RequestVoteRequest<ID> requestVote) {
         if (requestVote.getTerm().isLessThan(currentTerm)) {
             cluster.send(new RequestVoteResponse<>(currentTerm, id, requestVote.getCandidateId(), false));
         } else {
@@ -90,17 +72,8 @@ public class ServerState<ID extends Serializable> {
         }
     }
 
-    public Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
-        // Only candidates are interested in this
+    protected Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
         return complete(this);
-    }
-
-    protected boolean messageIsStale(RpcMessage<ID> message) {
-        return message.getTerm().isLessThan(currentTerm);
-    }
-
-    protected boolean messageIsNotStale(RpcMessage<ID> message) {
-        return !messageIsStale(message);
     }
 
     private boolean candidatesLogIsAtLeastUpToDateAsMine(RequestVoteRequest<ID> requestVote) {
@@ -109,6 +82,14 @@ public class ServerState<ID extends Serializable> {
 
     private boolean haveNotVotedOrHaveAlreadyVotedForCandidate(RequestVoteRequest<ID> requestVote) {
         return votedFor == null || votedFor.equals(requestVote.getCandidateId());
+    }
+
+    protected boolean messageIsStale(RpcMessage<ID> message) {
+        return message.getTerm().isLessThan(currentTerm);
+    }
+
+    protected boolean messageIsNotStale(RpcMessage<ID> message) {
+        return !messageIsStale(message);
     }
 
     public ID getId() {
@@ -137,5 +118,9 @@ public class ServerState<ID extends Serializable> {
 
     public int getCommitIndex() {
         return commitIndex;
+    }
+
+    protected void setCommitIndex(int commitIndex) {
+        this.commitIndex = commitIndex;
     }
 }

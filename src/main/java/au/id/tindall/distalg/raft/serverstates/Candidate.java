@@ -3,7 +3,6 @@ package au.id.tindall.distalg.raft.serverstates;
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Optional.empty;
 
@@ -29,17 +28,17 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     }
 
     @Override
-    public Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
+    protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
         if (messageIsStale(appendEntriesRequest)) {
             getCluster().send(new AppendEntriesResponse<>(getCurrentTerm(), getId(), appendEntriesRequest.getLeaderId(), false, empty()));
             return complete(this);
         }
 
-        return incomplete(new ServerState<>(getId(), appendEntriesRequest.getTerm(), FOLLOWER, null, getLog(), getCluster()));
+        return incomplete(new Follower<>(getId(), appendEntriesRequest.getTerm(),null, getLog(), getCluster()));
     }
 
     @Override
-    public Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
+    protected Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
         if (messageIsNotStale(requestVoteResponse) &&
                 requestVoteResponse.isVoteGranted()) {
             return recordVoteAndClaimLeadershipIfEligible(requestVoteResponse.getSource());

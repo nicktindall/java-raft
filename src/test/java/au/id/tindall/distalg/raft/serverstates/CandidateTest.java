@@ -3,7 +3,6 @@ package au.id.tindall.distalg.raft.serverstates;
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -106,6 +105,6 @@ public class CandidateTest {
         Log log = logContaining(ENTRY_1, ENTRY_2);
         Candidate<Long> server = new Candidate<>(SERVER_ID, TERM_1, log, cluster);
         Result<Long> result = server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
-        assertThat(result).isEqualToComparingFieldByFieldRecursively(incomplete(new ServerState<>(SERVER_ID, TERM_2, FOLLOWER, null, log, cluster)));
+        assertThat(result).isEqualToComparingFieldByFieldRecursively(incomplete(new Follower<>(SERVER_ID, TERM_2, null, log, cluster)));
     }
 }
