@@ -23,7 +23,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     private final Set<ID> receivedVotes;
 
     public Candidate(ID id, Term currentTerm, Log log, Cluster<ID> cluster) {
-        super(id, currentTerm, CANDIDATE, id, log, cluster);
+        super(id, currentTerm, id, log, cluster);
         receivedVotes = new HashSet<>();
     }
 
@@ -44,6 +44,11 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
             return recordVoteAndClaimLeadershipIfEligible(requestVoteResponse.getSource());
         }
         return complete(this);
+    }
+
+    @Override
+    public ServerStateType getServerStateType() {
+        return CANDIDATE;
     }
 
     public Result<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {

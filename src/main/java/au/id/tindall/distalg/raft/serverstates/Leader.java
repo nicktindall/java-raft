@@ -24,7 +24,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     private final Map<ID, Integer> matchIndices;
 
     public Leader(ID id, Term currentTerm, Log log, Cluster<ID> cluster) {
-        super(id, currentTerm, LEADER, null, log, cluster);
+        super(id, currentTerm, null, log, cluster);
         nextIndices = initialNextIndices();
         matchIndices = initialMatchIndices();
     }
@@ -36,6 +36,11 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         } else {
             return handleCurrentAppendResponse(appendEntriesResponse);
         }
+    }
+
+    @Override
+    public ServerStateType getServerStateType() {
+        return LEADER;
     }
 
     private Result<ID> handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {

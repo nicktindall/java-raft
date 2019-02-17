@@ -17,7 +17,7 @@ import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
 public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     public Follower(ID id, Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
-        super(id, currentTerm, FOLLOWER, votedFor, log, cluster);
+        super(id, currentTerm, votedFor, log, cluster);
     }
 
     @Override
@@ -38,5 +38,10 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         int indexOfLastEntryAppended = appendEntriesRequest.getPrevLogIndex() + appendEntriesRequest.getEntries().size();
         getCluster().send(new AppendEntriesResponse<>(appendEntriesRequest.getTerm(), getId(), appendEntriesRequest.getLeaderId(), true, Optional.of(indexOfLastEntryAppended)));
         return complete(this);
+    }
+
+    @Override
+    public ServerStateType getServerStateType() {
+        return FOLLOWER;
     }
 }

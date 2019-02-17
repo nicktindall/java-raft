@@ -21,19 +21,17 @@ public abstract class ServerState<ID extends Serializable> {
     private final ID id;
     private final Cluster<ID> cluster;
     private Term currentTerm;
-    private final ServerStateType serverStateType;
     private ID votedFor;
     private Log log;
     private int commitIndex;
 
-    public ServerState(ID id, Term currentTerm, ServerStateType serverStateType, ID votedFor, Log log, Cluster<ID> cluster) {
+    public ServerState(ID id, Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
         this.id = id;
         this.currentTerm = currentTerm;
         this.votedFor = votedFor;
         this.log = log;
         this.cluster = cluster;
         this.commitIndex = 0;
-        this.serverStateType = serverStateType;
     }
 
     public Result<ID> handle(RpcMessage<ID> message) {
@@ -100,9 +98,7 @@ public abstract class ServerState<ID extends Serializable> {
         return currentTerm;
     }
 
-    public ServerStateType getServerStateType() {
-        return serverStateType;
-    }
+    public abstract ServerStateType getServerStateType();
 
     public Optional<ID> getVotedFor() {
         return Optional.ofNullable(votedFor);
