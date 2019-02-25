@@ -20,13 +20,13 @@ public class AppendEntriesRequestTest {
 
     @Test
     public void isSerializable() {
-        assertThatCode(() -> roundTripSerializeDeserialize(new AppendEntriesRequest<>(TERM_1, 111L, 222, Optional.of(TERM_0), List.of(new LogEntry(TERM_0, COMMAND_BYTES)), 10)))
+        assertThatCode(() -> roundTripSerializeDeserialize(new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), List.of(new LogEntry(TERM_0, COMMAND_BYTES)), 10)))
                 .doesNotThrowAnyException();
     }
 
     @Test(expected = UnsupportedOperationException.class)
     public void getEntries_WillReturnAnUnmodifiableList() {
-        AppendEntriesRequest<Long> request = new AppendEntriesRequest<>(TERM_1, 111L, 222, Optional.of(TERM_0), List.of(new LogEntry(TERM_0, COMMAND_BYTES)), 10);
+        AppendEntriesRequest<Long> request = new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), List.of(new LogEntry(TERM_0, COMMAND_BYTES)), 10);
         request.getEntries().add(new LogEntry(TERM_0, COMMAND_BYTES));
     }
 
@@ -35,7 +35,7 @@ public class AppendEntriesRequestTest {
         ArrayList<LogEntry> originalEntriesList = new ArrayList<>();
         LogEntry e1 = new LogEntry(TERM_0, COMMAND_BYTES);
         originalEntriesList.add(e1);
-        AppendEntriesRequest<Long> request = new AppendEntriesRequest<>(TERM_1, 111L, 222, Optional.of(TERM_0), originalEntriesList, 10);
+        AppendEntriesRequest<Long> request = new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), originalEntriesList, 10);
         originalEntriesList.add(e1);
         assertThat(request.getEntries()).usingRecursiveFieldByFieldElementComparator().containsExactly(e1);
     }

@@ -9,7 +9,7 @@ import java.util.Optional;
 import au.id.tindall.distalg.raft.log.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
 
-public class AppendEntriesRequest<ID extends Serializable> extends BroadcastMessage<ID> {
+public class AppendEntriesRequest<ID extends Serializable> extends UnicastMessage<ID> {
 
     private final ID leaderId;
     private final int prevLogIndex;
@@ -17,8 +17,8 @@ public class AppendEntriesRequest<ID extends Serializable> extends BroadcastMess
     private final List<LogEntry> entries;
     private final int leaderCommit;
 
-    public AppendEntriesRequest(Term term, ID leaderId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entries, int leaderCommit) {
-        super(term, leaderId);
+    public AppendEntriesRequest(Term term, ID leaderId, ID destinationId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entries, int leaderCommit) {
+        super(term, leaderId, destinationId);
         this.leaderId = leaderId;
         this.prevLogIndex = prevLogIndex;
         this.prevLogTerm = prevLogTerm.orElse(null);

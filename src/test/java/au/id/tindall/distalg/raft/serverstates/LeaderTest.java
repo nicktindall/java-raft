@@ -101,7 +101,7 @@ public class LeaderTest {
     public void sendHeartbeatRequest_WillDispatchEmptyAppendLogEntriesMessage() {
         Leader<Long> leader = electedLeader();
         leader.sendHeartbeatMessage();
-        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_2, SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
+        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
     }
 
     private Leader<Long> electedLeader() {

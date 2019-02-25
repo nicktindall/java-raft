@@ -3,10 +3,12 @@ package au.id.tindall.distalg.raft;
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
-import static java.util.Collections.emptyList;
+import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static java.util.Collections.singleton;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.refEq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -134,11 +136,12 @@ public class ServerTest {
     }
 
     @Test
-    public void electionTimeout_WillTransitionToLeaderAndSendHeartbeat_WhenOwnVoteIsQuorum() {
+    public void electionTimeout_WillTransitionToLeader_WhenOwnVoteIsQuorum() {
         Server<Long> server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
         when(cluster.isQuorum(singleton(SERVER_ID))).thenReturn(true);
         server.electionTimeout();
-        verify(cluster).send(refEq(new AppendEntriesRequest<>(RESTORED_TERM.next(), SERVER_ID, RESTORED_LOG.getLastLogIndex(), RESTORED_LOG.getLastLogTerm(), emptyList(), 0)));
+        verify(cluster, never()).send(any(AppendEntriesRequest.class));
+        assertThat(server.getState()).isEqualTo(LEADER);
     }
 
     @Test

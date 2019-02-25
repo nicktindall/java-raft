@@ -57,7 +57,9 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     }
 
     public void sendHeartbeatMessage() {
-        getCluster().send(new AppendEntriesRequest<>(getCurrentTerm(), getId(), getLog().getLastLogIndex(), getLog().getLastLogTerm(), emptyList(), getCommitIndex()));
+        getCluster().getMemberIds().stream()
+                .filter(id -> !id.equals(getId()))
+                .forEach(followerId -> getCluster().send(new AppendEntriesRequest<>(getCurrentTerm(), getId(), followerId, getLog().getLastLogIndex(), getLog().getLastLogTerm(), emptyList(), getCommitIndex())));
     }
 
     private Map<ID, Integer> initialMatchIndices() {

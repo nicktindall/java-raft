@@ -22,6 +22,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -41,6 +42,11 @@ public class CandidateTest {
 
     @Mock
     private Cluster<Long> cluster;
+
+    @Before
+    public void setUp() {
+        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
+    }
 
     @Test
     public void receivedVotes_WillBeInitializedEmpty() {
@@ -82,10 +88,10 @@ public class CandidateTest {
     public void handleRequestVoteResponse_WillTransitionToLeaderStateAndSendHeartbeat_WhenAQuorumIsReached() {
         Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3);
         Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, log, cluster);
-        when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(true);
-        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID));
-        Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_2, SERVER_ID, SERVER_ID, true));
-        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_2, SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
+        candidateState.recordVoteAndClaimLeadershipIfEligible(SERVER_ID);
+        when(cluster.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(true);
+        Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
+        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_2, SERVER_ID, OTHER_SERVER_ID,3, Optional.of(TERM_1), emptyList(), 0)));
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(new Leader<>(SERVER_ID, TERM_2, log, cluster)));
     }
 
@@ -104,7 +110,7 @@ public class CandidateTest {
     public void handleAppendEntriesRequest_WillTransitionToFollowerAndContinueProcessingMessage_WhenTermIsGreaterThanOrEqualToLocalTerm() {
         Log log = logContaining(ENTRY_1, ENTRY_2);
         Candidate<Long> server = new Candidate<>(SERVER_ID, TERM_1, log, cluster);
-        Result<Long> result = server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
+        Result<Long> result = server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
         assertThat(result).isEqualToComparingFieldByFieldRecursively(incomplete(new Follower<>(SERVER_ID, TERM_2, null, log, cluster)));
     }
 }
