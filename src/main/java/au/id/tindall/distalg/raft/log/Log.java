@@ -58,14 +58,14 @@ public class Log {
         return new LogSummary(getLastLogTerm(), getLastLogIndex());
     }
 
-    private boolean hasEntry(int index) {
+    public boolean hasEntry(int index) {
         if (index < 1) {
             throw new IllegalArgumentException("Log indices start at 1");
         }
         return entries.size() >= index;
     }
 
-    private LogEntry getEntry(int index) {
+    public LogEntry getEntry(int index) {
         if (index < 1) {
             throw new IllegalArgumentException("Log indices start at 1");
         }

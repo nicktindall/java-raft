@@ -41,7 +41,7 @@ public class Server<ID extends Serializable> {
 
     private void revertToFollowerStateIfTermHasIncreased(Term rpcTerm) {
         if (rpcTerm.isGreaterThan(state.getCurrentTerm())) {
-            state = new Follower<>(state.getId(), rpcTerm,null, state.getLog(), state.getCluster());
+            state = new Follower<>(state.getId(), rpcTerm, null, state.getLog(), state.getCluster());
         }
     }
 
@@ -53,7 +53,7 @@ public class Server<ID extends Serializable> {
                 state.getCluster());
         state = nextState.recordVoteAndClaimLeadershipIfEligible(state.getId()).getNextState();
         if (state instanceof Candidate) {
-            ((Candidate)state).requestVotes();
+            ((Candidate) state).requestVotes();
         }
     }
 
