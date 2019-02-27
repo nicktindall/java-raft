@@ -4,10 +4,12 @@ import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
@@ -45,10 +47,24 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
             int lastAppendedIndex = appendEntriesResponse.getAppendedIndex()
                     .orElseThrow(() -> new IllegalStateException("Append entries response was success with no appendedIndex"));
             replicators.get(remoteServerId).logSuccessResponse(lastAppendedIndex);
+            updateCommitIndex();
         } else {
             replicators.get(remoteServerId).logFailedResponse();
         }
         return complete(this);
+    }
+
+    private void updateCommitIndex() {
+        List<Integer> followerMatchIndicesGreaterThanMyCommitIndex = replicators.values().stream()
+                .map(LogReplicator::getMatchIndex)
+                .filter(matchIndex -> matchIndex > getCommitIndex())
+                .sorted()
+                .collect(toList());
+        int smallestNumberOfFollowersForAMajority = (getCluster().getMemberIds().size() / 2);
+        if (followerMatchIndicesGreaterThanMyCommitIndex.size() >= smallestNumberOfFollowersForAMajority) {
+            setCommitIndex(followerMatchIndicesGreaterThanMyCommitIndex
+                    .get(followerMatchIndicesGreaterThanMyCommitIndex.size() - smallestNumberOfFollowersForAMajority));
+        }
     }
 
     public void sendHeartbeatMessage() {
@@ -59,6 +75,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     private Map<ID, LogReplicator<ID>> createReplicators() {
         int defaultNextIndex = getLog().getLastLogIndex() + 1;
         return new HashMap<>(getCluster().getMemberIds().stream()
+                .filter(memberId -> !getId().equals(memberId))
                 .collect(toMap(identity(), id -> new LogReplicator<>(getId(), getCluster(), id, defaultNextIndex))));
     }
 
