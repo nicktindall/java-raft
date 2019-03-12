@@ -8,8 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import au.id.tindall.distalg.raft.log.LogEntry;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import org.junit.Test;
 
 public class AppendEntriesRequestTest {
@@ -20,20 +21,20 @@ public class AppendEntriesRequestTest {
 
     @Test
     public void isSerializable() {
-        assertThatCode(() -> roundTripSerializeDeserialize(new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), List.of(new LogEntry(TERM_0, COMMAND_BYTES)), 10)))
+        assertThatCode(() -> roundTripSerializeDeserialize(new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), List.of(new StateMachineCommandEntry(TERM_0, COMMAND_BYTES)), 10)))
                 .doesNotThrowAnyException();
     }
 
     @Test(expected = UnsupportedOperationException.class)
     public void getEntries_WillReturnAnUnmodifiableList() {
-        AppendEntriesRequest<Long> request = new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), List.of(new LogEntry(TERM_0, COMMAND_BYTES)), 10);
-        request.getEntries().add(new LogEntry(TERM_0, COMMAND_BYTES));
+        AppendEntriesRequest<Long> request = new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), List.of(new StateMachineCommandEntry(TERM_0, COMMAND_BYTES)), 10);
+        request.getEntries().add(new StateMachineCommandEntry(TERM_0, COMMAND_BYTES));
     }
 
     @Test
     public void constructor_WillStoreACopyOfTheEntriesList() {
         ArrayList<LogEntry> originalEntriesList = new ArrayList<>();
-        LogEntry e1 = new LogEntry(TERM_0, COMMAND_BYTES);
+        LogEntry e1 = new StateMachineCommandEntry(TERM_0, COMMAND_BYTES);
         originalEntriesList.add(e1);
         AppendEntriesRequest<Long> request = new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), originalEntriesList, 10);
         originalEntriesList.add(e1);

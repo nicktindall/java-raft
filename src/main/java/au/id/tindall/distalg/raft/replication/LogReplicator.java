@@ -10,7 +10,7 @@ import java.util.Optional;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.LogEntry;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 

@@ -11,8 +11,9 @@ import java.util.Optional;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.LogEntry;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,10 +31,10 @@ public class LogReplicatorTest {
     private static final int COMMIT_INDEX = 3;
     private static final Term LAST_LOG_TERM = new Term(2);
     private static final int LAST_LOG_INDEX = 4;
-    private static final LogEntry ENTRY_ONE = new LogEntry(new Term(0), "one".getBytes());
-    private static final LogEntry ENTRY_TWO = new LogEntry(new Term(1), "two".getBytes());
-    private static final LogEntry ENTRY_THREE = new LogEntry(new Term(2), "three".getBytes());
-    private static final LogEntry ENTRY_FOUR = new LogEntry(new Term(2), "four".getBytes());
+    private static final LogEntry ENTRY_ONE = new StateMachineCommandEntry(new Term(0), "one".getBytes());
+    private static final LogEntry ENTRY_TWO = new StateMachineCommandEntry(new Term(1), "two".getBytes());
+    private static final LogEntry ENTRY_THREE = new StateMachineCommandEntry(new Term(2), "three".getBytes());
+    private static final LogEntry ENTRY_FOUR = new StateMachineCommandEntry(new Term(2), "four".getBytes());
 
     private LogReplicator<Long> logReplicator;
 

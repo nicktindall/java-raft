@@ -17,8 +17,9 @@ import java.util.Set;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.LogEntry;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
@@ -36,9 +37,9 @@ public class CandidateTest {
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
     private static final Term TERM_2 = new Term(2);
-    private static final LogEntry ENTRY_1 = new LogEntry(TERM_0, "first".getBytes());
-    private static final LogEntry ENTRY_2 = new LogEntry(TERM_0, "second".getBytes());
-    private static final LogEntry ENTRY_3 = new LogEntry(TERM_1, "third".getBytes());
+    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, "first".getBytes());
+    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, "second".getBytes());
+    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, "third".getBytes());
 
     @Mock
     private Cluster<Long> cluster;
@@ -91,7 +92,7 @@ public class CandidateTest {
         candidateState.recordVoteAndClaimLeadershipIfEligible(SERVER_ID);
         when(cluster.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(true);
         Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
-        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_2, SERVER_ID, OTHER_SERVER_ID,3, Optional.of(TERM_1), emptyList(), 0)));
+        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(new Leader<>(SERVER_ID, TERM_2, log, cluster)));
     }
 

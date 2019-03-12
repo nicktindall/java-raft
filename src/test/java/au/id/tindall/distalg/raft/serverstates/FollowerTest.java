@@ -12,8 +12,9 @@ import java.util.List;
 import java.util.Optional;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.log.LogEntry;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
 import org.junit.Test;
@@ -29,9 +30,9 @@ public class FollowerTest {
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
     private static final Term TERM_2 = new Term(2);
-    private static final LogEntry ENTRY_1 = new LogEntry(TERM_0, "first".getBytes());
-    private static final LogEntry ENTRY_2 = new LogEntry(TERM_0, "second".getBytes());
-    private static final LogEntry ENTRY_3 = new LogEntry(TERM_1, "third".getBytes());
+    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, "first".getBytes());
+    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, "second".getBytes());
+    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, "third".getBytes());
 
     @Mock
     private Cluster<Long> cluster;

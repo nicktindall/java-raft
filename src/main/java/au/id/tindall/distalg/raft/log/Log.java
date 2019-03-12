@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
+
 public class Log {
 
     private List<LogEntry> entries;

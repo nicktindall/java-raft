@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Optional;
 
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import org.junit.Test;
 
 public class LogTest {
@@ -13,12 +15,12 @@ public class LogTest {
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
     private static final Term TERM_2 = new Term(2);
-    private static final LogEntry ENTRY_1 = new LogEntry(TERM_0, "first".getBytes());
-    private static final LogEntry ENTRY_2 = new LogEntry(TERM_0, "second".getBytes());
-    private static final LogEntry ENTRY_3 = new LogEntry(TERM_1, "third".getBytes());
-    private static final LogEntry ENTRY_4 = new LogEntry(TERM_1, "fourth".getBytes());
-    private static final LogEntry ENTRY_3B = new LogEntry(TERM_2, "alt_third".getBytes());
-    private static final LogEntry ENTRY_4B = new LogEntry(TERM_2, "alt_fourth".getBytes());
+    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, "first".getBytes());
+    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, "second".getBytes());
+    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, "third".getBytes());
+    private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_1, "fourth".getBytes());
+    private static final LogEntry ENTRY_3B = new StateMachineCommandEntry(TERM_2, "alt_third".getBytes());
+    private static final LogEntry ENTRY_4B = new StateMachineCommandEntry(TERM_2, "alt_fourth".getBytes());
 
     @Test
     public void appendEntries_WillAddNewEntriesToTheEndOfTheLog() {

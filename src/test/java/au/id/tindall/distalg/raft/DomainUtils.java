@@ -3,7 +3,7 @@ package au.id.tindall.distalg.raft;
 import java.util.Arrays;
 
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.LogEntry;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 
 public class DomainUtils {
 

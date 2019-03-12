@@ -6,7 +6,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
-import au.id.tindall.distalg.raft.log.LogEntry;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
 
 public class AppendEntriesRequest<ID extends Serializable> extends UnicastMessage<ID> {
