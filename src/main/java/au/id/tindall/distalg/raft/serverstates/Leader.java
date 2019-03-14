@@ -55,21 +55,15 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     }
 
     private void updateCommitIndex() {
-        List<Integer> followerMatchIndicesGreaterThanMyCommitIndex = replicators.values().stream()
+        List<Integer> followerMatchIndices = replicators.values().stream()
                 .map(LogReplicator::getMatchIndex)
-                .filter(matchIndex -> matchIndex > getCommitIndex())
-                .sorted()
                 .collect(toList());
-        int smallestNumberOfFollowersForAMajority = (getCluster().getMemberIds().size() / 2);
-        if (followerMatchIndicesGreaterThanMyCommitIndex.size() >= smallestNumberOfFollowersForAMajority) {
-            setCommitIndex(followerMatchIndicesGreaterThanMyCommitIndex
-                    .get(followerMatchIndicesGreaterThanMyCommitIndex.size() - smallestNumberOfFollowersForAMajority));
-        }
+        getLog().updateCommitIndex(followerMatchIndices);
     }
 
     public void sendHeartbeatMessage() {
         getReplicators().values()
-                .forEach(replicator -> replicator.sendAppendEntriesRequest(getCurrentTerm(), getLog(), getCommitIndex()));
+                .forEach(replicator -> replicator.sendAppendEntriesRequest(getCurrentTerm(), getLog()));
     }
 
     private Map<ID, LogReplicator<ID>> createReplicators() {

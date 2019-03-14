@@ -11,8 +11,8 @@ import java.util.Optional;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import org.junit.Before;
@@ -46,6 +46,7 @@ public class LogReplicatorTest {
     @Before
     public void setUp() {
         log = logContaining(ENTRY_ONE, ENTRY_TWO, ENTRY_THREE, ENTRY_FOUR);
+        log.setCommitIndex(COMMIT_INDEX);
         logReplicator = new LogReplicator<>(SERVER_ID, cluster, FOLLOWER_ID, INITIAL_NEXT_INDEX);
     }
 
@@ -88,14 +89,14 @@ public class LogReplicatorTest {
     @Test
     public void shouldSendEmptyAppendEntriesRequest_WhenThereAreNoLogEntries() {
         logReplicator = new LogReplicator<>(SERVER_ID, cluster, FOLLOWER_ID, 1);
-        logReplicator.sendAppendEntriesRequest(CURRENT_TERM, logContaining(), 0);
+        logReplicator.sendAppendEntriesRequest(CURRENT_TERM, logContaining());
         verify(cluster).send(refEq(new AppendEntriesRequest<>(CURRENT_TERM, SERVER_ID, FOLLOWER_ID, 0,
                 Optional.empty(), emptyList(), 0)));
     }
 
     @Test
     public void shouldSendEmptyAppendEntriesRequest_WhenFollowerIsCaughtUp() {
-        logReplicator.sendAppendEntriesRequest(CURRENT_TERM, log, COMMIT_INDEX);
+        logReplicator.sendAppendEntriesRequest(CURRENT_TERM, log);
         verify(cluster).send(refEq(new AppendEntriesRequest<>(CURRENT_TERM, SERVER_ID, FOLLOWER_ID, LAST_LOG_INDEX,
                 Optional.of(ENTRY_FOUR.getTerm()), emptyList(), COMMIT_INDEX)));
     }
@@ -103,7 +104,7 @@ public class LogReplicatorTest {
     @Test
     public void shouldSendSingleEntryAppendEntriesRequest_WhenFollowerIsLagging() {
         logReplicator = new LogReplicator<>(SERVER_ID, cluster, FOLLOWER_ID, LAST_LOG_INDEX - 1);
-        logReplicator.sendAppendEntriesRequest(CURRENT_TERM, log, COMMIT_INDEX);
+        logReplicator.sendAppendEntriesRequest(CURRENT_TERM, log);
         verify(cluster).send(refEq(new AppendEntriesRequest<>(CURRENT_TERM, SERVER_ID, FOLLOWER_ID, LAST_LOG_INDEX - 2,
                 Optional.of(ENTRY_TWO.getTerm()), singletonList(ENTRY_THREE), COMMIT_INDEX)));
     }

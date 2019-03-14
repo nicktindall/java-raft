@@ -12,8 +12,9 @@ import java.util.List;
 import java.util.Optional;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
@@ -71,19 +72,21 @@ public class FollowerTest {
 
     @Test
     public void handleAppendEntriesRequest_WillAcceptRequest_AndAdvanceCommitIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLocal() {
-        Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
+        Log log = logContaining(ENTRY_1, ENTRY_2);
+        Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, log, cluster);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 2));
         verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_1, SERVER_ID, OTHER_SERVER_ID, true, Optional.of(3))));
-        assertThat(followerState.getCommitIndex()).isEqualTo(2);
+        assertThat(log.getCommitIndex()).isEqualTo(2);
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
     }
 
     @Test
     public void handleAppendEntriesRequest_WillAcceptRequest_AndAdvanceCommitIndexToLastLocalIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLastLocalIndex() {
-        Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
+        Log log = logContaining(ENTRY_1, ENTRY_2);
+        Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, log, cluster);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 10));
         verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_1, SERVER_ID, OTHER_SERVER_ID, true, Optional.of(3))));
-        assertThat(followerState.getCommitIndex()).isEqualTo(3);
+        assertThat(log.getCommitIndex()).isEqualTo(3);
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
     }
 

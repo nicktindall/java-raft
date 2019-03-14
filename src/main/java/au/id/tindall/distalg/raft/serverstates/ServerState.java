@@ -23,7 +23,6 @@ public abstract class ServerState<ID extends Serializable> {
     private Term currentTerm;
     private ID votedFor;
     private Log log;
-    private int commitIndex;
 
     public ServerState(ID id, Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
         this.id = id;
@@ -31,7 +30,6 @@ public abstract class ServerState<ID extends Serializable> {
         this.votedFor = votedFor;
         this.log = log;
         this.cluster = cluster;
-        this.commitIndex = 0;
     }
 
     public Result<ID> handle(RpcMessage<ID> message) {
@@ -110,13 +108,5 @@ public abstract class ServerState<ID extends Serializable> {
 
     public Cluster<ID> getCluster() {
         return cluster;
-    }
-
-    public int getCommitIndex() {
-        return commitIndex;
-    }
-
-    protected void setCommitIndex(int commitIndex) {
-        this.commitIndex = commitIndex;
     }
 }

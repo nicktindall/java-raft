@@ -102,4 +102,37 @@ public class LogTest {
     public void getSummary_WillReturnLastLogTermAndIndex() {
         assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getSummary()).isEqualTo(new LogSummary(Optional.of(TERM_1), 3));
     }
+
+    @Test
+    public void commitIndex_WillBeInitializedToZero() {
+        assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4).getCommitIndex()).isZero();
+    }
+
+    @Test
+    public void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveAdvanced() {
+        Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+        log.updateCommitIndex(List.of(0, 0, 3, 4));
+        assertThat(log.getCommitIndex()).isEqualTo(3);
+    }
+
+    @Test
+    public void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveAdvanced() {
+        Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+        log.updateCommitIndex(List.of(0, 2, 3));
+        assertThat(log.getCommitIndex()).isEqualTo(2);
+    }
+
+    @Test
+    public void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveNotAdvanced() {
+        Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+        log.updateCommitIndex(List.of(0, 0, 0, 4));
+        assertThat(log.getCommitIndex()).isEqualTo(0);
+    }
+
+    @Test
+    public void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveNotAdvanced() {
+        Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+        log.updateCommitIndex(List.of(0, 0, 4));
+        assertThat(log.getCommitIndex()).isEqualTo(0);
+    }
 }

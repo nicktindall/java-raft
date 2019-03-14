@@ -10,8 +10,8 @@ import java.util.Optional;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 
 public class LogReplicator<ID extends Serializable> {
@@ -30,13 +30,13 @@ public class LogReplicator<ID extends Serializable> {
         this.nextIndex = nextIndex;
     }
 
-    public void sendAppendEntriesRequest(Term currentTerm, Log log, int commitIndex) {
+    public void sendAppendEntriesRequest(Term currentTerm, Log log) {
         int prevLogIndex = nextIndex - 1;
         Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
         List<LogEntry> entriesToReplicate = getEntryToReplicate(log, nextIndex);
         cluster.send(new AppendEntriesRequest<>(currentTerm, serverId, followerId,
                 prevLogIndex, prevLogTerm, entriesToReplicate,
-                commitIndex));
+                log.getCommitIndex()));
     }
 
     private Optional<Term> getTermAtIndex(Log log, int index) {

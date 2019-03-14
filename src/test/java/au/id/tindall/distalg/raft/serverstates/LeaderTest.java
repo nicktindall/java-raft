@@ -8,8 +8,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.replication.LogReplicator;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
@@ -92,23 +92,13 @@ public class LeaderTest {
     }
 
     @Test
-    public void handleAppendEntriesResponse_WillUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveReplicatedAnEntry() {
+    public void handleAppendEntriesResponse_WillUpdateCommitIndex_WhenMajorityOfFollowersHaveReplicatedAnEntry() {
         when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID, THIRD_SERVER_ID, FOURTH_SERVER_ID, FIFTH_SERVER_ID));
         Leader<Long> leader = electedLeader();
         leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(3)));
-        assertThat(leader.getCommitIndex()).isEqualTo(0);
+        assertThat(leader.getLog().getCommitIndex()).isEqualTo(0);
         leader.handle(new AppendEntriesResponse<>(TERM_2, THIRD_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-        assertThat(leader.getCommitIndex()).isEqualTo(3);
-    }
-
-    @Test
-    public void handleAppendEntriesResponse_WillUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveReplicatedAnEntry() {
-        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID, THIRD_SERVER_ID, FOURTH_SERVER_ID));
-        Leader<Long> leader = electedLeader();
-        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(3)));
-        assertThat(leader.getCommitIndex()).isEqualTo(0);
-        leader.handle(new AppendEntriesResponse<>(TERM_2, THIRD_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-        assertThat(leader.getCommitIndex()).isEqualTo(3);
+        assertThat(leader.getLog().getCommitIndex()).isEqualTo(3);
     }
 
     private Leader<Long> electedLeader() {

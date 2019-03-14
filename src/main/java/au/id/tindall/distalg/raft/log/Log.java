@@ -2,6 +2,7 @@ package au.id.tindall.distalg.raft.log;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
+import static java.util.stream.Collectors.toList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,9 +13,24 @@ import au.id.tindall.distalg.raft.log.entries.LogEntry;
 public class Log {
 
     private List<LogEntry> entries;
+    private int commitIndex;
 
     public Log() {
         entries = new ArrayList<>();
+        commitIndex = 0;
+    }
+
+    public void updateCommitIndex(List<Integer> matchIndices) {
+        int clusterSize = matchIndices.size() + 1;
+        List<Integer> matchIndicesHigherThanTheCommitIndexInAscendingOrder = matchIndices.stream()
+                .filter(index -> index > commitIndex)
+                .sorted()
+                .collect(toList());
+        int majorityThreshold = clusterSize / 2;
+        if (matchIndicesHigherThanTheCommitIndexInAscendingOrder.size() + 1 > majorityThreshold) {
+            commitIndex = matchIndicesHigherThanTheCommitIndexInAscendingOrder
+                    .get(matchIndicesHigherThanTheCommitIndexInAscendingOrder.size() - majorityThreshold);
+        }
     }
 
     public void appendEntries(int prevLogIndex, List<LogEntry> newEntries) {
@@ -76,5 +92,13 @@ public class Log {
 
     private List<LogEntry> truncate(int fromIndex) {
         return new ArrayList<>(entries.subList(0, fromIndex - 1));
+    }
+
+    public int getCommitIndex() {
+        return commitIndex;
+    }
+
+    public void setCommitIndex(int commitIndex) {
+        this.commitIndex = commitIndex;
     }
 }
