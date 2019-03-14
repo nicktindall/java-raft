@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.log;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.IntStream.range;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,10 +15,12 @@ public class Log {
 
     private List<LogEntry> entries;
     private int commitIndex;
+    private List<EntryCommittedEventHandler> entryCommittedEventHandlers;
 
     public Log() {
         entries = new ArrayList<>();
         commitIndex = 0;
+        entryCommittedEventHandlers = new ArrayList<>();
     }
 
     public void updateCommitIndex(List<Integer> matchIndices) {
@@ -28,8 +31,9 @@ public class Log {
                 .collect(toList());
         int majorityThreshold = clusterSize / 2;
         if (matchIndicesHigherThanTheCommitIndexInAscendingOrder.size() + 1 > majorityThreshold) {
-            commitIndex = matchIndicesHigherThanTheCommitIndexInAscendingOrder
+            Integer newCommitIndex = matchIndicesHigherThanTheCommitIndexInAscendingOrder
                     .get(matchIndicesHigherThanTheCommitIndexInAscendingOrder.size() - majorityThreshold);
+            setCommitIndex(newCommitIndex);
         }
     }
 
@@ -98,7 +102,21 @@ public class Log {
         return commitIndex;
     }
 
-    public void setCommitIndex(int commitIndex) {
-        this.commitIndex = commitIndex;
+    public void setCommitIndex(int newCommitIndex) {
+        if (newCommitIndex > this.commitIndex) {
+            range(this.commitIndex, newCommitIndex)
+                    .map(i -> i + 1)
+                    .forEach(this::notifyListeners);
+        }
+        this.commitIndex = newCommitIndex;
+    }
+
+    public void addEntryCommittedEventHandler(EntryCommittedEventHandler eventHandler) {
+        entryCommittedEventHandlers.add(eventHandler);
+    }
+
+    private void notifyListeners(int committedIndex) {
+        entryCommittedEventHandlers
+                .forEach(handler -> handler.entryCommitted(committedIndex, getEntry(committedIndex)));
     }
 }

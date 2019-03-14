@@ -2,6 +2,8 @@ package au.id.tindall.distalg.raft.log;
 
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
 import java.util.List;
 import java.util.Optional;
@@ -9,7 +11,12 @@ import java.util.Optional;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.InOrder;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
 
+@RunWith(MockitoJUnitRunner.class)
 public class LogTest {
 
     private static final Term TERM_0 = new Term(0);
@@ -21,6 +28,9 @@ public class LogTest {
     private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_1, "fourth".getBytes());
     private static final LogEntry ENTRY_3B = new StateMachineCommandEntry(TERM_2, "alt_third".getBytes());
     private static final LogEntry ENTRY_4B = new StateMachineCommandEntry(TERM_2, "alt_fourth".getBytes());
+
+    @Mock
+    private EntryCommittedEventHandler entryCommittedEventHandler;
 
     @Test
     public void appendEntries_WillAddNewEntriesToTheEndOfTheLog() {
@@ -134,5 +144,35 @@ public class LogTest {
         Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
         log.updateCommitIndex(List.of(0, 0, 4));
         assertThat(log.getCommitIndex()).isEqualTo(0);
+    }
+
+    @Test
+    public void updateCommitIndex_WillNotifyEntryCommittedEventHandlers_WhenCommitIndexAdvances() {
+        Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+        log.addEntryCommittedEventHandler(entryCommittedEventHandler);
+        log.updateCommitIndex(List.of(0, 0, 3, 4));
+        InOrder sequence = inOrder(entryCommittedEventHandler);
+        sequence.verify(entryCommittedEventHandler).entryCommitted(1, ENTRY_1);
+        sequence.verify(entryCommittedEventHandler).entryCommitted(2, ENTRY_2);
+        sequence.verify(entryCommittedEventHandler).entryCommitted(3, ENTRY_3);
+    }
+
+    @Test
+    public void setCommitIndex_WillNotifyEntryCommittedEventHandlers_WhenCommitIndexAdvances() {
+        Log log = logContaining(ENTRY_1, ENTRY_2);
+        log.addEntryCommittedEventHandler(entryCommittedEventHandler);
+        log.setCommitIndex(2);
+        InOrder sequence = inOrder(entryCommittedEventHandler);
+        sequence.verify(entryCommittedEventHandler).entryCommitted(1, ENTRY_1);
+        sequence.verify(entryCommittedEventHandler).entryCommitted(2, ENTRY_2);
+    }
+
+    @Test
+    public void setCommitIndex_WillNotNotifyEntryCommittedEventHandlers_WhenCommitIndexRecedes() {
+        Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+        log.setCommitIndex(4);
+        log.addEntryCommittedEventHandler(entryCommittedEventHandler);
+        log.setCommitIndex(2);
+        verifyZeroInteractions(entryCommittedEventHandler);
     }
 }
