@@ -2,6 +2,7 @@ package au.id.tindall.distalg.raft.log;
 
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
@@ -10,13 +11,13 @@ import java.util.Optional;
 
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class LogTest {
 
     private static final Term TERM_0 = new Term(0);
@@ -53,24 +54,30 @@ public class LogTest {
         assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4B);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void appendEntries_WillFail_WhenPrevLogIndexIsInvalid() {
         Log log = new Log();
-        log.appendEntries(-1, List.of(ENTRY_1, ENTRY_2));
+        assertThatCode(
+                () -> log.appendEntries(-1, List.of(ENTRY_1, ENTRY_2))
+        ).isInstanceOf(IllegalArgumentException.class);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void appendEntries_WillFail_WhenPrevLogIndexIsNotPresent() {
         Log log = new Log();
-        log.appendEntries(1, List.of(ENTRY_1, ENTRY_2));
+        assertThatCode(
+                () -> log.appendEntries(1, List.of(ENTRY_1, ENTRY_2))
+        ).isInstanceOf(IllegalArgumentException.class);
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void getEntries_ReturnsUnmodifiableList() {
         Log log = new Log();
         log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
         List<LogEntry> entries = log.getEntries();
-        entries.remove(0);
+        assertThatCode(
+                () -> entries.remove(0)
+        ).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test

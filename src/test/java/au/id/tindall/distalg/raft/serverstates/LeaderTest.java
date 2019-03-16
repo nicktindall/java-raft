@@ -2,6 +2,7 @@ package au.id.tindall.distalg.raft.serverstates;
 
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
@@ -13,13 +14,13 @@ import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.replication.LogReplicator;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class LeaderTest {
 
     private static final long SERVER_ID = 111;
@@ -37,7 +38,7 @@ public class LeaderTest {
     @Mock
     private Cluster<Long> cluster;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
     }
@@ -48,10 +49,12 @@ public class LeaderTest {
         assertThat(leader.getReplicators().keySet()).containsExactlyInAnyOrder(OTHER_SERVER_ID);
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void getReplicators_WillReturnUnmodifiableMap() {
         Leader<Long> leader = electedLeader();
-        leader.getReplicators().clear();
+        assertThatCode(
+                () -> leader.getReplicators().clear()
+        ).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test

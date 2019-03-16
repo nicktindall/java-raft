@@ -5,6 +5,7 @@ import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.refEq;
@@ -17,19 +18,18 @@ import java.util.Set;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class CandidateTest {
 
     private static final long SERVER_ID = 100L;
@@ -44,11 +44,6 @@ public class CandidateTest {
     @Mock
     private Cluster<Long> cluster;
 
-    @Before
-    public void setUp() {
-        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
-    }
-
     @Test
     public void receivedVotes_WillBeInitializedEmpty() {
         Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, new Log(), cluster);
@@ -61,10 +56,12 @@ public class CandidateTest {
         assertThat(candidateState.getVotedFor()).contains(SERVER_ID);
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void getReceivedVotes_WillReturnUnmodifiableSet() {
         Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, new Log(), cluster);
-        candidateState.getReceivedVotes().add(OTHER_SERVER_ID);
+        assertThatCode(
+                () -> candidateState.getReceivedVotes().add(OTHER_SERVER_ID)
+        ).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
@@ -87,6 +84,7 @@ public class CandidateTest {
 
     @Test
     public void handleRequestVoteResponse_WillTransitionToLeaderStateAndSendHeartbeat_WhenAQuorumIsReached() {
+        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
         Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3);
         Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, log, cluster);
         candidateState.recordVoteAndClaimLeadershipIfEligible(SERVER_ID);

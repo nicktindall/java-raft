@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import java.util.Arrays;
 
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class StateMachineCommandEntryTest {
 

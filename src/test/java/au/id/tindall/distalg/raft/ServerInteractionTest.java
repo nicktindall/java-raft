@@ -6,8 +6,8 @@ import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import au.id.tindall.distalg.raft.comms.TestCluster;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class ServerInteractionTest {
 
@@ -16,7 +16,7 @@ public class ServerInteractionTest {
     private Server<Long> server3;
     private TestCluster cluster;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         cluster = new TestCluster();
         server1 = new Server<>(1L, cluster);
