@@ -30,19 +30,11 @@ public class Server<ID extends Serializable> {
     }
 
     public void handle(RpcMessage<ID> message) {
-        revertToFollowerStateIfTermHasIncreased(message.getTerm());
-
         Result<ID> result;
         do {
             result = state.handle(message);
             state = result.getNextState();
         } while (!result.isFinished());
-    }
-
-    private void revertToFollowerStateIfTermHasIncreased(Term rpcTerm) {
-        if (rpcTerm.isGreaterThan(state.getCurrentTerm())) {
-            state = new Follower<>(state.getId(), rpcTerm, null, state.getLog(), state.getCluster());
-        }
     }
 
     public void electionTimeout() {

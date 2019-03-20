@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.serverstates;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
+import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static java.lang.String.format;
 
 import java.io.Serializable;
@@ -33,6 +34,10 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     public Result<ID> handle(RpcMessage<ID> message) {
+        if (message.getTerm().isGreaterThan(currentTerm)) {
+            return incomplete(new Follower<>(id, message.getTerm(), null, log, cluster));
+        }
+
         if (message instanceof RequestVoteRequest) {
             return handle((RequestVoteRequest<ID>) message);
         } else if (message instanceof RequestVoteResponse) {
