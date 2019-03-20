@@ -34,7 +34,7 @@ public abstract class ServerState<ID extends Serializable> {
 
     public Result<ID> handle(RpcMessage<ID> message) {
         if (message instanceof RequestVoteRequest) {
-            handle((RequestVoteRequest<ID>) message);
+            return handle((RequestVoteRequest<ID>) message);
         } else if (message instanceof RequestVoteResponse) {
             return handle((RequestVoteResponse<ID>) message);
         } else if (message instanceof AppendEntriesRequest) {
@@ -44,7 +44,6 @@ public abstract class ServerState<ID extends Serializable> {
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
-        return new Result<>(true, this);
     }
 
     protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
@@ -55,7 +54,7 @@ public abstract class ServerState<ID extends Serializable> {
         return complete(this);
     }
 
-    protected void handle(RequestVoteRequest<ID> requestVote) {
+    protected Result<ID> handle(RequestVoteRequest<ID> requestVote) {
         if (requestVote.getTerm().isLessThan(currentTerm)) {
             cluster.send(new RequestVoteResponse<>(currentTerm, id, requestVote.getCandidateId(), false));
         } else {
@@ -66,6 +65,7 @@ public abstract class ServerState<ID extends Serializable> {
             }
             cluster.send(new RequestVoteResponse<>(currentTerm, id, requestVote.getCandidateId(), grantVote));
         }
+        return complete(this);
     }
 
     protected Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
