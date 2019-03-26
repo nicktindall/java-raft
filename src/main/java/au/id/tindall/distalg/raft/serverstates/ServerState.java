@@ -6,6 +6,7 @@ import static java.lang.String.format;
 
 import java.io.Serializable;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
@@ -13,6 +14,8 @@ import au.id.tindall.distalg.raft.log.LogSummary;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.rpc.ClientRequestMessage;
+import au.id.tindall.distalg.raft.rpc.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.RpcMessage;
@@ -31,6 +34,10 @@ public abstract class ServerState<ID extends Serializable> {
         this.votedFor = votedFor;
         this.log = log;
         this.cluster = cluster;
+    }
+
+    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
+        throw new UnsupportedOperationException(format("No handler for client message type %s", clientRequestMessage.getClass().getName()));
     }
 
     public Result<ID> handle(RpcMessage<ID> message) {

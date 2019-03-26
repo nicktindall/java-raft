@@ -11,11 +11,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.concurrent.CompletableFuture;
+
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
+import au.id.tindall.distalg.raft.serverstates.ServerState;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -139,6 +143,23 @@ public class ServerTest {
             server.electionTimeout();
             verify(cluster, never()).send(any(AppendEntriesRequest.class));
             assertThat(server.getState()).isEqualTo(LEADER);
+        }
+    }
+
+    @Nested
+    class ClientRequests {
+
+        @Mock
+        private ServerState<Long> serverState;
+
+        @Test
+        void willBeHandledByTheCurrentState() {
+            var clientRequest = new ClientRequestMessage<>(SERVER_ID) {
+            };
+            var clientResponse = new CompletableFuture();
+            when(serverState.handle(clientRequest)).thenReturn(clientResponse);
+            var server = new Server<>(serverState);
+            assertThat(server.handle(clientRequest)).isSameAs(clientResponse);
         }
     }
 }

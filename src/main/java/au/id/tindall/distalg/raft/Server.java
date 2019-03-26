@@ -2,10 +2,13 @@ package au.id.tindall.distalg.raft;
 
 import java.io.Serializable;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.rpc.ClientRequestMessage;
+import au.id.tindall.distalg.raft.rpc.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.RpcMessage;
 import au.id.tindall.distalg.raft.serverstates.Candidate;
 import au.id.tindall.distalg.raft.serverstates.Follower;
@@ -27,6 +30,10 @@ public class Server<ID extends Serializable> {
 
     public Server(ID id, Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
         state = new Follower<>(id, currentTerm, votedFor, log, cluster);
+    }
+
+    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
+        return state.handle(clientRequestMessage);
     }
 
     public void handle(RpcMessage<ID> message) {
