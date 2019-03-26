@@ -8,12 +8,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import au.id.tindall.distalg.raft.rpc.RegisterClientRequest;
+import au.id.tindall.distalg.raft.rpc.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.RpcMessage;
@@ -105,6 +110,20 @@ public class ServerStateTest {
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
             verify(cluster).send(refEq(new RequestVoteResponse<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, true)));
             assertThat(serverState.getVotedFor()).contains(OTHER_SERVER_ID);
+        }
+    }
+
+    @Nested
+    class HandleRegisterClientRequest {
+
+        @Test
+        @SuppressWarnings("unchecked")
+        void willReturnNotLeader() throws ExecutionException, InterruptedException {
+            var serverState = new ServerStateImpl(SERVER_ID, TERM_0, null, logContaining(), cluster);
+            CompletableFuture<RegisterClientResponse<Long>> handle = serverState.handle(new RegisterClientRequest(SERVER_ID));
+            assertThat(handle).isCompleted();
+            assertThat(handle.get()).usingRecursiveComparison()
+                    .isEqualTo(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, null));
         }
     }
 

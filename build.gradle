@@ -18,7 +18,7 @@ dependencies {
     testCompile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.11.1'
     testCompile group: 'org.mockito', name: 'mockito-core', version: mockitoVersion
     testCompile group: 'org.mockito', name: 'mockito-junit-jupiter', version: mockitoVersion
-    testCompile group: 'org.assertj', name: 'assertj-core', version: '3.11.1'
+    testCompile group: 'org.assertj', name: 'assertj-core', version: '3.12.2'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.4.0'
 }
 

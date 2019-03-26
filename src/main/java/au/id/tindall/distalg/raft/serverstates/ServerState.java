@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.serverstates;
 
+import static au.id.tindall.distalg.raft.rpc.RegisterClientStatus.NOT_LEADER;
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static java.lang.String.format;
@@ -16,6 +17,8 @@ import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.ClientResponseMessage;
+import au.id.tindall.distalg.raft.rpc.RegisterClientRequest;
+import au.id.tindall.distalg.raft.rpc.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.RpcMessage;
@@ -36,8 +39,12 @@ public abstract class ServerState<ID extends Serializable> {
         this.cluster = cluster;
     }
 
-    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
-        throw new UnsupportedOperationException(format("No handler for client message type %s", clientRequestMessage.getClass().getName()));
+    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> message) {
+        if (message instanceof RegisterClientRequest) {
+            return handle((RegisterClientRequest<ID>) message);
+        } else {
+            throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
+        }
     }
 
     public Result<ID> handle(RpcMessage<ID> message) {
@@ -56,6 +63,10 @@ public abstract class ServerState<ID extends Serializable> {
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
+    }
+
+    protected CompletableFuture<RegisterClientResponse<ID>> handle(RegisterClientRequest<ID> registerClientRequest) {
+        return CompletableFuture.completedFuture(new RegisterClientResponse<>(NOT_LEADER, null, null));
     }
 
     protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
