@@ -70,6 +70,10 @@ public class Log {
         return entries.size();
     }
 
+    public int getNextLogIndex() {
+        return getLastLogIndex() + 1;
+    }
+
     public Optional<Term> getLastLogTerm() {
         return entries.size() > 0 ?
                 Optional.of(entries.get(entries.size() - 1).getTerm())
@@ -113,6 +117,10 @@ public class Log {
 
     public void addEntryCommittedEventHandler(EntryCommittedEventHandler eventHandler) {
         entryCommittedEventHandlers.add(eventHandler);
+    }
+
+    public void removeEntryCommittedEventHandler(EntryCommittedEventHandler eventHandler) {
+        entryCommittedEventHandlers.remove(eventHandler);
     }
 
     private void notifyListeners(int committedIndex) {
