@@ -40,8 +40,15 @@ public class Server<ID extends Serializable> {
         Result<ID> result;
         do {
             result = state.handle(message);
-            state = result.getNextState();
+            updateState(result.getNextState());
         } while (!result.isFinished());
+    }
+
+    private void updateState(ServerState<ID> nextState) {
+        if (state != nextState) {
+            state.dispose();
+            state = nextState;
+        }
     }
 
     public void electionTimeout() {

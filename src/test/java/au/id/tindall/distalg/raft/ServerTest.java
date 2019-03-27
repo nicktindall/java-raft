@@ -1,5 +1,7 @@
 package au.id.tindall.distalg.raft;
 
+import static au.id.tindall.distalg.raft.serverstates.Result.complete;
+import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
@@ -9,6 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
@@ -19,6 +22,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
+import au.id.tindall.distalg.raft.rpc.RpcMessage;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -160,6 +164,59 @@ public class ServerTest {
             when(serverState.handle(clientRequest)).thenReturn(clientResponse);
             var server = new Server<>(serverState);
             assertThat(server.handle(clientRequest)).isSameAs(clientResponse);
+        }
+    }
+
+    @Nested
+    class HandleRpcMessage {
+
+        @Mock
+        private ServerState<Long> serverState;
+        @Mock
+        private ServerState<Long> nextServerState;
+        @Mock
+        private RpcMessage<Long> rpcMessage;
+
+        @Test
+        void willDelegateToCurrentState() {
+            when(serverState.handle(rpcMessage)).thenReturn(complete(serverState));
+
+            new Server<>(serverState).handle(rpcMessage);
+
+            verify(serverState).handle(rpcMessage);
+            verifyNoMoreInteractions(serverState);
+        }
+
+        @Test
+        void willTransitionToNextStateAndDisposeOfPrevious() {
+            when(serverState.handle(rpcMessage)).thenReturn(complete(nextServerState));
+            when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
+
+            Server<Long> server = new Server<>(serverState);
+
+            server.handle(rpcMessage);
+            verify(serverState).handle(rpcMessage);
+            verify(serverState).dispose();
+
+            server.handle(rpcMessage);
+            verify(nextServerState).handle(rpcMessage);
+
+            verifyNoMoreInteractions(serverState, nextServerState);
+        }
+
+        @Test
+        public void willContinueHandling_WhenHandlingIsIncomplete() {
+            when(serverState.handle(rpcMessage)).thenReturn(incomplete(nextServerState));
+            when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
+
+            Server<Long> server = new Server<>(serverState);
+
+            server.handle(rpcMessage);
+            verify(serverState).handle(rpcMessage);
+            verify(serverState).dispose();
+            verify(nextServerState).handle(rpcMessage);
+
+            verifyNoMoreInteractions(serverState, nextServerState);
         }
     }
 }

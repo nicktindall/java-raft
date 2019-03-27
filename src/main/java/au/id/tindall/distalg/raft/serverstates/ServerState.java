@@ -132,4 +132,7 @@ public abstract class ServerState<ID extends Serializable> {
     public Cluster<ID> getCluster() {
         return cluster;
     }
+
+    public void dispose() {
+    }
 }
