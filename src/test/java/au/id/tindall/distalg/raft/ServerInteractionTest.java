@@ -79,9 +79,6 @@ public class ServerInteractionTest {
     public void clientRegistrationRequest_WillReplicateClientRegistrationToAllServers() throws ExecutionException, InterruptedException {
         server1.electionTimeout();
         cluster.fullyFlush();
-        assertThat(server1.getState()).isEqualTo(LEADER);
-        assertThat(server2.getState()).isEqualTo(FOLLOWER);
-        assertThat(server3.getState()).isEqualTo(FOLLOWER);
         CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>(server1.getId()));
         cluster.fullyFlush();
         assertThat(handle.get()).isEqualToComparingFieldByFieldRecursively(new RegisterClientResponse<>(OK, 1, null));
