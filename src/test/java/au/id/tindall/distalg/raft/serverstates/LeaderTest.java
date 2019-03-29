@@ -1,22 +1,35 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import au.id.tindall.distalg.raft.client.ClientRegistry;
+import au.id.tindall.distalg.raft.client.ClientRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
-import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.replication.LogReplicator;
+import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.rpc.RegisterClientRequest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,86 +38,115 @@ public class LeaderTest {
 
     private static final long SERVER_ID = 111;
     private static final long OTHER_SERVER_ID = 112;
-    private static final long THIRD_SERVER_ID = 113;
-    private static final long FOURTH_SERVER_ID = 114;
-    private static final long FIFTH_SERVER_ID = 115;
-    private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
     private static final Term TERM_2 = new Term(2);
-    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, "first".getBytes());
-    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, "second".getBytes());
-    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, "third".getBytes());
+    private static final int NEXT_LOG_INDEX = 4;
+    private static final int LAST_LOG_INDEX = 3;
 
     @Mock
     private Cluster<Long> cluster;
+    @Mock
+    private ClientRegistryFactory<Long> clientRegistryFactory;
+    @Mock
+    private LogReplicatorFactory<Long> logReplicatorFactory;
+    @Mock
+    private ClientRegistry<Long> clientRegistry;
+    @Mock
+    private Log log;
+    @Mock
+    private LogReplicator<Long> otherServerLogReplicator;
+
+    private Leader<Long> leader;
 
     @BeforeEach
     public void setUp() {
+        when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
+        when(clientRegistryFactory.createClientRegistry()).thenReturn(clientRegistry);
         when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
+        when(logReplicatorFactory.createLogReplicator(SERVER_ID, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
+        leader = new Leader<>(SERVER_ID, TERM_2, log, cluster, clientRegistryFactory, logReplicatorFactory);
+    }
+
+    @Nested
+    class Constructor {
+
+        @Test
+        public void willCreateLogReplicators() {
+            verify(logReplicatorFactory).createLogReplicator(SERVER_ID, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
+        }
+
+        @Test
+        public void willAddClientRegistryFactoryAsEntryCommittedEventHandler() {
+            verify(clientRegistry).startListeningForCommitEvents(log);
+        }
     }
 
     @Test
-    public void constructor_WillInitializeLeaderState() {
-        Leader<Long> leader = electedLeader();
-        assertThat(leader.getReplicators().keySet()).containsExactlyInAnyOrder(OTHER_SERVER_ID);
+    public void dispose_WillStopListeningForCommittedEntriesThenFailAnyOutstandingRegistrations() {
+        reset(clientRegistry);
+        leader.dispose();
+        InOrder inOrder = inOrder(clientRegistry);
+        inOrder.verify(clientRegistry).stopListeningForCommitEvents(log);
+        inOrder.verify(clientRegistry).failAnyOutstandingRegistrations();
+        inOrder.verifyNoMoreInteractions();
     }
 
-    @Test
-    public void getReplicators_WillReturnUnmodifiableMap() {
-        Leader<Long> leader = electedLeader();
-        assertThatCode(
-                () -> leader.getReplicators().clear()
-        ).isInstanceOf(UnsupportedOperationException.class);
+    @Nested
+    class HandleAppendEntriesResponse {
+
+        @Test
+        public void willIgnoreMessage_WhenItIsStale() {
+            leader.handle(new AppendEntriesResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+            verifyZeroInteractions(otherServerLogReplicator, log);
+        }
+
+        @Test
+        public void willLogSuccessResponseWithReplicatorThenUpdateCommitIndex_WhenResultIsSuccess() {
+            int otherServerMatchIndex = 3;
+            when(otherServerLogReplicator.getMatchIndex()).thenReturn(otherServerMatchIndex);
+
+            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+            InOrder inOrder = inOrder(otherServerLogReplicator, log);
+            inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
+            inOrder.verify(log).updateCommitIndex(List.of(otherServerMatchIndex));
+        }
+
+        @Test
+        public void willLogFailureResponseWithReplicator_WhenResultIsFail() {
+            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+            verify(otherServerLogReplicator).logFailedResponse();
+        }
+
+        @Test
+        public void willNotUpdateCommitIndex_WhenResultIsFail() {
+            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+            verify(log, never()).updateCommitIndex(anyList());
+        }
     }
 
-    @Test
-    public void handleAppendEntriesResponse_WillIgnoreMessage_WhenItIsStale() {
-        Leader<Long> leader = electedLeader();
-        leader.handle(new AppendEntriesResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-        LogReplicator<Long> logReplicator = leader.getReplicators().get(OTHER_SERVER_ID);
-        assertThat(logReplicator.getNextIndex()).isEqualTo(4);
-        assertThat(logReplicator.getMatchIndex()).isEqualTo(0);
-    }
+    @Nested
+    class HandleRegisterClientRequest {
 
-    @Test
-    public void handleAppendEntriesResponse_WillUpdateNextIndex_WhenResultIsSuccess() {
-        Leader<Long> leader = electedLeader();
-        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-        assertThat(leader.getReplicators().get(OTHER_SERVER_ID).getNextIndex()).isEqualTo(6);
-    }
+        @BeforeEach
+        void setUp() {
+            when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
+        }
 
-    @Test
-    public void handleAppendEntriesResponse_WillUpdateMatchIndex_WhenResultIsSuccess() {
-        Leader<Long> leader = electedLeader();
-        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-        assertThat(leader.getReplicators().get(OTHER_SERVER_ID).getMatchIndex()).isEqualTo(5);
-    }
+        @Test
+        @SuppressWarnings("unchecked")
+        void willAppendClientRegistrationLogEntry() {
+            leader.handle(new RegisterClientRequest<>(SERVER_ID));
 
-    @Test
-    public void handleAppendEntriesResponse_WillDecrementNextIndex_WhenResultIsFail() {
-        Leader<Long> leader = electedLeader();
-        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
-        assertThat(leader.getReplicators().get(OTHER_SERVER_ID).getNextIndex()).isEqualTo(3);
-    }
+            ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
+            verify(log).appendEntries(eq(3), captor.capture());
+            assertThat(captor.getValue()).usingFieldByFieldElementComparator().isEqualTo(captor.getValue());
+        }
 
-    @Test
-    public void handleAppendEntriesResponse_WillNotUpdateMatchIndex_WhenResultIsFail() {
-        Leader<Long> leader = electedLeader();
-        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
-        assertThat(leader.getReplicators().get(OTHER_SERVER_ID).getMatchIndex()).isEqualTo(0);
-    }
+        @Test
+        void willTriggerReplication() {
+            leader.handle(new RegisterClientRequest<>(SERVER_ID));
 
-    @Test
-    public void handleAppendEntriesResponse_WillUpdateCommitIndex_WhenMajorityOfFollowersHaveReplicatedAnEntry() {
-        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID, THIRD_SERVER_ID, FOURTH_SERVER_ID, FIFTH_SERVER_ID));
-        Leader<Long> leader = electedLeader();
-        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(3)));
-        assertThat(leader.getLog().getCommitIndex()).isEqualTo(0);
-        leader.handle(new AppendEntriesResponse<>(TERM_2, THIRD_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-        assertThat(leader.getLog().getCommitIndex()).isEqualTo(3);
-    }
 
-    private Leader<Long> electedLeader() {
-        return new Leader<>(SERVER_ID, TERM_2, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+        }
     }
 }

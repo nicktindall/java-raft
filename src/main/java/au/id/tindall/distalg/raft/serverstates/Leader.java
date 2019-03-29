@@ -2,7 +2,7 @@ package au.id.tindall.distalg.raft.serverstates;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
-import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.singletonList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -11,29 +11,48 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
+import au.id.tindall.distalg.raft.client.ClientRegistry;
+import au.id.tindall.distalg.raft.client.ClientRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.replication.LogReplicator;
+import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.rpc.RegisterClientRequest;
+import au.id.tindall.distalg.raft.rpc.RegisterClientResponse;
 
 public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     private final Map<ID, LogReplicator<ID>> replicators;
+    private final ClientRegistry<ID> clientRegistry;
 
-    public Leader(ID id, Term currentTerm, Log log, Cluster<ID> cluster) {
+    public Leader(ID id, Term currentTerm, Log log, Cluster<ID> cluster, ClientRegistryFactory<ID> clientRegistryFactory,
+                  LogReplicatorFactory<ID> logReplicatorFactory) {
         super(id, currentTerm, null, log, cluster);
-        replicators = createReplicators();
+        replicators = createReplicators(logReplicatorFactory);
+        clientRegistry = clientRegistryFactory.createClientRegistry();
+        clientRegistry.startListeningForCommitEvents(getLog());
+    }
+
+    @Override
+    protected CompletableFuture<RegisterClientResponse<ID>> handle(RegisterClientRequest<ID> registerClientRequest) {
+        int clientId = getLog().getNextLogIndex();
+        ClientRegistrationEntry registrationEntry = new ClientRegistrationEntry(getCurrentTerm(), clientId);
+        getLog().appendEntries(getLog().getLastLogIndex(), singletonList(registrationEntry));
+        sendHeartbeatMessage();
+        return clientRegistry.createResponseFuture(clientId);
     }
 
     @Override
     protected Result<ID> handle(AppendEntriesResponse<ID> appendEntriesResponse) {
-        if (messageIsStale(appendEntriesResponse)) {
-            return complete(this);
-        } else {
-            return handleCurrentAppendResponse(appendEntriesResponse);
+        if (messageIsNotStale(appendEntriesResponse)) {
+            handleCurrentAppendResponse(appendEntriesResponse);
         }
+        return complete(this);
     }
 
     @Override
@@ -41,7 +60,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         return LEADER;
     }
 
-    private Result<ID> handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {
+    private void handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {
         ID remoteServerId = appendEntriesResponse.getSource();
         if (appendEntriesResponse.isSuccess()) {
             int lastAppendedIndex = appendEntriesResponse.getAppendedIndex()
@@ -51,7 +70,6 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         } else {
             replicators.get(remoteServerId).logFailedResponse();
         }
-        return complete(this);
     }
 
     private void updateCommitIndex() {
@@ -62,18 +80,20 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     }
 
     public void sendHeartbeatMessage() {
-        getReplicators().values()
+        replicators.values()
                 .forEach(replicator -> replicator.sendAppendEntriesRequest(getCurrentTerm(), getLog()));
     }
 
-    private Map<ID, LogReplicator<ID>> createReplicators() {
-        int defaultNextIndex = getLog().getLastLogIndex() + 1;
+    private Map<ID, LogReplicator<ID>> createReplicators(LogReplicatorFactory<ID> logReplicatorFactory) {
+        int defaultNextIndex = getLog().getNextLogIndex();
         return new HashMap<>(getCluster().getMemberIds().stream()
                 .filter(memberId -> !getId().equals(memberId))
-                .collect(toMap(identity(), id -> new LogReplicator<>(getId(), getCluster(), id, defaultNextIndex))));
+                .collect(toMap(identity(), id -> logReplicatorFactory.createLogReplicator(getId(), getCluster(), id, defaultNextIndex))));
     }
 
-    public Map<ID, LogReplicator<ID>> getReplicators() {
-        return unmodifiableMap(replicators);
+    @Override
+    public void dispose() {
+        clientRegistry.stopListeningForCommitEvents(getLog());
+        clientRegistry.failAnyOutstandingRegistrations();
     }
 }

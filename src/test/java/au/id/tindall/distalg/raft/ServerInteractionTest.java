@@ -1,11 +1,18 @@
 package au.id.tindall.distalg.raft;
 
+import static au.id.tindall.distalg.raft.rpc.RegisterClientStatus.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
 import au.id.tindall.distalg.raft.comms.TestCluster;
+import au.id.tindall.distalg.raft.rpc.ClientResponseMessage;
+import au.id.tindall.distalg.raft.rpc.RegisterClientRequest;
+import au.id.tindall.distalg.raft.rpc.RegisterClientResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -66,5 +73,17 @@ public class ServerInteractionTest {
         assertThat(server1.getState()).isEqualTo(LEADER);
         assertThat(server2.getState()).isEqualTo(FOLLOWER);
         assertThat(server3.getState()).isEqualTo(FOLLOWER);
+    }
+
+    @Test
+    public void clientRegistrationRequest_WillReplicateClientRegistrationToAllServers() throws ExecutionException, InterruptedException {
+        server1.electionTimeout();
+        cluster.fullyFlush();
+        assertThat(server1.getState()).isEqualTo(LEADER);
+        assertThat(server2.getState()).isEqualTo(FOLLOWER);
+        assertThat(server3.getState()).isEqualTo(FOLLOWER);
+        CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>(server1.getId()));
+        cluster.fullyFlush();
+        assertThat(handle.get()).isEqualToComparingFieldByFieldRecursively(new RegisterClientResponse<>(OK, 1, null));
     }
 }

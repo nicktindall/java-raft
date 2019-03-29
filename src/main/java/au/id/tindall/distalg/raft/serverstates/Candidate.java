@@ -10,9 +10,11 @@ import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
+import au.id.tindall.distalg.raft.client.ClientRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
@@ -54,7 +56,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     public Result<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
         this.receivedVotes.add(voter);
         if (getCluster().isQuorum(getReceivedVotes())) {
-            Leader<ID> leaderState = new Leader<>(getId(), getCurrentTerm(), getLog(), getCluster());
+            Leader<ID> leaderState = new Leader<>(getId(), getCurrentTerm(), getLog(), getCluster(), new ClientRegistryFactory<>(), new LogReplicatorFactory<>());
             leaderState.sendHeartbeatMessage();
             return complete(leaderState);
         } else {
