@@ -1,6 +1,5 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.NOT_LEADER;
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static java.lang.String.format;
@@ -13,12 +12,16 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogSummary;
 import au.id.tindall.distalg.raft.log.Term;
-import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
@@ -42,6 +45,8 @@ public abstract class ServerState<ID extends Serializable> {
     public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> message) {
         if (message instanceof RegisterClientRequest) {
             return handle((RegisterClientRequest<ID>) message);
+        } else if (message instanceof ClientRequestRequest) {
+            return handle(((ClientRequestRequest<ID>) message));
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
@@ -65,8 +70,12 @@ public abstract class ServerState<ID extends Serializable> {
         }
     }
 
+    protected CompletableFuture<ClientRequestResponse<ID>> handle(ClientRequestRequest<ID> clientRequestRequest) {
+        return CompletableFuture.completedFuture(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
+    }
+
     protected CompletableFuture<RegisterClientResponse<ID>> handle(RegisterClientRequest<ID> registerClientRequest) {
-        return CompletableFuture.completedFuture(new RegisterClientResponse<>(NOT_LEADER, null, null));
+        return CompletableFuture.completedFuture(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, null));
     }
 
     protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {

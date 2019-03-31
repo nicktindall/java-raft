@@ -1,16 +1,17 @@
 package au.id.tindall.distalg.raft.rpc.client;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
-public class ClientRequestResponse extends ClientResponseMessage {
+public class ClientRequestResponse<ID extends Serializable> extends ClientResponseMessage {
 
     private final ClientRequestStatus status;
     private final byte[] response;
-    private final Integer leaderHint;
+    private final ID leaderHint;
 
-    public ClientRequestResponse(ClientRequestStatus status, byte[] response, Integer leaderHint) {
+    public ClientRequestResponse(ClientRequestStatus status, byte[] response, ID leaderHint) {
         this.status = status;
-        this.response = Arrays.copyOf(response, response.length);
+        this.response = response != null ? Arrays.copyOf(response, response.length) : null;
         this.leaderHint = leaderHint;
     }
 
@@ -22,7 +23,7 @@ public class ClientRequestResponse extends ClientResponseMessage {
         return Arrays.copyOf(response, response.length);
     }
 
-    public Integer getLeaderHint() {
+    public ID getLeaderHint() {
         return leaderHint;
     }
 }

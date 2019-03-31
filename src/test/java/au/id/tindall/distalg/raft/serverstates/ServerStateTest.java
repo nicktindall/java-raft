@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -16,6 +17,9 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
@@ -31,8 +35,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class ServerStateTest {
 
-    private static final long SERVER_ID = 100L;
-    private static final long OTHER_SERVER_ID = 101L;
+    private static final long SERVER_ID = 100;
+    private static final long OTHER_SERVER_ID = 101;
+    private static final int CLIENT_ID = 200;
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
     private static final Term TERM_2 = new Term(2);
@@ -117,13 +122,25 @@ public class ServerStateTest {
     class HandleRegisterClientRequest {
 
         @Test
-        @SuppressWarnings("unchecked")
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
             var serverState = new ServerStateImpl(SERVER_ID, TERM_0, null, logContaining(), cluster);
-            CompletableFuture<RegisterClientResponse<Long>> handle = serverState.handle(new RegisterClientRequest(SERVER_ID));
-            assertThat(handle).isCompleted();
-            assertThat(handle.get()).usingRecursiveComparison()
+            CompletableFuture<RegisterClientResponse<Long>> response = serverState.handle(new RegisterClientRequest<>(SERVER_ID));
+            assertThat(response).isCompleted();
+            assertThat(response.get()).usingRecursiveComparison()
                     .isEqualTo(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, null));
+        }
+    }
+
+    @Nested
+    public class HandleClientRequestRequest {
+
+        @Test
+        void willReturnNotLeader() throws ExecutionException, InterruptedException {
+            var serverState = new ServerStateImpl(SERVER_ID, TERM_0, null, logContaining(), cluster);
+            CompletableFuture<ClientRequestResponse<Long>> response = serverState.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, 0, "command".getBytes(StandardCharsets.UTF_8)));
+            assertThat(response).isCompleted();
+            assertThat(response.get()).usingRecursiveComparison()
+                    .isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
         }
     }
 
