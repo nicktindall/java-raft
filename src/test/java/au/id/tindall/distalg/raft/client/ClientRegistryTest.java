@@ -1,7 +1,7 @@
 package au.id.tindall.distalg.raft.client;
 
-import static au.id.tindall.distalg.raft.rpc.RegisterClientStatus.NOT_LEADER;
-import static au.id.tindall.distalg.raft.rpc.RegisterClientStatus.OK;
+import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.NOT_LEADER;
+import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.OK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,7 +14,7 @@ import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
-import au.id.tindall.distalg.raft.rpc.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

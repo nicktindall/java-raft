@@ -1,4 +1,4 @@
-package au.id.tindall.distalg.raft.rpc;
+package au.id.tindall.distalg.raft.rpc.client;
 
 import java.io.Serializable;
 

@@ -1,6 +1,6 @@
 package au.id.tindall.distalg.raft;
 
-import static au.id.tindall.distalg.raft.rpc.RegisterClientStatus.OK;
+import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
@@ -10,9 +10,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import au.id.tindall.distalg.raft.comms.TestCluster;
-import au.id.tindall.distalg.raft.rpc.ClientResponseMessage;
-import au.id.tindall.distalg.raft.rpc.RegisterClientRequest;
-import au.id.tindall.distalg.raft.rpc.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

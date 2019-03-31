@@ -1,6 +1,6 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import static au.id.tindall.distalg.raft.rpc.RegisterClientStatus.NOT_LEADER;
+import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.NOT_LEADER;
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static java.lang.String.format;
@@ -13,15 +13,15 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogSummary;
 import au.id.tindall.distalg.raft.log.Term;
-import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
-import au.id.tindall.distalg.raft.rpc.ClientRequestMessage;
-import au.id.tindall.distalg.raft.rpc.ClientResponseMessage;
-import au.id.tindall.distalg.raft.rpc.RegisterClientRequest;
-import au.id.tindall.distalg.raft.rpc.RegisterClientResponse;
-import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
-import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
-import au.id.tindall.distalg.raft.rpc.RpcMessage;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
+import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
+import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
+import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 
 public abstract class ServerState<ID extends Serializable> {
 

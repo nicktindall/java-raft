@@ -11,8 +11,8 @@ import java.util.Optional;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
-import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 
 public class Follower<ID extends Serializable> extends ServerState<ID> {
 

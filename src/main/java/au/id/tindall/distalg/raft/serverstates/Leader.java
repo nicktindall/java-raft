@@ -21,9 +21,9 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.replication.LogReplicator;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
-import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
-import au.id.tindall.distalg.raft.rpc.RegisterClientRequest;
-import au.id.tindall.distalg.raft.rpc.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 
 public class Leader<ID extends Serializable> extends ServerState<ID> {
 

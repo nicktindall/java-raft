@@ -12,7 +12,7 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
-import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 
 public class LogReplicator<ID extends Serializable> {
 

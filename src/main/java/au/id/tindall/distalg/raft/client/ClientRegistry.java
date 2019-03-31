@@ -1,7 +1,7 @@
 package au.id.tindall.distalg.raft.client;
 
-import static au.id.tindall.distalg.raft.rpc.RegisterClientStatus.NOT_LEADER;
-import static au.id.tindall.distalg.raft.rpc.RegisterClientStatus.OK;
+import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.NOT_LEADER;
+import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.OK;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -12,7 +12,7 @@ import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
-import au.id.tindall.distalg.raft.rpc.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 
 public class ClientRegistry<ID extends Serializable> {
 

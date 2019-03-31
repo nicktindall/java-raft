@@ -15,10 +15,10 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
-import au.id.tindall.distalg.raft.rpc.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.AppendEntriesResponse;
-import au.id.tindall.distalg.raft.rpc.RequestVoteRequest;
-import au.id.tindall.distalg.raft.rpc.RequestVoteResponse;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
+import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 
 public class Candidate<ID extends Serializable> extends ServerState<ID> {
 

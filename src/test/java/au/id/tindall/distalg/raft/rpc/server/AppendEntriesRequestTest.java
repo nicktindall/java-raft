@@ -1,4 +1,4 @@
-package au.id.tindall.distalg.raft.rpc;
+package au.id.tindall.distalg.raft.rpc.server;
 
 import static au.id.tindall.distalg.raft.SerializationUtils.roundTripSerializeDeserialize;
 import static org.assertj.core.api.Assertions.assertThat;

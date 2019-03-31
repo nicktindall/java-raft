@@ -10,9 +10,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import au.id.tindall.distalg.raft.Server;
-import au.id.tindall.distalg.raft.rpc.BroadcastMessage;
-import au.id.tindall.distalg.raft.rpc.RpcMessage;
-import au.id.tindall.distalg.raft.rpc.UnicastMessage;
+import au.id.tindall.distalg.raft.rpc.server.BroadcastMessage;
+import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
