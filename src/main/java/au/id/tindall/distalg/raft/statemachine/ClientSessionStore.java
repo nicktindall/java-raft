@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.statemachine;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public class ClientSessionStore {
 
@@ -26,6 +27,11 @@ public class ClientSessionStore {
         }
         expireLeastRecentlyUsedSessionIfFull();
         activeSessions.put(clientId, new ClientSession(clientId, registrationIndex));
+    }
+
+    public void recordInteraction(int clientId, int index) {
+        Optional.ofNullable(activeSessions.get(clientId))
+                .ifPresent(session -> session.setLastInteractionSequence(index));
     }
 
     private void expireLeastRecentlyUsedSessionIfFull() {

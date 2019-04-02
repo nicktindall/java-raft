@@ -38,12 +38,22 @@ public class ClientSessionStoreTest {
     void shouldExpireLeastRecentlyUsedSession_WhenFull() {
         clientSessionStore.createSession(1, 1);
         clientSessionStore.createSession(2, 2);
-        assertThat(clientSessionStore.hasSession(1)).isTrue();
-        assertThat(clientSessionStore.hasSession(2)).isTrue();
-
         clientSessionStore.createSession(3, 3);
+
         assertThat(clientSessionStore.hasSession(1)).isFalse();
         assertThat(clientSessionStore.hasSession(2)).isTrue();
+        assertThat(clientSessionStore.hasSession(3)).isTrue();
+    }
+
+    @Test
+    void recordInteraction_WillPreventSessionBeingExpired() {
+        clientSessionStore.createSession(1, 1);
+        clientSessionStore.createSession(2, 2);
+        clientSessionStore.recordInteraction(1, 3);
+        clientSessionStore.createSession(4, 3);
+
+        assertThat(clientSessionStore.hasSession(1)).isTrue();
+        assertThat(clientSessionStore.hasSession(2)).isFalse();
         assertThat(clientSessionStore.hasSession(3)).isTrue();
     }
 }

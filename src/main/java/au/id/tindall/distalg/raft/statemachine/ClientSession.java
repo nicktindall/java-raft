@@ -17,4 +17,8 @@ public class ClientSession {
     public Integer getClientId() {
         return clientId;
     }
+
+    public void setLastInteractionSequence(int lastInteractionSequence) {
+        this.lastInteractionSequence = lastInteractionSequence;
+    }
 }
