@@ -16,7 +16,7 @@ import static org.mockito.Mockito.when;
 import java.util.Optional;
 import java.util.Set;
 
-import au.id.tindall.distalg.raft.client.ClientRegistryFactory;
+import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
@@ -93,7 +93,7 @@ public class CandidateTest {
         when(cluster.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(true);
         Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
         verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
-        assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(new Leader<>(SERVER_ID, TERM_2, log, cluster, new ClientRegistryFactory<>(), new LogReplicatorFactory<>())));
+        assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(new Leader<>(SERVER_ID, TERM_2, log, cluster, new PendingResponseRegistryFactory(), new LogReplicatorFactory<>())));
     }
 
     @Test

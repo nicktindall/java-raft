@@ -14,16 +14,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import au.id.tindall.distalg.raft.client.ClientRegistry;
-import au.id.tindall.distalg.raft.client.ClientRegistryFactory;
+import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
+import au.id.tindall.distalg.raft.client.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.replication.LogReplicator;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
-import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -46,11 +46,11 @@ public class LeaderTest {
     @Mock
     private Cluster<Long> cluster;
     @Mock
-    private ClientRegistryFactory<Long> clientRegistryFactory;
+    private PendingResponseRegistryFactory pendingResponseRegistryFactory;
     @Mock
     private LogReplicatorFactory<Long> logReplicatorFactory;
     @Mock
-    private ClientRegistry<Long> clientRegistry;
+    private PendingResponseRegistry pendingResponseRegistry;
     @Mock
     private Log log;
     @Mock
@@ -61,10 +61,10 @@ public class LeaderTest {
     @BeforeEach
     public void setUp() {
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
-        when(clientRegistryFactory.createClientRegistry()).thenReturn(clientRegistry);
+        when(pendingResponseRegistryFactory.createPendingResponseRegistry()).thenReturn(pendingResponseRegistry);
         when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
         when(logReplicatorFactory.createLogReplicator(SERVER_ID, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
-        leader = new Leader<>(SERVER_ID, TERM_2, log, cluster, clientRegistryFactory, logReplicatorFactory);
+        leader = new Leader<>(SERVER_ID, TERM_2, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory);
     }
 
     @Nested
@@ -77,17 +77,17 @@ public class LeaderTest {
 
         @Test
         public void willAddClientRegistryFactoryAsEntryCommittedEventHandler() {
-            verify(clientRegistry).startListeningForCommitEvents(log);
+            verify(pendingResponseRegistry).startListeningForCommitEvents(log);
         }
     }
 
     @Test
     public void dispose_WillStopListeningForCommittedEntriesThenFailAnyOutstandingRegistrations() {
-        reset(clientRegistry);
+        reset(pendingResponseRegistry);
         leader.dispose();
-        InOrder inOrder = inOrder(clientRegistry);
-        inOrder.verify(clientRegistry).stopListeningForCommitEvents(log);
-        inOrder.verify(clientRegistry).failAnyOutstandingRegistrations();
+        InOrder inOrder = inOrder(pendingResponseRegistry);
+        inOrder.verify(pendingResponseRegistry).stopListeningForCommitEvents(log);
+        inOrder.verify(pendingResponseRegistry).failOutstandingResponses();
         inOrder.verifyNoMoreInteractions();
     }
 

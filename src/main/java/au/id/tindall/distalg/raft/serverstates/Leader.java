@@ -13,38 +13,39 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-import au.id.tindall.distalg.raft.client.ClientRegistry;
-import au.id.tindall.distalg.raft.client.ClientRegistryFactory;
+import au.id.tindall.distalg.raft.client.PendingRegisterClientResponse;
+import au.id.tindall.distalg.raft.client.PendingResponseRegistry;
+import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.replication.LogReplicator;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
-import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 
 public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     private final Map<ID, LogReplicator<ID>> replicators;
-    private final ClientRegistry<ID> clientRegistry;
+    private final PendingResponseRegistry pendingResponseRegistry;
 
-    public Leader(ID id, Term currentTerm, Log log, Cluster<ID> cluster, ClientRegistryFactory<ID> clientRegistryFactory,
+    public Leader(ID id, Term currentTerm, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                   LogReplicatorFactory<ID> logReplicatorFactory) {
         super(id, currentTerm, null, log, cluster);
         replicators = createReplicators(logReplicatorFactory);
-        clientRegistry = clientRegistryFactory.createClientRegistry();
-        clientRegistry.startListeningForCommitEvents(getLog());
+        pendingResponseRegistry = pendingResponseRegistryFactory.createPendingResponseRegistry();
+        pendingResponseRegistry.startListeningForCommitEvents(getLog());
     }
 
     @Override
     protected CompletableFuture<RegisterClientResponse<ID>> handle(RegisterClientRequest<ID> registerClientRequest) {
-        int clientId = getLog().getNextLogIndex();
-        ClientRegistrationEntry registrationEntry = new ClientRegistrationEntry(getCurrentTerm(), clientId);
+        int logEntryIndex = getLog().getNextLogIndex();
+        ClientRegistrationEntry registrationEntry = new ClientRegistrationEntry(getCurrentTerm(), logEntryIndex);
         getLog().appendEntries(getLog().getLastLogIndex(), singletonList(registrationEntry));
         sendHeartbeatMessage();
-        return clientRegistry.createResponseFuture(clientId);
+        return pendingResponseRegistry.registerOutstandingResponse(logEntryIndex, new PendingRegisterClientResponse<>());
     }
 
     @Override
@@ -93,7 +94,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     public void dispose() {
-        clientRegistry.stopListeningForCommitEvents(getLog());
-        clientRegistry.failAnyOutstandingRegistrations();
+        pendingResponseRegistry.stopListeningForCommitEvents(getLog());
+        pendingResponseRegistry.failOutstandingResponses();
     }
 }

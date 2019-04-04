@@ -10,7 +10,7 @@ import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
-import au.id.tindall.distalg.raft.client.ClientRegistryFactory;
+import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
@@ -36,7 +36,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
             return complete(this);
         }
 
-        return incomplete(new Follower<>(getId(), appendEntriesRequest.getTerm(),null, getLog(), getCluster()));
+        return incomplete(new Follower<>(getId(), appendEntriesRequest.getTerm(), null, getLog(), getCluster()));
     }
 
     @Override
@@ -56,7 +56,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     public Result<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
         this.receivedVotes.add(voter);
         if (getCluster().isQuorum(getReceivedVotes())) {
-            Leader<ID> leaderState = new Leader<>(getId(), getCurrentTerm(), getLog(), getCluster(), new ClientRegistryFactory<>(), new LogReplicatorFactory<>());
+            Leader<ID> leaderState = new Leader<>(getId(), getCurrentTerm(), getLog(), getCluster(), new PendingResponseRegistryFactory(), new LogReplicatorFactory<>());
             leaderState.sendHeartbeatMessage();
             return complete(leaderState);
         } else {

@@ -19,8 +19,8 @@ import java.util.concurrent.CompletableFuture;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
-import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
@@ -141,6 +141,7 @@ public class ServerTest {
         }
 
         @Test
+        @SuppressWarnings("unchecked")
         public void willTransitionToLeader_WhenOwnVoteIsQuorum() {
             var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
             when(cluster.isQuorum(singleton(SERVER_ID))).thenReturn(true);
@@ -157,6 +158,7 @@ public class ServerTest {
         private ServerState<Long> serverState;
 
         @Test
+        @SuppressWarnings("unchecked")
         void willBeHandledByTheCurrentState() {
             var clientRequest = new ClientRequestMessage<>(SERVER_ID) {
             };
