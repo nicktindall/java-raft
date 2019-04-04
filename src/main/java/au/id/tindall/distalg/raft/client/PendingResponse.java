@@ -9,7 +9,7 @@ public interface PendingResponse<R extends ClientResponseMessage> {
 
     void completeSuccessfully(LogEntry entry);
 
-    void generateFailedResponse();
+    void fail();
 
     CompletableFuture<R> getResponseFuture();
 }

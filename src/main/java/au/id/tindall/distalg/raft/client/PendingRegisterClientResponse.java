@@ -25,7 +25,7 @@ public class PendingRegisterClientResponse<ID extends Serializable> implements P
     }
 
     @Override
-    public void generateFailedResponse() {
+    public void fail() {
         future.complete(new RegisterClientResponse<>(NOT_LEADER, null, null));
     }
 

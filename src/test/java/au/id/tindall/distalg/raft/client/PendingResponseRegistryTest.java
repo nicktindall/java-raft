@@ -97,7 +97,7 @@ public class PendingResponseRegistryTest {
         pendingResponseRegistry.registerOutstandingResponse(LOG_INDEX, pendingResponse);
         pendingResponseRegistry.registerOutstandingResponse(OTHER_LOG_INDEX, otherPendingResponse);
         pendingResponseRegistry.failOutstandingResponses();
-        verify(pendingResponse).generateFailedResponse();
-        verify(otherPendingResponse).generateFailedResponse();
+        verify(pendingResponse).fail();
+        verify(otherPendingResponse).fail();
     }
 }

@@ -33,7 +33,7 @@ public class PendingResponseRegistry {
     }
 
     public void failOutstandingResponses() {
-        pendingResponses.values().forEach(PendingResponse::generateFailedResponse);
+        pendingResponses.values().forEach(PendingResponse::fail);
         pendingResponses.clear();
     }
 
