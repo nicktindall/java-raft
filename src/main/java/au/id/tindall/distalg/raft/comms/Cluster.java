@@ -12,7 +12,7 @@ public interface Cluster<ID extends Serializable> {
 
     boolean isQuorum(Set<ID> receivedVotes);
 
-    Set<ID> getMemberIds();
+    Set<ID> getOtherMemberIds();
 
     void sendAppendEntriesRequest(Term currentTerm, ID destinationId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entriesToReplicate, int commitIndex);
 

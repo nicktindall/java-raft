@@ -62,7 +62,7 @@ public class LeaderTest {
     public void setUp() {
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         when(pendingResponseRegistryFactory.createPendingResponseRegistry()).thenReturn(pendingResponseRegistry);
-        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
+        when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
         when(logReplicatorFactory.createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
         leader = new Leader<>(SERVER_ID, TERM_2, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory);
     }

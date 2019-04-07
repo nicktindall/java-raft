@@ -87,7 +87,7 @@ public class CandidateTest {
 
     @Test
     public void handleRequestVoteResponse_WillTransitionToLeaderStateAndSendHeartbeat_WhenAQuorumIsReached() {
-        when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
+        when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
         Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3);
         Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, log, cluster);
         candidateState.recordVoteAndClaimLeadershipIfEligible(SERVER_ID);

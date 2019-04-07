@@ -60,8 +60,10 @@ public class TestCluster {
             }
 
             @Override
-            public Set<Long> getMemberIds() {
-                return TestCluster.this.getMemberIds();
+            public Set<Long> getOtherMemberIds() {
+                return TestCluster.this.getMemberIds().stream()
+                        .filter(id -> !id.equals(localId))
+                        .collect(Collectors.toSet());
             }
 
             @Override
