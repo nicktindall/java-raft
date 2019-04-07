@@ -5,7 +5,6 @@ import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.verify;
 
 import java.util.List;
@@ -17,7 +16,6 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -42,7 +40,7 @@ public class FollowerTest {
     public void handleAppendEntriesRequest_WillRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
         Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_0, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_1, SERVER_ID, OTHER_SERVER_ID, false, Optional.empty())));
+        verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, false, Optional.empty());
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
     }
 
@@ -50,7 +48,7 @@ public class FollowerTest {
     public void handleAppendEntriesRequest_WillRejectRequest_PrevLogEntryHasIncorrectTerm() {
         Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_1), emptyList(), 0));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_1, SERVER_ID, OTHER_SERVER_ID, false, Optional.empty())));
+        verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, false, Optional.empty());
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
     }
 
@@ -58,7 +56,7 @@ public class FollowerTest {
     public void handleAppendEntriesRequest_WillAcceptRequest_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm() {
         Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_1, SERVER_ID, OTHER_SERVER_ID, true, Optional.of(3))));
+        verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, true, Optional.of(3));
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
     }
 
@@ -66,7 +64,7 @@ public class FollowerTest {
     public void handleAppendEntriesRequest_WillAcceptRequest_AndAdvanceTerm_WhenPreviousLogIndexMatches_AndLeaderTermIsGreaterThanLocalTerm() {
         Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, true, Optional.of(3))));
+        verify(cluster).sendAppendEntriesResponse(TERM_2, OTHER_SERVER_ID, true, Optional.of(3));
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
     }
 
@@ -75,7 +73,7 @@ public class FollowerTest {
         Log log = logContaining(ENTRY_1, ENTRY_2);
         Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, log, cluster);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 2));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_1, SERVER_ID, OTHER_SERVER_ID, true, Optional.of(3))));
+        verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, true, Optional.of(3));
         assertThat(log.getCommitIndex()).isEqualTo(2);
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
     }
@@ -85,7 +83,7 @@ public class FollowerTest {
         Log log = logContaining(ENTRY_1, ENTRY_2);
         Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, log, cluster);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 10));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_1, SERVER_ID, OTHER_SERVER_ID, true, Optional.of(3))));
+        verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, true, Optional.of(3));
         assertThat(log.getCommitIndex()).isEqualTo(3);
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
     }
@@ -94,7 +92,7 @@ public class FollowerTest {
     public void handleAppendEntriesRequest_WillReturnLastAppendedIndex_WhenAppendIsSuccessful() {
         Follower<Long> followerState = new Follower<>(SERVER_ID, TERM_1, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 1, Optional.of(TERM_0), List.of(ENTRY_2), 0));
-        verify(cluster).send(refEq(new AppendEntriesResponse<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, true, Optional.of(2))));
+        verify(cluster).sendAppendEntriesResponse(TERM_2, OTHER_SERVER_ID, true, Optional.of(2));
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
     }
 }

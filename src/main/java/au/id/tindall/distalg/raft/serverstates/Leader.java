@@ -89,7 +89,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         int defaultNextIndex = getLog().getNextLogIndex();
         return new HashMap<>(getCluster().getMemberIds().stream()
                 .filter(memberId -> !getId().equals(memberId))
-                .collect(toMap(identity(), id -> logReplicatorFactory.createLogReplicator(getId(), getCluster(), id, defaultNextIndex))));
+                .collect(toMap(identity(), id -> logReplicatorFactory.createLogReplicator(getCluster(), id, defaultNextIndex))));
     }
 
     @Override

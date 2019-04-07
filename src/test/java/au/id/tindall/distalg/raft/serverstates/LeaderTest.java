@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.PendingResponseRegistry;
+import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
@@ -63,7 +63,7 @@ public class LeaderTest {
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         when(pendingResponseRegistryFactory.createPendingResponseRegistry()).thenReturn(pendingResponseRegistry);
         when(cluster.getMemberIds()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID));
-        when(logReplicatorFactory.createLogReplicator(SERVER_ID, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
+        when(logReplicatorFactory.createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
         leader = new Leader<>(SERVER_ID, TERM_2, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory);
     }
 
@@ -72,7 +72,7 @@ public class LeaderTest {
 
         @Test
         public void willCreateLogReplicators() {
-            verify(logReplicatorFactory).createLogReplicator(SERVER_ID, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
+            verify(logReplicatorFactory).createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
         }
 
         @Test

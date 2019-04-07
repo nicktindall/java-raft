@@ -8,20 +8,21 @@ import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static java.util.Collections.singleton;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.refEq;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
-import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import org.junit.jupiter.api.Nested;
@@ -137,7 +138,7 @@ public class ServerTest {
         public void willBroadcastRequestVoteRequests() {
             var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
             server.electionTimeout();
-            verify(cluster).send(refEq(new RequestVoteRequest<>(RESTORED_TERM.next(), SERVER_ID, RESTORED_LOG.getLastLogIndex(), RESTORED_LOG.getLastLogTerm())));
+            verify(cluster).sendRequestVoteRequest(RESTORED_TERM.next(), RESTORED_LOG.getLastLogIndex(), RESTORED_LOG.getLastLogTerm());
         }
 
         @Test
@@ -146,7 +147,7 @@ public class ServerTest {
             var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
             when(cluster.isQuorum(singleton(SERVER_ID))).thenReturn(true);
             server.electionTimeout();
-            verify(cluster, never()).send(any(AppendEntriesRequest.class));
+            verify(cluster, never()).sendAppendEntriesRequest(any(Term.class), anyLong(), anyInt(), any(Optional.class), anyList(), anyInt());
             assertThat(server.getState()).isEqualTo(LEADER);
         }
     }

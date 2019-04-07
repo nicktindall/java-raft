@@ -16,8 +16,6 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
-import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 
 public class Candidate<ID extends Serializable> extends ServerState<ID> {
@@ -32,7 +30,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     @Override
     protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
         if (messageIsStale(appendEntriesRequest)) {
-            getCluster().send(new AppendEntriesResponse<>(getCurrentTerm(), getId(), appendEntriesRequest.getLeaderId(), false, empty()));
+            getCluster().sendAppendEntriesResponse(getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }
 
@@ -65,7 +63,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     }
 
     public void requestVotes() {
-        getCluster().send(new RequestVoteRequest<>(getCurrentTerm(), getId(), getLog().getLastLogIndex(), getLog().getLastLogTerm()));
+        getCluster().sendRequestVoteRequest(getCurrentTerm(), getLog().getLastLogIndex(), getLog().getLastLogTerm());
     }
 
     public Set<ID> getReceivedVotes() {

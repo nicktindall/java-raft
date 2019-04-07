@@ -88,14 +88,14 @@ public abstract class ServerState<ID extends Serializable> {
 
     protected Result<ID> handle(RequestVoteRequest<ID> requestVote) {
         if (requestVote.getTerm().isLessThan(currentTerm)) {
-            cluster.send(new RequestVoteResponse<>(currentTerm, id, requestVote.getCandidateId(), false));
+            cluster.sendRequestVoteResponse(currentTerm, requestVote.getCandidateId(), false);
         } else {
             boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote)
                     && candidatesLogIsAtLeastUpToDateAsMine(requestVote);
             if (grantVote) {
                 votedFor = requestVote.getCandidateId();
             }
-            cluster.send(new RequestVoteResponse<>(currentTerm, id, requestVote.getCandidateId(), grantVote));
+            cluster.sendRequestVoteResponse(currentTerm, requestVote.getCandidateId(), grantVote);
         }
         return complete(this);
     }

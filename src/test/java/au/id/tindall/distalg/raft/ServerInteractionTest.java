@@ -26,9 +26,9 @@ public class ServerInteractionTest {
     @BeforeEach
     public void setUp() {
         cluster = new TestCluster();
-        server1 = new Server<>(1L, cluster);
-        server2 = new Server<>(2L, cluster);
-        server3 = new Server<>(3L, cluster);
+        server1 = new Server<>(1L, cluster.forServer(1L));
+        server2 = new Server<>(2L, cluster.forServer(2L));
+        server3 = new Server<>(3L, cluster.forServer(3L));
         cluster.setServers(server1, server2, server3);
     }
 

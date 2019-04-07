@@ -3,7 +3,6 @@ package au.id.tindall.distalg.raft.serverstates;
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,7 +23,6 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
-import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -73,7 +71,7 @@ public class ServerStateTest {
         public void willNotGrantVote_WhenRequesterTermIsLowerThanLocalTerm() {
             var serverState = new ServerStateImpl(SERVER_ID, TERM_3, null, logContaining(), cluster);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
-            verify(cluster).send(refEq(new RequestVoteResponse<>(TERM_3, SERVER_ID, OTHER_SERVER_ID, false)));
+            verify(cluster).sendRequestVoteResponse(TERM_3, OTHER_SERVER_ID, false);
             assertThat(serverState.getVotedFor()).isEmpty();
         }
 
@@ -81,7 +79,7 @@ public class ServerStateTest {
         public void willNotGrantVote_WhenServerHasAlreadyVoted() {
             var serverState = new ServerStateImpl(SERVER_ID, TERM_3, SERVER_ID, logContaining(), cluster);
             serverState.handle(new RequestVoteRequest<>(TERM_3, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
-            verify(cluster).send(refEq(new RequestVoteResponse<>(TERM_3, SERVER_ID, OTHER_SERVER_ID, false)));
+            verify(cluster).sendRequestVoteResponse(TERM_3, OTHER_SERVER_ID, false);
             assertThat(serverState.getVotedFor()).contains(SERVER_ID);
         }
 
@@ -89,7 +87,7 @@ public class ServerStateTest {
         public void willNotGrantVote_WhenServerLogIsMoreUpToDateThanRequesterLog() {
             var serverState = new ServerStateImpl(SERVER_ID, TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0)));
-            verify(cluster).send(refEq(new RequestVoteResponse<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, false)));
+            verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, false);
             assertThat(serverState.getVotedFor()).isEmpty();
         }
 
@@ -97,7 +95,7 @@ public class ServerStateTest {
         public void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasNotAlreadyVoted() {
             var serverState = new ServerStateImpl(SERVER_ID, TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
-            verify(cluster).send(refEq(new RequestVoteResponse<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, true)));
+            verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
             assertThat(serverState.getVotedFor()).contains(OTHER_SERVER_ID);
         }
 
@@ -105,7 +103,7 @@ public class ServerStateTest {
         public void willGrantVote_WhenRequesterTermIsEqualServerLogIsLessUpToDateAndServerHasNotAlreadyVoted() {
             var serverState = new ServerStateImpl(SERVER_ID, TERM_2, null, logContaining(ENTRY_1, ENTRY_2), cluster);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
-            verify(cluster).send(refEq(new RequestVoteResponse<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, true)));
+            verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
             assertThat(serverState.getVotedFor()).contains(OTHER_SERVER_ID);
         }
 
@@ -113,7 +111,7 @@ public class ServerStateTest {
         public void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasAlreadyVotedForRequester() {
             var serverState = new ServerStateImpl(SERVER_ID, TERM_2, OTHER_SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
-            verify(cluster).send(refEq(new RequestVoteResponse<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, true)));
+            verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
             assertThat(serverState.getVotedFor()).contains(OTHER_SERVER_ID);
         }
     }

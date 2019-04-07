@@ -7,8 +7,10 @@ import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,7 +26,6 @@ import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,7 +71,7 @@ public class CandidateTest {
     public void requestVotes_WillBroadcastRequestVoteRpc() {
         Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, new Log(), cluster);
         candidateState.requestVotes();
-        verify(cluster).send(refEq(new RequestVoteRequest<>(TERM_2, SERVER_ID, 0, Optional.empty())));
+        verify(cluster).sendRequestVoteRequest(TERM_2, 0, Optional.empty());
     }
 
     @Test
@@ -79,7 +80,7 @@ public class CandidateTest {
         Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         when(cluster.isQuorum(anySet())).thenReturn(false);
         Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
-        verify(cluster, never()).send(any(AppendEntriesRequest.class));
+        verify(cluster, never()).sendAppendEntriesRequest(any(Term.class), anyLong(), anyInt(), any(Optional.class), anyList(), anyInt());
         assertThat(result).isEqualToComparingFieldByField(complete(candidateState));
         assertThat(candidateState.getReceivedVotes()).contains(OTHER_SERVER_ID);
     }
@@ -92,7 +93,7 @@ public class CandidateTest {
         candidateState.recordVoteAndClaimLeadershipIfEligible(SERVER_ID);
         when(cluster.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(true);
         Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
-        verify(cluster).send(refEq(new AppendEntriesRequest<>(TERM_2, SERVER_ID, OTHER_SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0)));
+        verify(cluster).sendAppendEntriesRequest(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0);
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(new Leader<>(SERVER_ID, TERM_2, log, cluster, new PendingResponseRegistryFactory(), new LogReplicatorFactory<>())));
     }
 
@@ -101,7 +102,7 @@ public class CandidateTest {
     public void handleRequestVoteResponse_WillIgnoreResponse_WhenItIsStale() {
         Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
         Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true));
-        verify(cluster, never()).send(any(AppendEntriesRequest.class));
+        verify(cluster, never()).sendAppendEntriesRequest(any(Term.class), anyLong(), anyInt(), any(Optional.class), anyList(), anyInt());
         verify(cluster, never()).isQuorum(anySet());
         assertThat(candidateState.getReceivedVotes()).doesNotContain(OTHER_SERVER_ID);
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(candidateState));
