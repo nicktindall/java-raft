@@ -31,9 +31,9 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     private final Map<ID, LogReplicator<ID>> replicators;
     private final PendingResponseRegistry pendingResponseRegistry;
 
-    public Leader(ID id, Term currentTerm, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
+    public Leader(Term currentTerm, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                   LogReplicatorFactory<ID> logReplicatorFactory) {
-        super(id, currentTerm, null, log, cluster);
+        super(currentTerm, null, log, cluster);
         replicators = createReplicators(logReplicatorFactory);
         pendingResponseRegistry = pendingResponseRegistryFactory.createPendingResponseRegistry();
         pendingResponseRegistry.startListeningForCommitEvents(getLog());

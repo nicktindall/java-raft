@@ -49,19 +49,19 @@ public class CandidateTest {
 
     @Test
     public void receivedVotes_WillBeInitializedEmpty() {
-        Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, new Log(), cluster);
+        Candidate<Long> candidateState = new Candidate<>(TERM_2, new Log(), cluster, SERVER_ID);
         assertThat(candidateState.getReceivedVotes()).isEmpty();
     }
 
     @Test
     public void votedFor_WillBeInitializedToOwnId() {
-        Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, new Log(), cluster);
+        Candidate<Long> candidateState = new Candidate<>(TERM_2, new Log(), cluster, SERVER_ID);
         assertThat(candidateState.getVotedFor()).contains(SERVER_ID);
     }
 
     @Test
     public void getReceivedVotes_WillReturnUnmodifiableSet() {
-        Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, new Log(), cluster);
+        Candidate<Long> candidateState = new Candidate<>(TERM_2, new Log(), cluster, SERVER_ID);
         assertThatCode(
                 () -> candidateState.getReceivedVotes().add(OTHER_SERVER_ID)
         ).isInstanceOf(UnsupportedOperationException.class);
@@ -69,7 +69,7 @@ public class CandidateTest {
 
     @Test
     public void requestVotes_WillBroadcastRequestVoteRpc() {
-        Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, new Log(), cluster);
+        Candidate<Long> candidateState = new Candidate<>(TERM_2, new Log(), cluster, SERVER_ID);
         candidateState.requestVotes();
         verify(cluster).sendRequestVoteRequest(TERM_2, 0, Optional.empty());
     }
@@ -77,7 +77,7 @@ public class CandidateTest {
     @Test
     @SuppressWarnings("unchecked")
     public void handleRequestVoteResponse_WillRecordVote_WhenResponseIsNotStaleAndQuorumIsNotReached() {
-        Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+        Candidate<Long> candidateState = new Candidate<>(TERM_2, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, SERVER_ID);
         when(cluster.isQuorum(anySet())).thenReturn(false);
         Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
         verify(cluster, never()).sendAppendEntriesRequest(any(Term.class), anyLong(), anyInt(), any(Optional.class), anyList(), anyInt());
@@ -89,18 +89,18 @@ public class CandidateTest {
     public void handleRequestVoteResponse_WillTransitionToLeaderStateAndSendHeartbeat_WhenAQuorumIsReached() {
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
         Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3);
-        Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, log, cluster);
+        Candidate<Long> candidateState = new Candidate<>(TERM_2, log, cluster, SERVER_ID);
         candidateState.recordVoteAndClaimLeadershipIfEligible(SERVER_ID);
         when(cluster.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(true);
         Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
         verify(cluster).sendAppendEntriesRequest(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1), emptyList(), 0);
-        assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(new Leader<>(SERVER_ID, TERM_2, log, cluster, new PendingResponseRegistryFactory(), new LogReplicatorFactory<>())));
+        assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(new Leader<>(TERM_2, log, cluster, new PendingResponseRegistryFactory(), new LogReplicatorFactory<>())));
     }
 
     @Test
     @SuppressWarnings("unchecked")
     public void handleRequestVoteResponse_WillIgnoreResponse_WhenItIsStale() {
-        Candidate<Long> candidateState = new Candidate<>(SERVER_ID, TERM_2, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+        Candidate<Long> candidateState = new Candidate<>(TERM_2, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, SERVER_ID);
         Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true));
         verify(cluster, never()).sendAppendEntriesRequest(any(Term.class), anyLong(), anyInt(), any(Optional.class), anyList(), anyInt());
         verify(cluster, never()).isQuorum(anySet());
@@ -111,8 +111,8 @@ public class CandidateTest {
     @Test
     public void handleAppendEntriesRequest_WillTransitionToFollowerAndContinueProcessingMessage_WhenTermIsGreaterThanOrEqualToLocalTerm() {
         Log log = logContaining(ENTRY_1, ENTRY_2);
-        Candidate<Long> server = new Candidate<>(SERVER_ID, TERM_1, log, cluster);
+        Candidate<Long> server = new Candidate<>(TERM_1, log, cluster, SERVER_ID);
         Result<Long> result = server.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
-        assertThat(result).isEqualToComparingFieldByFieldRecursively(incomplete(new Follower<>(SERVER_ID, TERM_2, null, log, cluster)));
+        assertThat(result).isEqualToComparingFieldByFieldRecursively(incomplete(new Follower<>(TERM_2, null, log, cluster)));
     }
 }

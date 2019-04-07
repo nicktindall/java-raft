@@ -22,8 +22,8 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
 
     private final Set<ID> receivedVotes;
 
-    public Candidate(ID id, Term currentTerm, Log log, Cluster<ID> cluster) {
-        super(id, currentTerm, id, log, cluster);
+    public Candidate(Term currentTerm, Log log, Cluster<ID> cluster, ID ownId) {
+        super(currentTerm, ownId, log, cluster);
         receivedVotes = new HashSet<>();
     }
 
@@ -34,7 +34,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
             return complete(this);
         }
 
-        return incomplete(new Follower<>(getId(), appendEntriesRequest.getTerm(), null, getLog(), getCluster()));
+        return incomplete(new Follower<>(appendEntriesRequest.getTerm(), null, getLog(), getCluster()));
     }
 
     @Override
@@ -54,7 +54,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     public Result<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
         this.receivedVotes.add(voter);
         if (getCluster().isQuorum(getReceivedVotes())) {
-            Leader<ID> leaderState = new Leader<>(getId(), getCurrentTerm(), getLog(), getCluster(), new PendingResponseRegistryFactory(), new LogReplicatorFactory<>());
+            Leader<ID> leaderState = new Leader<>(getCurrentTerm(), getLog(), getCluster(), new PendingResponseRegistryFactory(), new LogReplicatorFactory<>());
             leaderState.sendHeartbeatMessage();
             return complete(leaderState);
         } else {

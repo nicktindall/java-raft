@@ -18,9 +18,11 @@ import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 
 public class Server<ID extends Serializable> {
 
+    private final ID id;
     private ServerState<ID> state;
 
-    public Server(ServerState<ID> state) {
+    public Server(ID id, ServerState<ID> state) {
+        this.id = id;
         this.state = state;
     }
 
@@ -29,7 +31,7 @@ public class Server<ID extends Serializable> {
     }
 
     public Server(ID id, Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
-        state = new Follower<>(id, currentTerm, votedFor, log, cluster);
+        this(id, new Follower<>(currentTerm, votedFor, log, cluster));
     }
 
     public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
@@ -53,18 +55,18 @@ public class Server<ID extends Serializable> {
 
     public void electionTimeout() {
         Candidate<ID> nextState = new Candidate<>(
-                state.getId(),
                 state.getCurrentTerm().next(),
                 state.getLog(),
-                state.getCluster());
-        state = nextState.recordVoteAndClaimLeadershipIfEligible(state.getId()).getNextState();
+                state.getCluster(),
+                id);
+        state = nextState.recordVoteAndClaimLeadershipIfEligible(id).getNextState();
         if (state instanceof Candidate) {
             ((Candidate) state).requestVotes();
         }
     }
 
     public ID getId() {
-        return state.getId();
+        return id;
     }
 
     public Term getCurrentTerm() {

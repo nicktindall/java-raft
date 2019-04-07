@@ -28,14 +28,12 @@ import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 
 public abstract class ServerState<ID extends Serializable> {
 
-    private final ID id;
     private final Cluster<ID> cluster;
     private Term currentTerm;
     private ID votedFor;
     private Log log;
 
-    public ServerState(ID id, Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
-        this.id = id;
+    public ServerState(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
         this.currentTerm = currentTerm;
         this.votedFor = votedFor;
         this.log = log;
@@ -54,7 +52,7 @@ public abstract class ServerState<ID extends Serializable> {
 
     public Result<ID> handle(RpcMessage<ID> message) {
         if (message.getTerm().isGreaterThan(currentTerm)) {
-            return incomplete(new Follower<>(id, message.getTerm(), null, log, cluster));
+            return incomplete(new Follower<>(message.getTerm(), null, log, cluster));
         }
 
         if (message instanceof RequestVoteRequest) {
@@ -118,10 +116,6 @@ public abstract class ServerState<ID extends Serializable> {
 
     protected boolean messageIsNotStale(RpcMessage<ID> message) {
         return !messageIsStale(message);
-    }
-
-    public ID getId() {
-        return id;
     }
 
     public Term getCurrentTerm() {

@@ -130,6 +130,7 @@ public class ServerTest {
         @Test
         public void willVoteForSelf() {
             var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
+            when(cluster.isQuorum(singleton(SERVER_ID))).thenReturn(false);
             server.electionTimeout();
             assertThat(server.getVotedFor()).contains(SERVER_ID);
         }
@@ -165,7 +166,7 @@ public class ServerTest {
             };
             var clientResponse = new CompletableFuture();
             when(serverState.handle(clientRequest)).thenReturn(clientResponse);
-            var server = new Server<>(serverState);
+            var server = new Server<>(SERVER_ID, serverState);
             assertThat(server.handle(clientRequest)).isSameAs(clientResponse);
         }
     }
@@ -184,7 +185,7 @@ public class ServerTest {
         void willDelegateToCurrentState() {
             when(serverState.handle(rpcMessage)).thenReturn(complete(serverState));
 
-            new Server<>(serverState).handle(rpcMessage);
+            new Server<>(SERVER_ID, serverState).handle(rpcMessage);
 
             verify(serverState).handle(rpcMessage);
             verifyNoMoreInteractions(serverState);
@@ -195,7 +196,7 @@ public class ServerTest {
             when(serverState.handle(rpcMessage)).thenReturn(complete(nextServerState));
             when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
-            Server<Long> server = new Server<>(serverState);
+            Server<Long> server = new Server<>(SERVER_ID, serverState);
 
             server.handle(rpcMessage);
             verify(serverState).handle(rpcMessage);
@@ -212,7 +213,7 @@ public class ServerTest {
             when(serverState.handle(rpcMessage)).thenReturn(incomplete(nextServerState));
             when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
-            Server<Long> server = new Server<>(serverState);
+            Server<Long> server = new Server<>(SERVER_ID, serverState);
 
             server.handle(rpcMessage);
             verify(serverState).handle(rpcMessage);
