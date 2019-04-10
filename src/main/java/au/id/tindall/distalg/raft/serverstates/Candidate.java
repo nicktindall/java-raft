@@ -10,11 +10,9 @@ import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
-import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
-import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 
@@ -22,8 +20,8 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
 
     private final Set<ID> receivedVotes;
 
-    public Candidate(Term currentTerm, Log log, Cluster<ID> cluster, ID ownId) {
-        super(currentTerm, ownId, log, cluster);
+    public Candidate(Term currentTerm, Log log, Cluster<ID> cluster, ID ownId, ServerStateFactory<ID> serverStateFactory) {
+        super(currentTerm, ownId, log, cluster, serverStateFactory);
         receivedVotes = new HashSet<>();
     }
 
@@ -34,7 +32,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
             return complete(this);
         }
 
-        return incomplete(new Follower<>(appendEntriesRequest.getTerm(), null, getLog(), getCluster()));
+        return incomplete(serverStateFactory.createFollower(appendEntriesRequest.getTerm()));
     }
 
     @Override
@@ -54,7 +52,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     public Result<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
         this.receivedVotes.add(voter);
         if (getCluster().isQuorum(getReceivedVotes())) {
-            Leader<ID> leaderState = new Leader<>(getCurrentTerm(), getLog(), getCluster(), new PendingResponseRegistryFactory(), new LogReplicatorFactory<>());
+            Leader<ID> leaderState = serverStateFactory.createLeader(getCurrentTerm());
             leaderState.sendHeartbeatMessage();
             return complete(leaderState);
         } else {

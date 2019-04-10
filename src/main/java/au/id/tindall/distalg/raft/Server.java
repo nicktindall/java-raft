@@ -1,37 +1,37 @@
 package au.id.tindall.distalg.raft;
 
 import java.io.Serializable;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.serverstates.Candidate;
-import au.id.tindall.distalg.raft.serverstates.Follower;
 import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
+import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 
 public class Server<ID extends Serializable> {
 
     private final ID id;
     private ServerState<ID> state;
+    private ServerStateFactory<ID> serverStateFactory;
 
-    public Server(ID id, ServerState<ID> state) {
+    public Server(ID id, ServerState<ID> state, ServerStateFactory<ID> serverStateFactory) {
         this.id = id;
         this.state = state;
+        this.serverStateFactory = serverStateFactory;
     }
 
-    public Server(ID id, Cluster<ID> cluster) {
-        this(id, new Term(0), null, new Log(), cluster);
+    public Server(ID id, ServerStateFactory<ID> serverStateFactory) {
+        this(id, new Term(0), null, serverStateFactory);
     }
 
-    public Server(ID id, Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
-        this(id, new Follower<>(currentTerm, votedFor, log, cluster));
+    public Server(ID id, Term currentTerm, ID votedFor, ServerStateFactory<ID> serverStateFactory) {
+        this(id, serverStateFactory.createFollower(currentTerm, votedFor), serverStateFactory);
     }
 
     public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
@@ -54,11 +54,7 @@ public class Server<ID extends Serializable> {
     }
 
     public void electionTimeout() {
-        Candidate<ID> nextState = new Candidate<>(
-                state.getCurrentTerm().next(),
-                state.getLog(),
-                state.getCluster(),
-                id);
+        Candidate<ID> nextState = serverStateFactory.createCandidate(state.getCurrentTerm().next());
         state = nextState.recordVoteAndClaimLeadershipIfEligible(id).getNextState();
         if (state instanceof Candidate) {
             ((Candidate) state).requestVotes();
@@ -69,16 +65,8 @@ public class Server<ID extends Serializable> {
         return id;
     }
 
-    public Term getCurrentTerm() {
-        return state.getCurrentTerm();
-    }
-
     public ServerStateType getState() {
         return state.getServerStateType();
-    }
-
-    public Optional<ID> getVotedFor() {
-        return state.getVotedFor();
     }
 
     public Log getLog() {

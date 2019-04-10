@@ -32,12 +32,14 @@ public abstract class ServerState<ID extends Serializable> {
     private Term currentTerm;
     private ID votedFor;
     private Log log;
+    protected final ServerStateFactory<ID> serverStateFactory;
 
-    public ServerState(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
+    public ServerState(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory) {
         this.currentTerm = currentTerm;
         this.votedFor = votedFor;
         this.log = log;
         this.cluster = cluster;
+        this.serverStateFactory = serverStateFactory;
     }
 
     public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> message) {
@@ -52,7 +54,7 @@ public abstract class ServerState<ID extends Serializable> {
 
     public Result<ID> handle(RpcMessage<ID> message) {
         if (message.getTerm().isGreaterThan(currentTerm)) {
-            return incomplete(new Follower<>(message.getTerm(), null, log, cluster));
+            return incomplete(serverStateFactory.createFollower(message.getTerm()));
         }
 
         if (message instanceof RequestVoteRequest) {

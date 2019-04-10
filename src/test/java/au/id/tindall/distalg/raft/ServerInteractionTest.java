@@ -9,10 +9,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.TestCluster;
+import au.id.tindall.distalg.raft.log.Log;
+import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -24,16 +28,18 @@ public class ServerInteractionTest {
     private TestCluster cluster;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
+        PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
+        LogReplicatorFactory logReplicatorFactory = new LogReplicatorFactory();
         cluster = new TestCluster();
-        server1 = new Server<>(1L, cluster.forServer(1L));
-        server2 = new Server<>(2L, cluster.forServer(2L));
-        server3 = new Server<>(3L, cluster.forServer(3L));
+        server1 = new Server<>(1L, new ServerStateFactory<>(1L, new Log(), cluster.forServer(1L), pendingResponseRegistryFactory, logReplicatorFactory));
+        server2 = new Server<>(2L, new ServerStateFactory<>(2L, new Log(), cluster.forServer(2L), pendingResponseRegistryFactory, logReplicatorFactory));
+        server3 = new Server<>(3L, new ServerStateFactory<>(3L, new Log(), cluster.forServer(3L), pendingResponseRegistryFactory, logReplicatorFactory));
         cluster.setServers(server1, server2, server3);
     }
 
     @Test
-    public void singleElectionTimeout_WillResultInUnanimousLeaderElection() {
+    void singleElectionTimeout_WillResultInUnanimousLeaderElection() {
         server1.electionTimeout();
         cluster.fullyFlush();
         assertThat(server1.getState()).isEqualTo(LEADER);
@@ -42,7 +48,7 @@ public class ServerInteractionTest {
     }
 
     @Test
-    public void singleElectionTimeout_WillResultInLeaderElection_AfterSplitElection() {
+    void singleElectionTimeout_WillResultInLeaderElection_AfterSplitElection() {
         server1.electionTimeout();
         server2.electionTimeout();
         server3.electionTimeout();
@@ -55,7 +61,7 @@ public class ServerInteractionTest {
     }
 
     @Test
-    public void concurrentElectionTimeout_WillResultInNoLeaderElection_WhenNoQuorumIsReached() {
+    void concurrentElectionTimeout_WillResultInNoLeaderElection_WhenNoQuorumIsReached() {
         server1.electionTimeout();
         server2.electionTimeout();
         server3.electionTimeout();
@@ -66,7 +72,7 @@ public class ServerInteractionTest {
     }
 
     @Test
-    public void concurrentElectionTimeout_WillElectALeader_WhenAQuorumIsReached() {
+    void concurrentElectionTimeout_WillElectALeader_WhenAQuorumIsReached() {
         server1.electionTimeout();
         server3.electionTimeout();
         cluster.fullyFlush();
@@ -76,7 +82,7 @@ public class ServerInteractionTest {
     }
 
     @Test
-    public void clientRegistrationRequest_WillReplicateClientRegistrationToAllServers() throws ExecutionException, InterruptedException {
+    void clientRegistrationRequest_WillReplicateClientRegistrationToAllServers() throws ExecutionException, InterruptedException {
         server1.electionTimeout();
         cluster.fullyFlush();
         CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>(server1.getId()));

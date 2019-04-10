@@ -35,10 +35,12 @@ public class FollowerTest {
 
     @Mock
     private Cluster<Long> cluster;
+    @Mock
+    private ServerStateFactory<Long> serverStateFactory;
 
     @Test
     public void handleAppendEntriesRequest_WillRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
-        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
+        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_0, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
         verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, false, Optional.empty());
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
@@ -46,7 +48,7 @@ public class FollowerTest {
 
     @Test
     public void handleAppendEntriesRequest_WillRejectRequest_PrevLogEntryHasIncorrectTerm() {
-        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
+        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_1), emptyList(), 0));
         verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, false, Optional.empty());
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
@@ -54,7 +56,7 @@ public class FollowerTest {
 
     @Test
     public void handleAppendEntriesRequest_WillAcceptRequest_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm() {
-        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
+        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
         verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, true, Optional.of(3));
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
@@ -62,7 +64,7 @@ public class FollowerTest {
 
     @Test
     public void handleAppendEntriesRequest_WillAcceptRequest_AndAdvanceTerm_WhenPreviousLogIndexMatches_AndLeaderTermIsGreaterThanLocalTerm() {
-        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster);
+        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
         verify(cluster).sendAppendEntriesResponse(TERM_2, OTHER_SERVER_ID, true, Optional.of(3));
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
@@ -71,7 +73,7 @@ public class FollowerTest {
     @Test
     public void handleAppendEntriesRequest_WillAcceptRequest_AndAdvanceCommitIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLocal() {
         Log log = logContaining(ENTRY_1, ENTRY_2);
-        Follower<Long> followerState = new Follower<>(TERM_1, null, log, cluster);
+        Follower<Long> followerState = new Follower<>(TERM_1, null, log, cluster, serverStateFactory);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 2));
         verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, true, Optional.of(3));
         assertThat(log.getCommitIndex()).isEqualTo(2);
@@ -81,7 +83,7 @@ public class FollowerTest {
     @Test
     public void handleAppendEntriesRequest_WillAcceptRequest_AndAdvanceCommitIndexToLastLocalIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLastLocalIndex() {
         Log log = logContaining(ENTRY_1, ENTRY_2);
-        Follower<Long> followerState = new Follower<>(TERM_1, null, log, cluster);
+        Follower<Long> followerState = new Follower<>(TERM_1, null, log, cluster, serverStateFactory);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 10));
         verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, true, Optional.of(3));
         assertThat(log.getCommitIndex()).isEqualTo(3);
@@ -90,7 +92,7 @@ public class FollowerTest {
 
     @Test
     public void handleAppendEntriesRequest_WillReturnLastAppendedIndex_WhenAppendIsSuccessful() {
-        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+        Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory);
         Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 1, Optional.of(TERM_0), List.of(ENTRY_2), 0));
         verify(cluster).sendAppendEntriesResponse(TERM_2, OTHER_SERVER_ID, true, Optional.of(2));
         assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));

@@ -55,6 +55,8 @@ public class LeaderTest {
     private Log log;
     @Mock
     private LogReplicator<Long> otherServerLogReplicator;
+    @Mock
+    private ServerStateFactory<Long> serverStateFactory;
 
     private Leader<Long> leader;
 
@@ -64,7 +66,7 @@ public class LeaderTest {
         when(pendingResponseRegistryFactory.createPendingResponseRegistry()).thenReturn(pendingResponseRegistry);
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
         when(logReplicatorFactory.createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
-        leader = new Leader<>(TERM_2, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory);
+        leader = new Leader<>(TERM_2, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, serverStateFactory);
     }
 
     @Nested

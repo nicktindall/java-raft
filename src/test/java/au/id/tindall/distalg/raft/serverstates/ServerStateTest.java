@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.serverstates;
 
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
+import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.NOT_LEADER;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -21,7 +22,6 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
-import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import org.junit.jupiter.api.Nested;
@@ -48,19 +48,25 @@ public class ServerStateTest {
     private Cluster<Long> cluster;
     @Mock
     private RpcMessage<Long> rpcMessage;
+    @Mock
+    private ServerStateFactory<Long> serverStateFactory;
+    @Mock
+    private Follower<Long> follower;
+    @Mock
+    private Log log;
 
     @Nested
     class HandleRequest {
 
         @Test
         void willRevertToFollowerStateAndResetVotedForAndAdvanceTerm_WhenSenderTermIsGreaterThanLocalTerm() {
-            var localTerm = TERM_1;
-            var messageTerm = localTerm.next();
-            when(rpcMessage.getTerm()).thenReturn(messageTerm);
-            var log = logContaining();
-            var serverState = new ServerStateImpl(localTerm, OTHER_SERVER_ID, log, cluster);
-            assertThat(serverState.handle(rpcMessage))
-                    .isEqualToComparingFieldByFieldRecursively(incomplete(new Follower<>(messageTerm, null, log, cluster)));
+            when(serverStateFactory.createFollower(TERM_2)).thenReturn(follower);
+            when(rpcMessage.getTerm()).thenReturn(TERM_2);
+
+            var serverState = new ServerStateImpl(TERM_1, OTHER_SERVER_ID, log, cluster, serverStateFactory);
+            Result<Long> result = serverState.handle(rpcMessage);
+
+            assertThat(result).isEqualToComparingFieldByFieldRecursively(incomplete(follower));
         }
     }
 
@@ -69,48 +75,54 @@ public class ServerStateTest {
 
         @Test
         public void willNotGrantVote_WhenRequesterTermIsLowerThanLocalTerm() {
-            var serverState = new ServerStateImpl(TERM_3, null, logContaining(), cluster);
+            var serverState = new ServerStateImpl(TERM_3, null, log, cluster, serverStateFactory);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
+
             verify(cluster).sendRequestVoteResponse(TERM_3, OTHER_SERVER_ID, false);
             assertThat(serverState.getVotedFor()).isEmpty();
         }
 
         @Test
         public void willNotGrantVote_WhenServerHasAlreadyVoted() {
-            var serverState = new ServerStateImpl(TERM_3, SERVER_ID, logContaining(), cluster);
+            var serverState = new ServerStateImpl(TERM_3, SERVER_ID, log, cluster, serverStateFactory);
             serverState.handle(new RequestVoteRequest<>(TERM_3, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
+
             verify(cluster).sendRequestVoteResponse(TERM_3, OTHER_SERVER_ID, false);
             assertThat(serverState.getVotedFor()).contains(SERVER_ID);
         }
 
         @Test
         public void willNotGrantVote_WhenServerLogIsMoreUpToDateThanRequesterLog() {
-            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0)));
+
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, false);
             assertThat(serverState.getVotedFor()).isEmpty();
         }
 
         @Test
         public void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasNotAlreadyVoted() {
-            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
+
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
             assertThat(serverState.getVotedFor()).contains(OTHER_SERVER_ID);
         }
 
         @Test
         public void willGrantVote_WhenRequesterTermIsEqualServerLogIsLessUpToDateAndServerHasNotAlreadyVoted() {
-            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2), cluster);
+            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
+
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
             assertThat(serverState.getVotedFor()).contains(OTHER_SERVER_ID);
         }
 
         @Test
         public void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasAlreadyVotedForRequester() {
-            var serverState = new ServerStateImpl(TERM_2, OTHER_SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster);
+            var serverState = new ServerStateImpl(TERM_2, OTHER_SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
+
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
             assertThat(serverState.getVotedFor()).contains(OTHER_SERVER_ID);
         }
@@ -121,11 +133,12 @@ public class ServerStateTest {
 
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
-            var serverState = new ServerStateImpl(TERM_0, null, logContaining(), cluster);
+            var serverState = new ServerStateImpl(TERM_0, null, logContaining(), cluster, serverStateFactory);
             CompletableFuture<RegisterClientResponse<Long>> response = serverState.handle(new RegisterClientRequest<>(SERVER_ID));
+
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
-                    .isEqualTo(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, null));
+                    .isEqualTo(new RegisterClientResponse<>(NOT_LEADER, null, null));
         }
     }
 
@@ -134,8 +147,9 @@ public class ServerStateTest {
 
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
-            var serverState = new ServerStateImpl(TERM_0, null, logContaining(), cluster);
+            var serverState = new ServerStateImpl(TERM_0, null, logContaining(), cluster, serverStateFactory);
             CompletableFuture<ClientRequestResponse<Long>> response = serverState.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, 0, "command".getBytes(StandardCharsets.UTF_8)));
+
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
                     .isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
@@ -144,8 +158,8 @@ public class ServerStateTest {
 
     private static class ServerStateImpl extends ServerState<Long> {
 
-        ServerStateImpl(Term currentTerm, Long votedFor, Log log, Cluster<Long> cluster) {
-            super(currentTerm, votedFor, log, cluster);
+        ServerStateImpl(Term currentTerm, Long votedFor, Log log, Cluster<Long> cluster, ServerStateFactory<Long> serverStateFactory) {
+            super(currentTerm, votedFor, log, cluster, serverStateFactory);
         }
 
         @Override

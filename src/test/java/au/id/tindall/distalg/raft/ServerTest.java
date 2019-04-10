@@ -3,28 +3,26 @@ package au.id.tindall.distalg.raft;
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
-import static java.util.Collections.singleton;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.serverstates.Candidate;
+import au.id.tindall.distalg.raft.serverstates.Follower;
+import au.id.tindall.distalg.raft.serverstates.Leader;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
+import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,42 +35,25 @@ public class ServerTest {
     private static final long SERVER_ID = 100L;
     private static final Term RESTORED_TERM = new Term(111);
     private static final long RESTORED_VOTED_FOR = 999L;
-    private static final Log RESTORED_LOG = new Log();
+    private static final Term TERM_1 = new Term(1);
+    private static final Term TERM_0 = new Term(0);
 
     @Mock
-    private Cluster<Long> cluster;
+    private ServerStateFactory<Long> serverStateFactory;
 
     @Nested
     class NewServerConstructor {
 
         @Test
         public void willSetId() {
-            var server = new Server<>(SERVER_ID, cluster);
+            var server = new Server<>(SERVER_ID, serverStateFactory);
             assertThat(server.getId()).isEqualTo(SERVER_ID);
         }
 
         @Test
-        public void willInitializeCurrentTermToZero() {
-            var server = new Server<>(SERVER_ID, cluster);
-            assertThat(server.getCurrentTerm()).isEqualTo(new Term(0));
-        }
-
-        @Test
-        public void willInitializeLogToEmpty() {
-            var server = new Server<>(SERVER_ID, cluster);
-            assertThat(server.getLog().getEntries()).isEmpty();
-        }
-
-        @Test
-        public void willInitializeVotedForToNull() {
-            var server = new Server<>(SERVER_ID, cluster);
-            assertThat(server.getVotedFor()).isEmpty();
-        }
-
-        @Test
-        public void willInitializeStateToFollower() {
-            var server = new Server<>(SERVER_ID, cluster);
-            assertThat(server.getState()).isEqualTo(FOLLOWER);
+        public void willInitializeStateToFollowerWithTermZeroAndVotedForNull() {
+            new Server<>(SERVER_ID, serverStateFactory);
+            verify(serverStateFactory).createFollower(new Term(0), null);
         }
     }
 
@@ -81,75 +62,89 @@ public class ServerTest {
 
         @Test
         public void willSetId() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
+            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, serverStateFactory);
+
             assertThat(server.getId()).isEqualTo(SERVER_ID);
         }
 
         @Test
-        public void willRestoreCurrentTerm() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
-            assertThat(server.getCurrentTerm()).isEqualTo(RESTORED_TERM);
-        }
+        public void willInitializeStateToFollowerWithSpecifiedTermAndVotedFor() {
+            new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, serverStateFactory);
 
-        @Test
-        public void willRestoreLog() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
-            assertThat(server.getLog()).isSameAs(RESTORED_LOG);
-        }
-
-        @Test
-        public void willRestoreVotedFor() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
-            assertThat(server.getVotedFor()).contains(RESTORED_VOTED_FOR);
-        }
-
-        @Test
-        public void willInitializeStateToFollower() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
-            assertThat(server.getState()).isEqualTo(FOLLOWER);
+            verify(serverStateFactory).createFollower(RESTORED_TERM, RESTORED_VOTED_FOR);
         }
     }
 
     @Nested
     class ElectionTimeout {
 
+        @Mock
+        private Candidate<Long> candidate;
+        @Mock
+        private Follower<Long> currentState;
+        @Mock
+        private Leader<Long> leader;
+
+        @BeforeEach
+        void setUp() {
+            when(currentState.getCurrentTerm()).thenReturn(TERM_0);
+            when(serverStateFactory.createCandidate(any(Term.class))).thenReturn(candidate);
+            when(candidate.recordVoteAndClaimLeadershipIfEligible(anyLong())).thenReturn(complete(candidate));
+        }
+
         @Test
         public void willSetStateToCandidate() {
-            var server = new Server<>(SERVER_ID, cluster);
+            when(candidate.getServerStateType()).thenReturn(CANDIDATE);
+
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
             server.electionTimeout();
+
             assertThat(server.getState()).isEqualTo(CANDIDATE);
         }
 
         @Test
         public void willIncrementTerm() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
             server.electionTimeout();
-            assertThat(server.getCurrentTerm()).isEqualTo(RESTORED_TERM.next());
+
+            verify(serverStateFactory).createCandidate(TERM_1);
         }
 
         @Test
         public void willVoteForSelf() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
-            when(cluster.isQuorum(singleton(SERVER_ID))).thenReturn(false);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
             server.electionTimeout();
-            assertThat(server.getVotedFor()).contains(SERVER_ID);
+
+            verify(candidate).recordVoteAndClaimLeadershipIfEligible(SERVER_ID);
         }
 
         @Test
         public void willBroadcastRequestVoteRequests() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
             server.electionTimeout();
-            verify(cluster).sendRequestVoteRequest(RESTORED_TERM.next(), RESTORED_LOG.getLastLogIndex(), RESTORED_LOG.getLastLogTerm());
+
+            verify(candidate).requestVotes();
         }
 
         @Test
-        @SuppressWarnings("unchecked")
         public void willTransitionToLeader_WhenOwnVoteIsQuorum() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, RESTORED_LOG, cluster);
-            when(cluster.isQuorum(singleton(SERVER_ID))).thenReturn(true);
+            when(leader.getServerStateType()).thenReturn(LEADER);
+            when(candidate.recordVoteAndClaimLeadershipIfEligible(SERVER_ID)).thenReturn(complete(leader));
+
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
             server.electionTimeout();
-            verify(cluster, never()).sendAppendEntriesRequest(any(Term.class), anyLong(), anyInt(), any(Optional.class), anyList(), anyInt());
+
             assertThat(server.getState()).isEqualTo(LEADER);
+        }
+
+        @Test
+        public void willNotRequestVotes_WhenOwnVoteCausesTransitionToLeaderState() {
+            when(candidate.recordVoteAndClaimLeadershipIfEligible(SERVER_ID)).thenReturn(complete(leader));
+
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            server.electionTimeout();
+
+            verify(candidate, never()).requestVotes();
         }
     }
 
@@ -166,7 +161,7 @@ public class ServerTest {
             };
             var clientResponse = new CompletableFuture();
             when(serverState.handle(clientRequest)).thenReturn(clientResponse);
-            var server = new Server<>(SERVER_ID, serverState);
+            var server = new Server<>(SERVER_ID, serverState, serverStateFactory);
             assertThat(server.handle(clientRequest)).isSameAs(clientResponse);
         }
     }
@@ -185,7 +180,7 @@ public class ServerTest {
         void willDelegateToCurrentState() {
             when(serverState.handle(rpcMessage)).thenReturn(complete(serverState));
 
-            new Server<>(SERVER_ID, serverState).handle(rpcMessage);
+            new Server<>(SERVER_ID, serverState, serverStateFactory).handle(rpcMessage);
 
             verify(serverState).handle(rpcMessage);
             verifyNoMoreInteractions(serverState);
@@ -196,7 +191,7 @@ public class ServerTest {
             when(serverState.handle(rpcMessage)).thenReturn(complete(nextServerState));
             when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
-            Server<Long> server = new Server<>(SERVER_ID, serverState);
+            Server<Long> server = new Server<>(SERVER_ID, serverState, serverStateFactory);
 
             server.handle(rpcMessage);
             verify(serverState).handle(rpcMessage);
@@ -213,7 +208,7 @@ public class ServerTest {
             when(serverState.handle(rpcMessage)).thenReturn(incomplete(nextServerState));
             when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
-            Server<Long> server = new Server<>(SERVER_ID, serverState);
+            Server<Long> server = new Server<>(SERVER_ID, serverState, serverStateFactory);
 
             server.handle(rpcMessage);
             verify(serverState).handle(rpcMessage);

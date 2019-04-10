@@ -15,8 +15,8 @@ import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 
 public class Follower<ID extends Serializable> extends ServerState<ID> {
 
-    public Follower(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster) {
-        super(currentTerm, votedFor, log, cluster);
+    public Follower(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory) {
+        super(currentTerm, votedFor, log, cluster, serverStateFactory);
     }
 
     @Override
