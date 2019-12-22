@@ -54,10 +54,11 @@ public class Server<ID extends Serializable> {
     }
 
     public void electionTimeout() {
-        Candidate<ID> nextState = serverStateFactory.createCandidate(state.getCurrentTerm().next());
-        state = nextState.recordVoteAndClaimLeadershipIfEligible(id).getNextState();
+        updateState(serverStateFactory.createCandidate(state.getCurrentTerm().next()));
+        Result<ID> recordVoteResult = ((Candidate<ID>) state).recordVoteAndClaimLeadershipIfEligible(id);
+        updateState(recordVoteResult.getNextState());
         if (state instanceof Candidate) {
-            ((Candidate) state).requestVotes();
+            ((Candidate<ID>) state).requestVotes();
         }
     }
 

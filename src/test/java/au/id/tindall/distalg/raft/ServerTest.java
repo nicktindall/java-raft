@@ -103,6 +103,14 @@ public class ServerTest {
         }
 
         @Test
+        public void willDisposeOfCurrentState() {
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            server.electionTimeout();
+
+            verify(currentState).dispose();
+        }
+
+        @Test
         public void willIncrementTerm() {
             var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
             server.electionTimeout();
@@ -135,6 +143,16 @@ public class ServerTest {
             server.electionTimeout();
 
             assertThat(server.getState()).isEqualTo(LEADER);
+        }
+
+        @Test
+        public void willDisposeOfCandidate_WhenOwnVoteIsQuorum() {
+            when(candidate.recordVoteAndClaimLeadershipIfEligible(SERVER_ID)).thenReturn(complete(leader));
+
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            server.electionTimeout();
+
+            verify(candidate).dispose();
         }
 
         @Test
