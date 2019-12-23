@@ -1,15 +1,15 @@
 package au.id.tindall.distalg.raft.log;
 
-import static java.lang.String.format;
-import static java.util.Collections.unmodifiableList;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.IntStream.range;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.IntStream.range;
 
 public class Log {
 
@@ -23,7 +23,7 @@ public class Log {
         entryCommittedEventHandlers = new ArrayList<>();
     }
 
-    public void updateCommitIndex(List<Integer> matchIndices) {
+    public Optional<Integer> updateCommitIndex(List<Integer> matchIndices) {
         int clusterSize = matchIndices.size() + 1;
         List<Integer> matchIndicesHigherThanTheCommitIndexInAscendingOrder = matchIndices.stream()
                 .filter(index -> index > commitIndex)
@@ -34,7 +34,9 @@ public class Log {
             Integer newCommitIndex = matchIndicesHigherThanTheCommitIndexInAscendingOrder
                     .get(matchIndicesHigherThanTheCommitIndexInAscendingOrder.size() - majorityThreshold);
             setCommitIndex(newCommitIndex);
+            return Optional.of(newCommitIndex);
         }
+        return Optional.empty();
     }
 
     public void appendEntries(int prevLogIndex, List<LogEntry> newEntries) {

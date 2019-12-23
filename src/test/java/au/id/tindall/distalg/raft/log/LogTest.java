@@ -168,29 +168,29 @@ public class LogTest {
         @Test
         public void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            log.updateCommitIndex(List.of(0, 0, 3, 4));
-            assertThat(log.getCommitIndex()).isEqualTo(3);
+            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 3, 4));
+            assertThat(newCommitIndex).contains(3);
         }
 
         @Test
         public void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            log.updateCommitIndex(List.of(0, 2, 3));
-            assertThat(log.getCommitIndex()).isEqualTo(2);
+            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 2, 3));
+            assertThat(newCommitIndex).contains(2);
         }
 
         @Test
         public void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveNotAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            log.updateCommitIndex(List.of(0, 0, 0, 4));
-            assertThat(log.getCommitIndex()).isEqualTo(0);
+            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 0, 4));
+            assertThat(newCommitIndex).isEmpty();
         }
 
         @Test
         public void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveNotAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            log.updateCommitIndex(List.of(0, 0, 4));
-            assertThat(log.getCommitIndex()).isEqualTo(0);
+            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 4));
+            assertThat(newCommitIndex).isEmpty();
         }
 
         @Test
