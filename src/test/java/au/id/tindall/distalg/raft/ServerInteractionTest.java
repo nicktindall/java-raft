@@ -22,6 +22,9 @@ import org.junit.jupiter.api.Test;
 
 public class ServerInteractionTest {
 
+    private Log log1;
+    private Log log2;
+    private Log log3;
     private Server<Long> server1;
     private Server<Long> server2;
     private Server<Long> server3;
@@ -32,9 +35,12 @@ public class ServerInteractionTest {
         PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
         LogReplicatorFactory logReplicatorFactory = new LogReplicatorFactory();
         cluster = new TestCluster();
-        server1 = new Server<>(1L, new ServerStateFactory<>(1L, new Log(), cluster.forServer(1L), pendingResponseRegistryFactory, logReplicatorFactory));
-        server2 = new Server<>(2L, new ServerStateFactory<>(2L, new Log(), cluster.forServer(2L), pendingResponseRegistryFactory, logReplicatorFactory));
-        server3 = new Server<>(3L, new ServerStateFactory<>(3L, new Log(), cluster.forServer(3L), pendingResponseRegistryFactory, logReplicatorFactory));
+        log1 = new Log();
+        server1 = new Server<>(1L, new ServerStateFactory<>(1L, log1, cluster.forServer(1L), pendingResponseRegistryFactory, logReplicatorFactory));
+        log2 = new Log();
+        server2 = new Server<>(2L, new ServerStateFactory<>(2L, log2, cluster.forServer(2L), pendingResponseRegistryFactory, logReplicatorFactory));
+        log3 = new Log();
+        server3 = new Server<>(3L, new ServerStateFactory<>(3L, log3, cluster.forServer(3L), pendingResponseRegistryFactory, logReplicatorFactory));
         cluster.setServers(server1, server2, server3);
     }
 
@@ -88,5 +94,16 @@ public class ServerInteractionTest {
         CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>(server1.getId()));
         cluster.fullyFlush();
         assertThat(handle.get()).isEqualToComparingFieldByFieldRecursively(new RegisterClientResponse<>(OK, 1, null));
+    }
+
+    @Test
+    public void commitIndicesWillAdvanceAsLogEntriesAreDistributed() {
+        server1.electionTimeout();
+        cluster.fullyFlush();
+        server1.handle(new RegisterClientRequest<>(server1.getId()));
+        cluster.fullyFlush();
+        assertThat(log1.getCommitIndex()).isEqualTo(1);
+        assertThat(log2.getCommitIndex()).isEqualTo(1);
+        assertThat(log3.getCommitIndex()).isEqualTo(1);
     }
 }

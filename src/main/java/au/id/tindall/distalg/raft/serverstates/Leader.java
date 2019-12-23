@@ -67,17 +67,19 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
             int lastAppendedIndex = appendEntriesResponse.getAppendedIndex()
                     .orElseThrow(() -> new IllegalStateException("Append entries response was success with no appendedIndex"));
             replicators.get(remoteServerId).logSuccessResponse(lastAppendedIndex);
-            updateCommitIndex();
+            if (updateCommitIndex()) {
+                sendHeartbeatMessage();
+            }
         } else {
             replicators.get(remoteServerId).logFailedResponse();
         }
     }
 
-    private void updateCommitIndex() {
+    private boolean updateCommitIndex() {
         List<Integer> followerMatchIndices = replicators.values().stream()
                 .map(LogReplicator::getMatchIndex)
                 .collect(toList());
-        getLog().updateCommitIndex(followerMatchIndices);
+        return getLog().updateCommitIndex(followerMatchIndices).isPresent();
     }
 
     public void sendHeartbeatMessage() {

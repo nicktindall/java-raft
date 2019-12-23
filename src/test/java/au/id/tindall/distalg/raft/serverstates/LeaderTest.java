@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
@@ -111,6 +112,28 @@ public class LeaderTest {
             InOrder inOrder = inOrder(otherServerLogReplicator, log);
             inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
             inOrder.verify(log).updateCommitIndex(List.of(otherServerMatchIndex));
+        }
+
+        @Test
+        public void willSendAHeartbeat_WhenTheCommitIndexIsAdvanced() {
+            int otherServerMatchIndex = 3;
+            when(otherServerLogReplicator.getMatchIndex()).thenReturn(otherServerMatchIndex);
+            when(log.updateCommitIndex(anyList())).thenReturn(Optional.of(5));
+
+            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+
+            verify(otherServerLogReplicator, times(1)).sendAppendEntriesRequest(TERM_2, log);
+        }
+
+        @Test
+        public void willNotSendAHeartbeat_WhenTheCommitIndexIsNotAdvanced() {
+            int otherServerMatchIndex = 3;
+            when(otherServerLogReplicator.getMatchIndex()).thenReturn(otherServerMatchIndex);
+            when(log.updateCommitIndex(anyList())).thenReturn(Optional.empty());
+
+            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+
+            verify(otherServerLogReplicator, never()).sendAppendEntriesRequest(TERM_2, log);
         }
 
         @Test
