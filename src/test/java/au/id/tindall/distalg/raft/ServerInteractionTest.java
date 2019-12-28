@@ -1,53 +1,48 @@
 package au.id.tindall.distalg.raft;
 
+import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
+import au.id.tindall.distalg.raft.comms.TestClusterFactory;
+import au.id.tindall.distalg.raft.log.LogFactory;
+import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
 import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-
-import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
-import au.id.tindall.distalg.raft.comms.TestCluster;
-import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
-import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
-import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
-import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
-import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 public class ServerInteractionTest {
 
-    private Log log1;
-    private Log log2;
-    private Log log3;
     private Server<Long> server1;
     private Server<Long> server2;
     private Server<Long> server3;
-    private TestCluster cluster;
+    private TestClusterFactory clusterFactory;
 
     @BeforeEach
     void setUp() {
         PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
-        LogReplicatorFactory logReplicatorFactory = new LogReplicatorFactory();
-        cluster = new TestCluster();
-        log1 = new Log();
-        server1 = new Server<>(1L, new ServerStateFactory<>(1L, log1, cluster.forServer(1L), pendingResponseRegistryFactory, logReplicatorFactory));
-        log2 = new Log();
-        server2 = new Server<>(2L, new ServerStateFactory<>(2L, log2, cluster.forServer(2L), pendingResponseRegistryFactory, logReplicatorFactory));
-        log3 = new Log();
-        server3 = new Server<>(3L, new ServerStateFactory<>(3L, log3, cluster.forServer(3L), pendingResponseRegistryFactory, logReplicatorFactory));
-        cluster.setServers(server1, server2, server3);
+        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>();
+        LogFactory logFactory = new LogFactory();
+        clusterFactory = new TestClusterFactory();
+        ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory);
+        server1 = serverFactory.create(1L);
+        server2 = serverFactory.create(2L);
+        server3 = serverFactory.create(3L);
+        clusterFactory.setServers(server1, server2, server3);
     }
 
     @Test
     void singleElectionTimeout_WillResultInUnanimousLeaderElection() {
         server1.electionTimeout();
-        cluster.fullyFlush();
+        clusterFactory.fullyFlush();
         assertThat(server1.getState()).isEqualTo(LEADER);
         assertThat(server2.getState()).isEqualTo(FOLLOWER);
         assertThat(server3.getState()).isEqualTo(FOLLOWER);
@@ -58,9 +53,9 @@ public class ServerInteractionTest {
         server1.electionTimeout();
         server2.electionTimeout();
         server3.electionTimeout();
-        cluster.fullyFlush();
+        clusterFactory.fullyFlush();
         server2.electionTimeout();
-        cluster.fullyFlush();
+        clusterFactory.fullyFlush();
         assertThat(server1.getState()).isEqualTo(FOLLOWER);
         assertThat(server2.getState()).isEqualTo(LEADER);
         assertThat(server3.getState()).isEqualTo(FOLLOWER);
@@ -71,7 +66,7 @@ public class ServerInteractionTest {
         server1.electionTimeout();
         server2.electionTimeout();
         server3.electionTimeout();
-        cluster.fullyFlush();
+        clusterFactory.fullyFlush();
         assertThat(server1.getState()).isEqualTo(CANDIDATE);
         assertThat(server2.getState()).isEqualTo(CANDIDATE);
         assertThat(server3.getState()).isEqualTo(CANDIDATE);
@@ -81,7 +76,7 @@ public class ServerInteractionTest {
     void concurrentElectionTimeout_WillElectALeader_WhenAQuorumIsReached() {
         server1.electionTimeout();
         server3.electionTimeout();
-        cluster.fullyFlush();
+        clusterFactory.fullyFlush();
         assertThat(server1.getState()).isEqualTo(LEADER);
         assertThat(server2.getState()).isEqualTo(FOLLOWER);
         assertThat(server3.getState()).isEqualTo(FOLLOWER);
@@ -90,20 +85,20 @@ public class ServerInteractionTest {
     @Test
     void clientRegistrationRequest_WillReplicateClientRegistrationToAllServers() throws ExecutionException, InterruptedException {
         server1.electionTimeout();
-        cluster.fullyFlush();
+        clusterFactory.fullyFlush();
         CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>(server1.getId()));
-        cluster.fullyFlush();
+        clusterFactory.fullyFlush();
         assertThat(handle.get()).isEqualToComparingFieldByFieldRecursively(new RegisterClientResponse<>(OK, 1, null));
     }
 
     @Test
     public void commitIndicesWillAdvanceAsLogEntriesAreDistributed() {
         server1.electionTimeout();
-        cluster.fullyFlush();
+        clusterFactory.fullyFlush();
         server1.handle(new RegisterClientRequest<>(server1.getId()));
-        cluster.fullyFlush();
-        assertThat(log1.getCommitIndex()).isEqualTo(1);
-        assertThat(log2.getCommitIndex()).isEqualTo(1);
-        assertThat(log3.getCommitIndex()).isEqualTo(1);
+        clusterFactory.fullyFlush();
+        assertThat(server1.getLog().getCommitIndex()).isEqualTo(1);
+        assertThat(server2.getLog().getCommitIndex()).isEqualTo(1);
+        assertThat(server3.getLog().getCommitIndex()).isEqualTo(1);
     }
 }

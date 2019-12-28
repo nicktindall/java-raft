@@ -1,16 +1,5 @@
 package au.id.tindall.distalg.raft.comms;
 
-import static java.util.function.Function.identity;
-import static org.apache.logging.log4j.LogManager.getLogger;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import au.id.tindall.distalg.raft.Server;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
@@ -23,14 +12,25 @@ import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 import org.apache.logging.log4j.Logger;
 
-public class TestCluster {
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static java.util.function.Function.identity;
+import static org.apache.logging.log4j.LogManager.getLogger;
+
+public class TestClusterFactory implements ClusterFactory<Long> {
 
     private static final Logger LOGGER = getLogger();
 
     private Map<Long, Server<Long>> servers;
     private List<RpcMessage<Long>> messageQueue;
 
-    public TestCluster() {
+    public TestClusterFactory() {
         messageQueue = new ArrayList<>();
     }
 
@@ -51,17 +51,18 @@ public class TestCluster {
         messageQueue.add(message);
     }
 
-    public Cluster<Long> forServer(long localId) {
+    @Override
+    public Cluster<Long> createForNode(Long localId) {
         return new Cluster<>() {
 
             @Override
             public boolean isQuorum(Set<Long> receivedVotes) {
-                return TestCluster.this.isQuorum(receivedVotes);
+                return TestClusterFactory.this.isQuorum(receivedVotes);
             }
 
             @Override
             public Set<Long> getOtherMemberIds() {
-                return TestCluster.this.getMemberIds().stream()
+                return TestClusterFactory.this.getMemberIds().stream()
                         .filter(id -> !id.equals(localId))
                         .collect(Collectors.toSet());
             }
