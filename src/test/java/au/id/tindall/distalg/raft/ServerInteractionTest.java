@@ -7,6 +7,7 @@ import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.statemachine.ClientSessionStoreFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class ServerInteractionTest {
 
+    public static final int MAX_CLIENT_SESSIONS = 10;
+
     private Server<Long> server1;
     private Server<Long> server2;
     private Server<Long> server3;
@@ -32,7 +35,8 @@ public class ServerInteractionTest {
         LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>();
         LogFactory logFactory = new LogFactory();
         clusterFactory = new TestClusterFactory();
-        ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory);
+        ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
+        ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS);
         server1 = serverFactory.create(1L);
         server2 = serverFactory.create(2L);
         server3 = serverFactory.create(3L);
@@ -100,5 +104,16 @@ public class ServerInteractionTest {
         assertThat(server1.getLog().getCommitIndex()).isEqualTo(1);
         assertThat(server2.getLog().getCommitIndex()).isEqualTo(1);
         assertThat(server3.getLog().getCommitIndex()).isEqualTo(1);
+    }
+
+    @Test
+    public void clientSessionsAreCreatedAsRegistrationsAreDistributed() {
+        server1.electionTimeout();
+        clusterFactory.fullyFlush();
+        server1.handle(new RegisterClientRequest<>(server1.getId()));
+        clusterFactory.fullyFlush();
+        assertThat(server1.getClientSessionStore().hasSession(1)).isTrue();
+        assertThat(server2.getClientSessionStore().hasSession(1)).isTrue();
+        assertThat(server3.getClientSessionStore().hasSession(1)).isTrue();
     }
 }

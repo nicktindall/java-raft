@@ -7,6 +7,7 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
 
 public class ServerStateFactory<ID extends Serializable> {
 
@@ -15,13 +16,15 @@ public class ServerStateFactory<ID extends Serializable> {
     private final Cluster<ID> cluster;
     private final PendingResponseRegistryFactory pendingResponseRegistryFactory;
     private final LogReplicatorFactory<ID> logReplicatorFactory;
+    private final ClientSessionStore clientSessionStore;
 
-    public ServerStateFactory(ID id, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory, LogReplicatorFactory logReplicatorFactory) {
+    public ServerStateFactory(ID id, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory, LogReplicatorFactory<ID> logReplicatorFactory, ClientSessionStore clientSessionStore) {
         this.id = id;
         this.log = log;
         this.cluster = cluster;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
         this.logReplicatorFactory = logReplicatorFactory;
+        this.clientSessionStore = clientSessionStore;
     }
 
     public Leader<ID> createLeader(Term currentTerm) {
@@ -38,5 +41,9 @@ public class ServerStateFactory<ID extends Serializable> {
 
     public Candidate<ID> createCandidate(Term currentTerm) {
         return new Candidate<>(currentTerm, log, cluster, id, this);
+    }
+
+    public ClientSessionStore getClientSessionStore() {
+        return clientSessionStore;
     }
 }
