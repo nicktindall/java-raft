@@ -1,16 +1,5 @@
 package au.id.tindall.distalg.raft.log;
 
-import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
-
-import java.util.List;
-import java.util.Optional;
-
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import org.junit.jupiter.api.Nested;
@@ -20,18 +9,30 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+import java.util.Optional;
+
+import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.verifyZeroInteractions;
+
 @ExtendWith(MockitoExtension.class)
 public class LogTest {
 
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
     private static final Term TERM_2 = new Term(2);
-    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, "first".getBytes());
-    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, "second".getBytes());
-    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, "third".getBytes());
-    private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_1, "fourth".getBytes());
-    private static final LogEntry ENTRY_3B = new StateMachineCommandEntry(TERM_2, "alt_third".getBytes());
-    private static final LogEntry ENTRY_4B = new StateMachineCommandEntry(TERM_2, "alt_fourth".getBytes());
+    private static final int CLIENT_ID = 123;
+    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 0, "first".getBytes());
+    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 1, "second".getBytes());
+    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 2, "third".getBytes());
+    private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 3, "fourth".getBytes());
+    private static final LogEntry ENTRY_3B = new StateMachineCommandEntry(TERM_2, CLIENT_ID, 2, "alt_third".getBytes());
+    private static final LogEntry ENTRY_4B = new StateMachineCommandEntry(TERM_2, CLIENT_ID, 3, "alt_fourth".getBytes());
 
     @Mock
     private EntryCommittedEventHandler entryCommittedEventHandler;

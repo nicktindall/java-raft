@@ -6,11 +6,23 @@ import au.id.tindall.distalg.raft.log.Term;
 
 public class StateMachineCommandEntry extends LogEntry {
 
+    private final int clientId;
+    private final int clientSequenceNumber;
     private final byte[] command;
 
-    public StateMachineCommandEntry(Term term, byte[] command) {
+    public StateMachineCommandEntry(Term term, int clientId, int clientSequenceNumber, byte[] command) {
         super(term);
+        this.clientId = clientId;
+        this.clientSequenceNumber = clientSequenceNumber;
         this.command = Arrays.copyOf(command, command.length);
+    }
+
+    public int getClientId() {
+        return clientId;
+    }
+
+    public int getClientSequenceNumber() {
+        return clientSequenceNumber;
     }
 
     public byte[] getCommand() {
@@ -20,7 +32,9 @@ public class StateMachineCommandEntry extends LogEntry {
     @Override
     public String toString() {
         return "StateMachineCommandEntry{" +
-                "command=" + Arrays.toString(command) +
-                "} " + super.toString();
+                "clientId=" + clientId +
+                ", clientSequenceNumber=" + clientSequenceNumber +
+                ", command=" + Arrays.toString(command) +
+                '}';
     }
 }

@@ -24,6 +24,8 @@ public class PendingClientRequestResponseTest {
 
     private static final byte[] COMMAND_BYTES = "command".getBytes();
     private static final byte[] RESULT_BYTES = "result".getBytes();
+    private static final int CLIENT_ID = 123;
+    private static final int CLIENT_SEQUENCE_NUMBER = 1;
 
     private PendingClientRequestResponse<Serializable> response;
 
@@ -45,7 +47,7 @@ public class PendingClientRequestResponseTest {
     @Test
     void shouldCompleteSuccessfully() throws ExecutionException, InterruptedException {
         when(stateMachine.apply(COMMAND_BYTES)).thenReturn(RESULT_BYTES);
-        response.completeSuccessfully(new StateMachineCommandEntry(new Term(0), COMMAND_BYTES));
+        response.completeSuccessfully(new StateMachineCommandEntry(new Term(0), CLIENT_ID, CLIENT_SEQUENCE_NUMBER, COMMAND_BYTES));
         assertThat(response.getResponseFuture().get()).usingRecursiveComparison()
                 .isEqualTo(new ClientRequestResponse<>(OK, RESULT_BYTES, null));
     }

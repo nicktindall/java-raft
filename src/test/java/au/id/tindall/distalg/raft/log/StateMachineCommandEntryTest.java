@@ -12,23 +12,24 @@ import org.junit.jupiter.api.Test;
 public class StateMachineCommandEntryTest {
 
     private static final Term TERM_1 = new Term(1);
+    private static final int CLIENT_ID = 111;
 
     @Test
     public void isSerializable() {
-        assertThatCode(() -> roundTripSerializeDeserialize(new StateMachineCommandEntry(new Term(2), "command bytes".getBytes()))).doesNotThrowAnyException();
+        assertThatCode(() -> roundTripSerializeDeserialize(new StateMachineCommandEntry(new Term(2), CLIENT_ID, 0, "command bytes".getBytes()))).doesNotThrowAnyException();
     }
 
     @Test
     public void constructor_WillCopyCommandBytes() {
         byte[] originalBytes = "something".getBytes();
-        StateMachineCommandEntry logEntry = new StateMachineCommandEntry(TERM_1, originalBytes);
+        StateMachineCommandEntry logEntry = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 0, originalBytes);
         Arrays.fill(originalBytes, (byte) 0);
         assertThat(logEntry.getCommand()).isEqualTo("something".getBytes());
     }
 
     @Test
     public void getCommand_WillReturnCopyOfCommandBytes() {
-        StateMachineCommandEntry logEntry = new StateMachineCommandEntry(TERM_1, "something".getBytes());
+        StateMachineCommandEntry logEntry = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 0, "something".getBytes());
         byte[] commandBytes = logEntry.getCommand();
         Arrays.fill(commandBytes, (byte) 0);
         assertThat(logEntry.getCommand()).isEqualTo("something".getBytes());
