@@ -1,9 +1,5 @@
 package au.id.tindall.distalg.raft.statemachine;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.Mockito.verify;
-
 import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
@@ -15,6 +11,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+
 @ExtendWith(MockitoExtension.class)
 public class ClientSessionStoreTest {
 
@@ -23,6 +24,8 @@ public class ClientSessionStoreTest {
 
     @Mock
     private Log log;
+    @Mock
+    private ClientSessionCreatedHandler clientSessionCreatedHandler;
 
     @BeforeEach
     void setUp() {
@@ -91,5 +94,23 @@ public class ClientSessionStoreTest {
 
         clientSessionStore.stopListeningForClientRegistrations(log);
         verify(log).removeEntryCommittedEventHandler(eventHandler.getValue());
+    }
+
+    @Test
+    public void shouldEmitClientSessionCreatedEvents_WhenClientSessionCreated() {
+        clientSessionStore.addClientSessionCreatedHandler(clientSessionCreatedHandler);
+
+        clientSessionStore.createSession(1, 1);
+        verify(clientSessionCreatedHandler).clientSessionCreated(1, 1);
+    }
+
+    @Test
+    public void shouldNotNotifyListeners_AfterTheyHaveBeenRemoved() {
+        clientSessionStore.addClientSessionCreatedHandler(clientSessionCreatedHandler);
+        clientSessionStore.createSession(1, 1);
+        clientSessionStore.removeClientSessionCreatedHandler(clientSessionCreatedHandler);
+        clientSessionStore.createSession(2, 2);
+        verify(clientSessionCreatedHandler).clientSessionCreated(1, 1);
+        verifyNoMoreInteractions(clientSessionCreatedHandler);
     }
 }
