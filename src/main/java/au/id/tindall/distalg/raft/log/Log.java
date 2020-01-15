@@ -77,9 +77,9 @@ public class Log {
     }
 
     public Optional<Term> getLastLogTerm() {
-        return entries.size() > 0 ?
-                Optional.of(entries.get(entries.size() - 1).getTerm())
-                : Optional.empty();
+        return entries.isEmpty() ?
+                Optional.empty()
+                : Optional.of(entries.get(entries.size() - 1).getTerm());
     }
 
     public LogSummary getSummary() {
