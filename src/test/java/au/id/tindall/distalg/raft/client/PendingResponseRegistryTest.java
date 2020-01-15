@@ -1,9 +1,13 @@
 package au.id.tindall.distalg.raft.client;
 
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionCreatedHandler;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
+import au.id.tindall.distalg.raft.statemachine.CommandAppliedEventHandler;
+import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -35,7 +39,10 @@ public class PendingResponseRegistryTest {
     private PendingResponse<?> otherPendingResponse;
     @Mock
     private ClientSessionStore clientSessionStore;
+    @Mock
+    private CommandExecutor commandExecutor;
     private ClientSessionCreatedHandler clientSessionCreatedHandler;
+    private CommandAppliedEventHandler commandAppliedEventHandler;
 
     @BeforeEach
     void setUp() {
@@ -43,18 +50,30 @@ public class PendingResponseRegistryTest {
             this.clientSessionCreatedHandler = invocation.getArgument(0);
             return null;
         }).when(clientSessionStore).addClientSessionCreatedHandler(any(ClientSessionCreatedHandler.class));
-        pendingResponseRegistry = new PendingResponseRegistry(clientSessionStore);
+        doAnswer(invocation -> {
+            this.commandAppliedEventHandler = invocation.getArgument(0);
+            return null;
+        }).when(commandExecutor).addCommandAppliedEventHandler(any(CommandAppliedEventHandler.class));
+        pendingResponseRegistry = new PendingResponseRegistry(clientSessionStore, commandExecutor);
     }
 
     @Nested
     class ConstructorAndDispose {
 
         @Test
-        void constructorAndDispose_WillAddAndRemoveSameHandlers() {
+        void constructorAndDispose_WillAddAndRemoveSameClientSessionHandler() {
             ArgumentCaptor<ClientSessionCreatedHandler> sessionCreatedHandlerCaptor = forClass(ClientSessionCreatedHandler.class);
             verify(clientSessionStore).addClientSessionCreatedHandler(sessionCreatedHandlerCaptor.capture());
             pendingResponseRegistry.dispose();
             verify(clientSessionStore).removeClientSessionCreatedHandler(sessionCreatedHandlerCaptor.getValue());
+        }
+
+        @Test
+        void constructorAndDispose_WillAddAndRemoveSameCommandAppliedHandler() {
+            ArgumentCaptor<CommandAppliedEventHandler> commandAppliedHandlerCaptor = forClass(CommandAppliedEventHandler.class);
+            verify(commandExecutor).addCommandAppliedEventHandler(commandAppliedHandlerCaptor.capture());
+            pendingResponseRegistry.dispose();
+            verify(commandExecutor).removeCommandAppliedEventHandler(commandAppliedHandlerCaptor.getValue());
         }
 
         @Test
@@ -64,6 +83,30 @@ public class PendingResponseRegistryTest {
             pendingResponseRegistry.dispose();
             verify(pendingResponse).fail();
             verify(otherPendingResponse).fail();
+        }
+    }
+
+    @Nested
+    class HandleCommandApplied {
+
+        private final byte[] RESULT = "result".getBytes();
+
+        @Mock
+        private CompletableFuture<ClientRequestResponse<Integer>> responseFuture;
+
+        @Test
+        void willCompleteResponse_WhenOneIsRegisteredAtTheCommittedIndex() {
+            when(pendingResponse.getResponseFuture()).thenReturn((CompletableFuture) responseFuture);
+
+            pendingResponseRegistry.registerOutstandingResponse(LOG_INDEX, pendingResponse);
+            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, RESULT);
+
+            verify(responseFuture).complete(refEq(new ClientRequestResponse<>(ClientRequestStatus.OK, RESULT, null)));
+        }
+
+        @Test
+        void willDoNothing_WhenThereIsNoResponseRegistered() {
+            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, RESULT);
         }
     }
 

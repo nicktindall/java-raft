@@ -7,6 +7,7 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
+import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,15 +37,17 @@ class ServerStateFactoryTest {
     private PendingResponseRegistry pendingResponseRegistry;
     @Mock
     private ClientSessionStore clientSessionStore;
+    @Mock
+    private CommandExecutor commandExecutor;
 
     @BeforeEach
     void setUp() {
-        serverStateFactory = new ServerStateFactory<>(SERVER_ID, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore);
+        serverStateFactory = new ServerStateFactory<>(SERVER_ID, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor);
     }
 
     @Test
     void willCreateLeaderState() {
-        when(pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore)).thenReturn(pendingResponseRegistry);
+        when(pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor)).thenReturn(pendingResponseRegistry);
 
         assertThat(serverStateFactory.createLeader(TERM))
                 .isEqualToComparingFieldByFieldRecursively(new Leader<>(TERM, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory));

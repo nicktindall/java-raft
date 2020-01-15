@@ -7,7 +7,9 @@ import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.serverstates.TestStateMachine;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionStoreFactory;
+import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +38,8 @@ public class ServerInteractionTest {
         LogFactory logFactory = new LogFactory();
         clusterFactory = new TestClusterFactory();
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
-        ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS);
+        ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
+                new CommandExecutorFactory(), TestStateMachine::new);
         server1 = serverFactory.create(1L);
         server2 = serverFactory.create(2L);
         server3 = serverFactory.create(3L);

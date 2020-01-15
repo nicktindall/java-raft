@@ -9,6 +9,10 @@ import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionStoreFactory;
+import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
+import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
+import au.id.tindall.distalg.raft.statemachine.StateMachine;
+import au.id.tindall.distalg.raft.statemachine.StateMachineFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +46,14 @@ class ServerFactoryTest {
     private ClientSessionStoreFactory clientSessionStoreFactory;
     @Mock
     private ClientSessionStore clientSessionStore;
+    @Mock
+    private CommandExecutorFactory commandExecutorFactory;
+    @Mock
+    private StateMachineFactory stateMachineFactory;
+    @Mock
+    private CommandExecutor commandExecutor;
+    @Mock
+    private StateMachine stateMachine;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
@@ -49,18 +61,27 @@ class ServerFactoryTest {
         when(clientSessionStoreFactory.create(MAX_CLIENT_SESSIONS)).thenReturn(clientSessionStore);
         when(clusterFactory.createForNode(eq(SERVER_ID))).thenReturn(cluster);
         when(logFactory.createLog()).thenReturn(log);
-        serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS);
+        when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
+        when(commandExecutorFactory.createCommandExecutor(stateMachine)).thenReturn(commandExecutor);
+        serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
+                commandExecutorFactory, stateMachineFactory);
     }
 
     @Test
     void createsServersAndTheirDependencies() {
         assertThat(serverFactory.create(SERVER_ID)).isEqualToComparingFieldByFieldRecursively(new Server<>(SERVER_ID, new ServerStateFactory<>(SERVER_ID,
-                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore)));
+                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor)));
     }
 
     @Test
     void startsListeningForClientRegistrations() {
         serverFactory.create(SERVER_ID);
         verify(clientSessionStore).startListeningForClientRegistrations(log);
+    }
+
+    @Test
+    void startsListeningForCommittedStateMachineCommands() {
+        serverFactory.create(SERVER_ID);
+        verify(commandExecutor).startListeningForCommittedCommands(log);
     }
 }
