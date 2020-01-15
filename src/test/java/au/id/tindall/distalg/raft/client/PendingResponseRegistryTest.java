@@ -1,17 +1,9 @@
 package au.id.tindall.distalg.raft.client;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentCaptor.forClass;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.util.concurrent.CompletableFuture;
-
-import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
-import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.entries.LogEntry;
-import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
+import au.id.tindall.distalg.raft.statemachine.ClientSessionCreatedHandler;
+import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -19,6 +11,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.concurrent.CompletableFuture;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.refEq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class PendingResponseRegistryTest {
@@ -28,76 +30,71 @@ public class PendingResponseRegistryTest {
     private PendingResponseRegistry pendingResponseRegistry;
 
     @Mock
-    private PendingResponse<ClientResponseMessage> pendingResponse;
+    private PendingResponse<?> pendingResponse;
     @Mock
-    private PendingResponse<ClientResponseMessage> otherPendingResponse;
+    private PendingResponse<?> otherPendingResponse;
     @Mock
-    private Log log;
-    @Mock
-    private LogEntry logEntry;
+    private ClientSessionStore clientSessionStore;
+    private ClientSessionCreatedHandler clientSessionCreatedHandler;
 
     @BeforeEach
     void setUp() {
-        pendingResponseRegistry = new PendingResponseRegistry();
+        doAnswer(invocation -> {
+            this.clientSessionCreatedHandler = invocation.getArgument(0);
+            return null;
+        }).when(clientSessionStore).addClientSessionCreatedHandler(any(ClientSessionCreatedHandler.class));
+        pendingResponseRegistry = new PendingResponseRegistry(clientSessionStore);
     }
 
     @Nested
-    class EntryCommitListener {
+    class ConstructorAndDispose {
 
         @Test
-        void startListeningForEntryCommits_WillRegisterEventHandlerWithLog() {
-            pendingResponseRegistry.startListeningForCommitEvents(log);
-            verify(log).addEntryCommittedEventHandler(any(EntryCommittedEventHandler.class));
+        void constructorAndDispose_WillAddAndRemoveSameHandlers() {
+            ArgumentCaptor<ClientSessionCreatedHandler> sessionCreatedHandlerCaptor = forClass(ClientSessionCreatedHandler.class);
+            verify(clientSessionStore).addClientSessionCreatedHandler(sessionCreatedHandlerCaptor.capture());
+            pendingResponseRegistry.dispose();
+            verify(clientSessionStore).removeClientSessionCreatedHandler(sessionCreatedHandlerCaptor.getValue());
         }
 
         @Test
-        void stopListeningForEntryCommits_WillRemoveEventHandlerWithLog() {
-            pendingResponseRegistry.stopListeningForCommitEvents(log);
-            verify(log).removeEntryCommittedEventHandler(any(EntryCommittedEventHandler.class));
-        }
-
-        @Test
-        void startAndStopListeningForEntryCommits_WillPassSameHandlerToLog() {
-            pendingResponseRegistry.startListeningForCommitEvents(log);
-            pendingResponseRegistry.stopListeningForCommitEvents(log);
-            ArgumentCaptor<EntryCommittedEventHandler> startedHandler = forClass(EntryCommittedEventHandler.class);
-            ArgumentCaptor<EntryCommittedEventHandler> stoppedHandler = forClass(EntryCommittedEventHandler.class);
-            verify(log).addEntryCommittedEventHandler(startedHandler.capture());
-            verify(log).removeEntryCommittedEventHandler(stoppedHandler.capture());
-            assertThat(startedHandler.getValue()).isSameAs(stoppedHandler.getValue());
+        void dispose_WillFailAllOutstandingResponses() {
+            pendingResponseRegistry.registerOutstandingResponse(LOG_INDEX, pendingResponse);
+            pendingResponseRegistry.registerOutstandingResponse(OTHER_LOG_INDEX, otherPendingResponse);
+            pendingResponseRegistry.dispose();
+            verify(pendingResponse).fail();
+            verify(otherPendingResponse).fail();
         }
     }
 
     @Nested
-    class HandleEntryCommitted {
+    class HandleSessionCreated {
+
+        private final int CLIENT_ID = 555;
+
+        @Mock
+        private CompletableFuture<RegisterClientResponse<Integer>> responseFuture;
 
         @Test
         void willCompleteResponse_WhenOneIsRegisteredAtTheCommittedIndex() {
-            pendingResponseRegistry.registerOutstandingResponse(LOG_INDEX, pendingResponse);
-            pendingResponseRegistry.handleEntryCommitted(LOG_INDEX, logEntry);
+            when(pendingResponse.getResponseFuture()).thenReturn((CompletableFuture) responseFuture);
 
-            verify(pendingResponse).completeSuccessfully(logEntry);
+            pendingResponseRegistry.registerOutstandingResponse(LOG_INDEX, pendingResponse);
+            clientSessionCreatedHandler.clientSessionCreated(LOG_INDEX, CLIENT_ID);
+
+            verify(responseFuture).complete(refEq(new RegisterClientResponse<>(RegisterClientStatus.OK, CLIENT_ID, null)));
         }
 
         @Test
         void willDoNothing_WhenThereIsNoResponseRegistered() {
-            pendingResponseRegistry.handleEntryCommitted(LOG_INDEX, logEntry);
+            clientSessionCreatedHandler.clientSessionCreated(LOG_INDEX, CLIENT_ID);
         }
     }
 
     @Test
     void registerPendingResponse_WillReturnPendingResponseFuture() {
-        CompletableFuture<ClientResponseMessage> future = new CompletableFuture<>();
+        CompletableFuture future = new CompletableFuture();
         when(pendingResponse.getResponseFuture()).thenReturn(future);
         assertThat(pendingResponseRegistry.registerOutstandingResponse(LOG_INDEX, pendingResponse)).isSameAs(future);
-    }
-
-    @Test
-    void failOutstandingResponses_WillFailAllOutstandingResponses() {
-        pendingResponseRegistry.registerOutstandingResponse(LOG_INDEX, pendingResponse);
-        pendingResponseRegistry.registerOutstandingResponse(OTHER_LOG_INDEX, otherPendingResponse);
-        pendingResponseRegistry.failOutstandingResponses();
-        verify(pendingResponse).fail();
-        verify(otherPendingResponse).fail();
     }
 }

@@ -1,22 +1,6 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
-import static org.mockito.Mockito.when;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
 import au.id.tindall.distalg.raft.client.PendingResponseRegistry;
-import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
@@ -34,6 +18,20 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
+
 @ExtendWith(MockitoExtension.class)
 public class LeaderTest {
 
@@ -46,8 +44,6 @@ public class LeaderTest {
 
     @Mock
     private Cluster<Long> cluster;
-    @Mock
-    private PendingResponseRegistryFactory pendingResponseRegistryFactory;
     @Mock
     private LogReplicatorFactory<Long> logReplicatorFactory;
     @Mock
@@ -64,10 +60,9 @@ public class LeaderTest {
     @BeforeEach
     public void setUp() {
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
-        when(pendingResponseRegistryFactory.createPendingResponseRegistry()).thenReturn(pendingResponseRegistry);
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
         when(logReplicatorFactory.createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
-        leader = new Leader<>(TERM_2, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, serverStateFactory);
+        leader = new Leader<>(TERM_2, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory);
     }
 
     @Nested
@@ -77,21 +72,12 @@ public class LeaderTest {
         public void willCreateLogReplicators() {
             verify(logReplicatorFactory).createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
         }
-
-        @Test
-        public void willAddClientRegistryFactoryAsEntryCommittedEventHandler() {
-            verify(pendingResponseRegistry).startListeningForCommitEvents(log);
-        }
     }
 
     @Test
-    public void dispose_WillStopListeningForCommittedEntriesThenFailAnyOutstandingRegistrations() {
-        reset(pendingResponseRegistry);
+    public void dispose_WillDisposeOfPendingResponseRegistry() {
         leader.dispose();
-        InOrder inOrder = inOrder(pendingResponseRegistry);
-        inOrder.verify(pendingResponseRegistry).stopListeningForCommitEvents(log);
-        inOrder.verify(pendingResponseRegistry).failOutstandingResponses();
-        inOrder.verifyNoMoreInteractions();
+        verify(pendingResponseRegistry).dispose();
     }
 
     @Nested
@@ -171,7 +157,7 @@ public class LeaderTest {
         void willTriggerReplication() {
             leader.handle(new RegisterClientRequest<>(SERVER_ID));
 
-
+            verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
         }
     }
 }

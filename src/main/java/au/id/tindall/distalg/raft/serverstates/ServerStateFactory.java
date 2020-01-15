@@ -1,13 +1,13 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import java.io.Serializable;
-
 import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
+
+import java.io.Serializable;
 
 public class ServerStateFactory<ID extends Serializable> {
 
@@ -18,7 +18,8 @@ public class ServerStateFactory<ID extends Serializable> {
     private final LogReplicatorFactory<ID> logReplicatorFactory;
     private final ClientSessionStore clientSessionStore;
 
-    public ServerStateFactory(ID id, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory, LogReplicatorFactory<ID> logReplicatorFactory, ClientSessionStore clientSessionStore) {
+    public ServerStateFactory(ID id, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
+                              LogReplicatorFactory<ID> logReplicatorFactory, ClientSessionStore clientSessionStore) {
         this.id = id;
         this.log = log;
         this.cluster = cluster;
@@ -28,7 +29,8 @@ public class ServerStateFactory<ID extends Serializable> {
     }
 
     public Leader<ID> createLeader(Term currentTerm) {
-        return new Leader<>(currentTerm, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, this);
+        return new Leader<>(currentTerm, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore),
+                logReplicatorFactory, this);
     }
 
     public Follower<ID> createFollower(Term currentTerm) {

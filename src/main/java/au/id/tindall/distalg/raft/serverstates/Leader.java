@@ -1,21 +1,7 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import static au.id.tindall.distalg.raft.serverstates.Result.complete;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
-import static java.util.Collections.singletonList;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
-
-import java.io.Serializable;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-
 import au.id.tindall.distalg.raft.client.PendingRegisterClientResponse;
 import au.id.tindall.distalg.raft.client.PendingResponseRegistry;
-import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
@@ -26,17 +12,29 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
+import static au.id.tindall.distalg.raft.serverstates.Result.complete;
+import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
+import static java.util.Collections.singletonList;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+
 public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     private final Map<ID, LogReplicator<ID>> replicators;
     private final PendingResponseRegistry pendingResponseRegistry;
 
-    public Leader(Term currentTerm, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
+    public Leader(Term currentTerm, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
                   LogReplicatorFactory<ID> logReplicatorFactory, ServerStateFactory<ID> serverStateFactory) {
         super(currentTerm, null, log, cluster, serverStateFactory);
         replicators = createReplicators(logReplicatorFactory);
-        pendingResponseRegistry = pendingResponseRegistryFactory.createPendingResponseRegistry();
-        pendingResponseRegistry.startListeningForCommitEvents(getLog());
+        this.pendingResponseRegistry = pendingResponseRegistry;
     }
 
     @Override
@@ -95,7 +93,6 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     public void dispose() {
-        pendingResponseRegistry.stopListeningForCommitEvents(getLog());
-        pendingResponseRegistry.failOutstandingResponses();
+        pendingResponseRegistry.dispose();
     }
 }

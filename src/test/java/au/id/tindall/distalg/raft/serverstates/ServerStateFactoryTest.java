@@ -44,10 +44,10 @@ class ServerStateFactoryTest {
 
     @Test
     void willCreateLeaderState() {
-        when(pendingResponseRegistryFactory.createPendingResponseRegistry()).thenReturn(pendingResponseRegistry);
+        when(pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore)).thenReturn(pendingResponseRegistry);
 
         assertThat(serverStateFactory.createLeader(TERM))
-                .isEqualToComparingFieldByFieldRecursively(new Leader<>(TERM, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, serverStateFactory));
+                .isEqualToComparingFieldByFieldRecursively(new Leader<>(TERM, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory));
     }
 
     @Test
