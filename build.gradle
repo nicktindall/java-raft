@@ -11,7 +11,7 @@ repositories {
     mavenCentral()
 }
 
-def mockitoVersion = '2.24.0'
+def mockitoVersion = '3.2.4'
 
 dependencies {
     compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.11.1'
