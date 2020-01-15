@@ -1,4 +1,6 @@
 # java-raft
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=nicktindall_java-raft&metric=alert_status)](https://sonarcloud.io/dashboard?id=nicktindall_java-raft)
+
 A Java implementation of the [Raft consensus algorithm](https://raft.github.io/)
 
 ## motivation

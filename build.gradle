@@ -1,5 +1,26 @@
 plugins {
     id 'java'
+    id 'jacoco'
+    id 'org.sonarqube' version '2.8'
+}
+
+sonarqube {
+    properties {
+        property 'sonar.projectKey', 'nicktindall_java-raft'
+        property 'sonar.organization', 'nicktindall'
+        property 'sonar.host.url', 'https://sonarcloud.io'
+        property 'sonar.login', '74ce1c65bd9ae5f476d0cb81a500d371680fe7c6'
+    }
+}
+
+jacoco {
+    toolVersion = '0.8.5'
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled true
+    }
 }
 
 group 'id.au.tindall.distalg'

@@ -38,5 +38,5 @@ jobs:
             - ~/.gradle
           key: v1-dependencies-{{ checksum "build.gradle" }}
 
-      # run tests!
-      - run: ./gradlew test
+      # run tests, coverage & sonar
+      - run: ./gradlew test jacocoTestReport sonarqube
