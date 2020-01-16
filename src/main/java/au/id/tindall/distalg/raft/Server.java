@@ -1,8 +1,5 @@
 package au.id.tindall.distalg.raft;
 
-import java.io.Serializable;
-import java.util.concurrent.CompletableFuture;
-
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
@@ -14,25 +11,31 @@ import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
+import au.id.tindall.distalg.raft.statemachine.StateMachine;
+
+import java.io.Serializable;
+import java.util.concurrent.CompletableFuture;
 
 public class Server<ID extends Serializable> {
 
     private final ID id;
+    private final StateMachine stateMachine;
     private ServerState<ID> state;
     private ServerStateFactory<ID> serverStateFactory;
 
-    public Server(ID id, ServerState<ID> state, ServerStateFactory<ID> serverStateFactory) {
+    public Server(ID id, ServerState<ID> state, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine) {
         this.id = id;
         this.state = state;
         this.serverStateFactory = serverStateFactory;
+        this.stateMachine = stateMachine;
     }
 
-    public Server(ID id, ServerStateFactory<ID> serverStateFactory) {
-        this(id, new Term(0), null, serverStateFactory);
+    public Server(ID id, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine) {
+        this(id, new Term(0), null, serverStateFactory, stateMachine);
     }
 
-    public Server(ID id, Term currentTerm, ID votedFor, ServerStateFactory<ID> serverStateFactory) {
-        this(id, serverStateFactory.createFollower(currentTerm, votedFor), serverStateFactory);
+    public Server(ID id, Term currentTerm, ID votedFor, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine) {
+        this(id, serverStateFactory.createFollower(currentTerm, votedFor), serverStateFactory, stateMachine);
     }
 
     public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
@@ -77,5 +80,9 @@ public class Server<ID extends Serializable> {
 
     public ClientSessionStore getClientSessionStore() {
         return serverStateFactory.getClientSessionStore();
+    }
+
+    public StateMachine getStateMachine() {
+        return this.stateMachine;
     }
 }

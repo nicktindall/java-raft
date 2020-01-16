@@ -18,4 +18,8 @@ public class TestStateMachine implements StateMachine {
         this.appliedCommands.add(command);
         return new byte[]{(byte) appliedCommands.size()};
     }
+
+    public List<byte[]> getAppliedCommands() {
+        return appliedCommands;
+    }
 }

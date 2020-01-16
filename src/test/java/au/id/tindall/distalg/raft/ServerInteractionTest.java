@@ -4,6 +4,9 @@ import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
@@ -24,7 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class ServerInteractionTest {
 
-    public static final int MAX_CLIENT_SESSIONS = 10;
+    private static final byte[] COMMAND = "TheCommand".getBytes();
+    private static final int MAX_CLIENT_SESSIONS = 10;
 
     private Server<Long> server1;
     private Server<Long> server2;
@@ -118,5 +122,19 @@ public class ServerInteractionTest {
         assertThat(server1.getClientSessionStore().hasSession(1)).isTrue();
         assertThat(server2.getClientSessionStore().hasSession(1)).isTrue();
         assertThat(server3.getClientSessionStore().hasSession(1)).isTrue();
+    }
+
+    @Test
+    void clientRequestRequest_WillCauseStateMachinesToBeUpdated() throws ExecutionException, InterruptedException {
+        server1.electionTimeout();
+        clusterFactory.fullyFlush();
+        server1.handle(new RegisterClientRequest<>(server1.getId()));
+        clusterFactory.fullyFlush();
+        CompletableFuture<? extends ClientResponseMessage> requestResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, COMMAND));
+        clusterFactory.fullyFlush();
+        assertThat(requestResponse.get()).isEqualToComparingFieldByFieldRecursively(new ClientRequestResponse(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
+        assertThat(((TestStateMachine) server1.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
+        assertThat(((TestStateMachine) server2.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
+        assertThat(((TestStateMachine) server3.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
     }
 }

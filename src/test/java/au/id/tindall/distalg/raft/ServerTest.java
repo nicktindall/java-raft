@@ -1,5 +1,23 @@
 package au.id.tindall.distalg.raft;
 
+import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
+import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.serverstates.Candidate;
+import au.id.tindall.distalg.raft.serverstates.Follower;
+import au.id.tindall.distalg.raft.serverstates.Leader;
+import au.id.tindall.distalg.raft.serverstates.ServerState;
+import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
+import au.id.tindall.distalg.raft.statemachine.StateMachine;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.concurrent.CompletableFuture;
+
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
@@ -12,23 +30,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.concurrent.CompletableFuture;
-
-import au.id.tindall.distalg.raft.log.Term;
-import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
-import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
-import au.id.tindall.distalg.raft.serverstates.Candidate;
-import au.id.tindall.distalg.raft.serverstates.Follower;
-import au.id.tindall.distalg.raft.serverstates.Leader;
-import au.id.tindall.distalg.raft.serverstates.ServerState;
-import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 @ExtendWith(MockitoExtension.class)
 public class ServerTest {
 
@@ -40,19 +41,21 @@ public class ServerTest {
 
     @Mock
     private ServerStateFactory<Long> serverStateFactory;
+    @Mock
+    private StateMachine stateMachine;
 
     @Nested
     class NewServerConstructor {
 
         @Test
         public void willSetId() {
-            var server = new Server<>(SERVER_ID, serverStateFactory);
+            var server = new Server<>(SERVER_ID, serverStateFactory, stateMachine);
             assertThat(server.getId()).isEqualTo(SERVER_ID);
         }
 
         @Test
         public void willInitializeStateToFollowerWithTermZeroAndVotedForNull() {
-            new Server<>(SERVER_ID, serverStateFactory);
+            new Server<>(SERVER_ID, serverStateFactory, stateMachine);
             verify(serverStateFactory).createFollower(new Term(0), null);
         }
     }
@@ -62,14 +65,14 @@ public class ServerTest {
 
         @Test
         public void willSetId() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, serverStateFactory);
+            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, serverStateFactory, stateMachine);
 
             assertThat(server.getId()).isEqualTo(SERVER_ID);
         }
 
         @Test
         public void willInitializeStateToFollowerWithSpecifiedTermAndVotedFor() {
-            new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, serverStateFactory);
+            new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, serverStateFactory, stateMachine);
 
             verify(serverStateFactory).createFollower(RESTORED_TERM, RESTORED_VOTED_FOR);
         }
@@ -96,7 +99,7 @@ public class ServerTest {
         public void willSetStateToCandidate() {
             when(candidate.getServerStateType()).thenReturn(CANDIDATE);
 
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
             server.electionTimeout();
 
             assertThat(server.getState()).isEqualTo(CANDIDATE);
@@ -104,7 +107,7 @@ public class ServerTest {
 
         @Test
         public void willDisposeOfCurrentState() {
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
             server.electionTimeout();
 
             verify(currentState).dispose();
@@ -112,7 +115,7 @@ public class ServerTest {
 
         @Test
         public void willIncrementTerm() {
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
             server.electionTimeout();
 
             verify(serverStateFactory).createCandidate(TERM_1);
@@ -120,7 +123,7 @@ public class ServerTest {
 
         @Test
         public void willVoteForSelf() {
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
             server.electionTimeout();
 
             verify(candidate).recordVoteAndClaimLeadershipIfEligible(SERVER_ID);
@@ -128,7 +131,7 @@ public class ServerTest {
 
         @Test
         public void willBroadcastRequestVoteRequests() {
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
             server.electionTimeout();
 
             verify(candidate).requestVotes();
@@ -139,7 +142,7 @@ public class ServerTest {
             when(leader.getServerStateType()).thenReturn(LEADER);
             when(candidate.recordVoteAndClaimLeadershipIfEligible(SERVER_ID)).thenReturn(complete(leader));
 
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
             server.electionTimeout();
 
             assertThat(server.getState()).isEqualTo(LEADER);
@@ -149,7 +152,7 @@ public class ServerTest {
         public void willDisposeOfCandidate_WhenOwnVoteIsQuorum() {
             when(candidate.recordVoteAndClaimLeadershipIfEligible(SERVER_ID)).thenReturn(complete(leader));
 
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
             server.electionTimeout();
 
             verify(candidate).dispose();
@@ -159,7 +162,7 @@ public class ServerTest {
         public void willNotRequestVotes_WhenOwnVoteCausesTransitionToLeaderState() {
             when(candidate.recordVoteAndClaimLeadershipIfEligible(SERVER_ID)).thenReturn(complete(leader));
 
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory);
+            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
             server.electionTimeout();
 
             verify(candidate, never()).requestVotes();
@@ -179,7 +182,7 @@ public class ServerTest {
             };
             var clientResponse = new CompletableFuture();
             when(serverState.handle(clientRequest)).thenReturn(clientResponse);
-            var server = new Server<>(SERVER_ID, serverState, serverStateFactory);
+            var server = new Server<>(SERVER_ID, serverState, serverStateFactory, stateMachine);
             assertThat(server.handle(clientRequest)).isSameAs(clientResponse);
         }
     }
@@ -198,7 +201,7 @@ public class ServerTest {
         void willDelegateToCurrentState() {
             when(serverState.handle(rpcMessage)).thenReturn(complete(serverState));
 
-            new Server<>(SERVER_ID, serverState, serverStateFactory).handle(rpcMessage);
+            new Server<>(SERVER_ID, serverState, serverStateFactory, stateMachine).handle(rpcMessage);
 
             verify(serverState).handle(rpcMessage);
             verifyNoMoreInteractions(serverState);
@@ -209,7 +212,7 @@ public class ServerTest {
             when(serverState.handle(rpcMessage)).thenReturn(complete(nextServerState));
             when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
-            Server<Long> server = new Server<>(SERVER_ID, serverState, serverStateFactory);
+            Server<Long> server = new Server<>(SERVER_ID, serverState, serverStateFactory, stateMachine);
 
             server.handle(rpcMessage);
             verify(serverState).handle(rpcMessage);
@@ -226,7 +229,7 @@ public class ServerTest {
             when(serverState.handle(rpcMessage)).thenReturn(incomplete(nextServerState));
             when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
-            Server<Long> server = new Server<>(SERVER_ID, serverState, serverStateFactory);
+            Server<Long> server = new Server<>(SERVER_ID, serverState, serverStateFactory, stateMachine);
 
             server.handle(rpcMessage);
             verify(serverState).handle(rpcMessage);

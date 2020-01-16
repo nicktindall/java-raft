@@ -10,6 +10,7 @@ import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
+import au.id.tindall.distalg.raft.statemachine.StateMachine;
 import au.id.tindall.distalg.raft.statemachine.StateMachineFactory;
 
 import java.io.Serializable;
@@ -42,9 +43,10 @@ public class ServerFactory<ID extends Serializable> {
         Log log = logFactory.createLog();
         ClientSessionStore clientSessionStore = clientSessionStoreFactory.create(maxClientSessions);
         clientSessionStore.startListeningForClientRegistrations(log);
-        CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachineFactory.createStateMachine());
+        StateMachine stateMachine = stateMachineFactory.createStateMachine();
+        CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine);
         commandExecutor.startListeningForCommittedCommands(log);
         return new Server<>(id, new ServerStateFactory<>(id, log, clusterFactory.createForNode(id), pendingResponseRegistryFactory,
-                logReplicatorFactory, clientSessionStore, commandExecutor));
+                logReplicatorFactory, clientSessionStore, commandExecutor), stateMachine);
     }
 }

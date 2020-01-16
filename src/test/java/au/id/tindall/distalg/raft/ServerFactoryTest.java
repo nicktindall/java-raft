@@ -70,7 +70,7 @@ class ServerFactoryTest {
     @Test
     void createsServersAndTheirDependencies() {
         assertThat(serverFactory.create(SERVER_ID)).isEqualToComparingFieldByFieldRecursively(new Server<>(SERVER_ID, new ServerStateFactory<>(SERVER_ID,
-                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor)));
+                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor), stateMachine));
     }
 
     @Test
