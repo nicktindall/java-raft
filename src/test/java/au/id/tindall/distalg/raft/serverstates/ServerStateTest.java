@@ -35,6 +35,7 @@ public class ServerStateTest {
 
     private static final long SERVER_ID = 100;
     private static final long OTHER_SERVER_ID = 101;
+    private static final long LEADER_ID = 102;
     private static final int CLIENT_ID = 200;
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
@@ -60,10 +61,11 @@ public class ServerStateTest {
 
         @Test
         void willRevertToFollowerStateAndResetVotedForAndAdvanceTerm_WhenSenderTermIsGreaterThanLocalTerm() {
-            when(serverStateFactory.createFollower(TERM_2)).thenReturn(follower);
+            when(serverStateFactory.createFollower(TERM_2, OTHER_SERVER_ID)).thenReturn(follower);
             when(rpcMessage.getTerm()).thenReturn(TERM_2);
+            when(rpcMessage.getSource()).thenReturn(OTHER_SERVER_ID);
 
-            var serverState = new ServerStateImpl(TERM_1, OTHER_SERVER_ID, log, cluster, serverStateFactory);
+            var serverState = new ServerStateImpl(TERM_1, SERVER_ID, log, cluster, serverStateFactory, LEADER_ID);
             Result<Long> result = serverState.handle(rpcMessage);
 
             assertThat(result).isEqualToComparingFieldByFieldRecursively(incomplete(follower));
@@ -75,7 +77,7 @@ public class ServerStateTest {
 
         @Test
         public void willNotGrantVote_WhenRequesterTermIsLowerThanLocalTerm() {
-            var serverState = new ServerStateImpl(TERM_3, null, log, cluster, serverStateFactory);
+            var serverState = new ServerStateImpl(TERM_3, null, log, cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
 
             verify(cluster).sendRequestVoteResponse(TERM_3, OTHER_SERVER_ID, false);
@@ -84,7 +86,7 @@ public class ServerStateTest {
 
         @Test
         public void willNotGrantVote_WhenServerHasAlreadyVoted() {
-            var serverState = new ServerStateImpl(TERM_3, SERVER_ID, log, cluster, serverStateFactory);
+            var serverState = new ServerStateImpl(TERM_3, SERVER_ID, log, cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_3, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
 
             verify(cluster).sendRequestVoteResponse(TERM_3, OTHER_SERVER_ID, false);
@@ -93,7 +95,7 @@ public class ServerStateTest {
 
         @Test
         public void willNotGrantVote_WhenServerLogIsMoreUpToDateThanRequesterLog() {
-            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory);
+            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0)));
 
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, false);
@@ -102,7 +104,7 @@ public class ServerStateTest {
 
         @Test
         public void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasNotAlreadyVoted() {
-            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory);
+            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
 
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
@@ -111,7 +113,7 @@ public class ServerStateTest {
 
         @Test
         public void willGrantVote_WhenRequesterTermIsEqualServerLogIsLessUpToDateAndServerHasNotAlreadyVoted() {
-            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory);
+            var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
 
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
@@ -120,7 +122,7 @@ public class ServerStateTest {
 
         @Test
         public void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasAlreadyVotedForRequester() {
-            var serverState = new ServerStateImpl(TERM_2, OTHER_SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory);
+            var serverState = new ServerStateImpl(TERM_2, OTHER_SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
 
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
@@ -133,12 +135,12 @@ public class ServerStateTest {
 
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
-            var serverState = new ServerStateImpl(TERM_0, null, logContaining(), cluster, serverStateFactory);
+            var serverState = new ServerStateImpl(TERM_0, null, logContaining(), cluster, serverStateFactory, LEADER_ID);
             CompletableFuture<RegisterClientResponse<Long>> response = serverState.handle(new RegisterClientRequest<>(SERVER_ID));
 
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
-                    .isEqualTo(new RegisterClientResponse<>(NOT_LEADER, null, null));
+                    .isEqualTo(new RegisterClientResponse<>(NOT_LEADER, null, LEADER_ID));
         }
     }
 
@@ -147,19 +149,19 @@ public class ServerStateTest {
 
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
-            var serverState = new ServerStateImpl(TERM_0, null, logContaining(), cluster, serverStateFactory);
+            var serverState = new ServerStateImpl(TERM_0, null, logContaining(), cluster, serverStateFactory, LEADER_ID);
             CompletableFuture<ClientRequestResponse<Long>> response = serverState.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, 0, "command".getBytes(StandardCharsets.UTF_8)));
 
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
-                    .isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
+                    .isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, LEADER_ID));
         }
     }
 
     private static class ServerStateImpl extends ServerState<Long> {
 
-        ServerStateImpl(Term currentTerm, Long votedFor, Log log, Cluster<Long> cluster, ServerStateFactory<Long> serverStateFactory) {
-            super(currentTerm, votedFor, log, cluster, serverStateFactory);
+        ServerStateImpl(Term currentTerm, Long votedFor, Log log, Cluster<Long> cluster, ServerStateFactory<Long> serverStateFactory, Long leaderId) {
+            super(currentTerm, votedFor, log, cluster, serverStateFactory, leaderId);
         }
 
         @Override

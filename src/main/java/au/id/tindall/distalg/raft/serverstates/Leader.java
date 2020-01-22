@@ -39,8 +39,8 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     public Leader(Term currentTerm, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
                   LogReplicatorFactory<ID> logReplicatorFactory, ServerStateFactory<ID> serverStateFactory,
-                  ClientSessionStore clientSessionStore) {
-        super(currentTerm, null, log, cluster, serverStateFactory);
+                  ClientSessionStore clientSessionStore, ID id) {
+        super(currentTerm, null, log, cluster, serverStateFactory, id);
         replicators = createReplicators(logReplicatorFactory);
         this.pendingResponseRegistry = pendingResponseRegistry;
         this.clientSessionStore = clientSessionStore;

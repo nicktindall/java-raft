@@ -1,20 +1,5 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import static au.id.tindall.distalg.raft.serverstates.Result.complete;
-import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
-import static java.util.Collections.emptyList;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
-import static org.mockito.Mockito.when;
-
-import java.util.Optional;
-import java.util.Set;
-
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
@@ -26,6 +11,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+import java.util.Set;
+
+import static au.id.tindall.distalg.raft.serverstates.Result.complete;
+import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
+import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class CandidateTest {
@@ -136,7 +136,7 @@ public class CandidateTest {
             reset(cluster);
             Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true));
 
-            verifyZeroInteractions(serverStateFactory);
+            verifyNoMoreInteractions(serverStateFactory);
             verify(cluster, never()).isQuorum(anySet());
             assertThat(candidateState.getReceivedVotes()).doesNotContain(OTHER_SERVER_ID);
             assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(candidateState));
@@ -148,7 +148,7 @@ public class CandidateTest {
 
         @Test
         public void willTransitionToFollowerAndContinueProcessingMessage_WhenTermIsGreaterThanOrEqualToLocalTerm() {
-            when(serverStateFactory.createFollower(TERM_2)).thenReturn(follower);
+            when(serverStateFactory.createFollower(TERM_2, OTHER_SERVER_ID)).thenReturn(follower);
 
             Candidate<Long> candidateState = new Candidate<>(TERM_1, log, cluster, SERVER_ID, serverStateFactory);
             Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));

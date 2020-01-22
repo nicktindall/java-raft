@@ -33,13 +33,15 @@ public abstract class ServerState<ID extends Serializable> {
     private ID votedFor;
     private Log log;
     protected final ServerStateFactory<ID> serverStateFactory;
+    private ID currentLeader;
 
-    public ServerState(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory) {
+    public ServerState(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader) {
         this.currentTerm = currentTerm;
         this.votedFor = votedFor;
         this.log = log;
         this.cluster = cluster;
         this.serverStateFactory = serverStateFactory;
+        this.currentLeader = currentLeader;
     }
 
     public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> message) {
@@ -54,7 +56,7 @@ public abstract class ServerState<ID extends Serializable> {
 
     public Result<ID> handle(RpcMessage<ID> message) {
         if (message.getTerm().isGreaterThan(currentTerm)) {
-            return incomplete(serverStateFactory.createFollower(message.getTerm()));
+            return incomplete(serverStateFactory.createFollower(message.getTerm(), message.getSource()));
         }
 
         if (message instanceof RequestVoteRequest) {
@@ -71,11 +73,11 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     protected CompletableFuture<ClientRequestResponse<ID>> handle(ClientRequestRequest<ID> clientRequestRequest) {
-        return CompletableFuture.completedFuture(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
+        return CompletableFuture.completedFuture(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, currentLeader));
     }
 
     protected CompletableFuture<RegisterClientResponse<ID>> handle(RegisterClientRequest<ID> registerClientRequest) {
-        return CompletableFuture.completedFuture(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, null));
+        return CompletableFuture.completedFuture(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, currentLeader));
     }
 
     protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {

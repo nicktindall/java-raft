@@ -21,7 +21,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     private final Set<ID> receivedVotes;
 
     public Candidate(Term currentTerm, Log log, Cluster<ID> cluster, ID ownId, ServerStateFactory<ID> serverStateFactory) {
-        super(currentTerm, ownId, log, cluster, serverStateFactory);
+        super(currentTerm, ownId, log, cluster, serverStateFactory, null);
         receivedVotes = new HashSet<>();
     }
 
@@ -32,7 +32,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
             return complete(this);
         }
 
-        return incomplete(serverStateFactory.createFollower(appendEntriesRequest.getTerm()));
+        return incomplete(serverStateFactory.createFollower(appendEntriesRequest.getTerm(), appendEntriesRequest.getLeaderId()));
     }
 
     @Override

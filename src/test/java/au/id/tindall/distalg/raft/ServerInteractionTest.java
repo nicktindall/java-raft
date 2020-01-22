@@ -10,6 +10,7 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.serverstates.TestStateMachine;
 import au.id.tindall.distalg.raft.statemachine.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
@@ -132,9 +133,17 @@ public class ServerInteractionTest {
         clusterFactory.fullyFlush();
         CompletableFuture<? extends ClientResponseMessage> requestResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, COMMAND));
         clusterFactory.fullyFlush();
-        assertThat(requestResponse.get()).isEqualToComparingFieldByFieldRecursively(new ClientRequestResponse(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
+        assertThat(requestResponse.get()).isEqualToComparingFieldByFieldRecursively(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
         assertThat(((TestStateMachine) server1.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
         assertThat(((TestStateMachine) server2.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
         assertThat(((TestStateMachine) server3.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
+    }
+
+    @Test
+    void followers_WillReturnCorrectLeaderHintAfterElection() throws ExecutionException, InterruptedException {
+        server1.electionTimeout();
+        clusterFactory.fullyFlush();
+        CompletableFuture<? extends ClientResponseMessage> response = server3.handle(new RegisterClientRequest<>(server3.getId()));
+        assertThat(response.get()).isEqualToComparingFieldByFieldRecursively(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, server1.getId()));
     }
 }

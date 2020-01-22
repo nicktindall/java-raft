@@ -1,27 +1,46 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import static au.id.tindall.distalg.raft.serverstates.Result.complete;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
-import static java.lang.Math.min;
-import static java.util.Optional.empty;
-
-import java.io.Serializable;
-import java.util.Optional;
-
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import org.apache.logging.log4j.Logger;
+
+import java.io.Serializable;
+import java.util.Optional;
+
+import static au.id.tindall.distalg.raft.serverstates.Result.complete;
+import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
+import static java.lang.Math.min;
+import static java.util.Optional.empty;
+import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Follower<ID extends Serializable> extends ServerState<ID> {
 
-    public Follower(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory) {
-        super(currentTerm, votedFor, log, cluster, serverStateFactory);
+    private static final Logger LOGGER = getLogger();
+
+    private final Term followerForTerm;
+    private final ID leaderForTerm;
+
+    public Follower(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader) {
+        super(currentTerm, votedFor, log, cluster, serverStateFactory, currentLeader);
+        this.followerForTerm = currentTerm;
+        this.leaderForTerm = currentLeader;
     }
 
     @Override
     protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
+        if (appendEntriesRequest.getTerm().isGreaterThan(followerForTerm)) {
+            throw new IllegalStateException("Received a request from a future term! this should never happen");
+        }
+
         if (messageIsStale(appendEntriesRequest)) {
+            getCluster().sendAppendEntriesResponse(getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
+            return complete(this);
+        }
+
+        if (!appendEntriesRequest.getSource().equals(leaderForTerm)) {
+            LOGGER.warn("Got an append entries request from someone other than the leader?!");
             getCluster().sendAppendEntriesResponse(getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }

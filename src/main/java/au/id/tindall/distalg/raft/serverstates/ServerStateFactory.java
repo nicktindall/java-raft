@@ -34,15 +34,15 @@ public class ServerStateFactory<ID extends Serializable> {
 
     public Leader<ID> createLeader(Term currentTerm) {
         return new Leader<>(currentTerm, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
-                logReplicatorFactory, this, clientSessionStore);
+                logReplicatorFactory, this, clientSessionStore, id);
     }
 
-    public Follower<ID> createFollower(Term currentTerm) {
-        return createFollower(currentTerm, null);
+    public Follower<ID> createFollower(Term currentTerm, ID currentLeader) {
+        return createFollower(currentTerm, currentLeader, null);
     }
 
-    public Follower<ID> createFollower(Term currentTerm, ID votedFor) {
-        return new Follower<>(currentTerm, votedFor, log, cluster, this);
+    public Follower<ID> createFollower(Term currentTerm, ID currentLeader, ID votedFor) {
+        return new Follower<>(currentTerm, votedFor, log, cluster, this, currentLeader);
     }
 
     public Candidate<ID> createCandidate(Term currentTerm) {
