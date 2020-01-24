@@ -1,8 +1,8 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import au.id.tindall.distalg.raft.client.PendingClientRequestResponse;
-import au.id.tindall.distalg.raft.client.PendingRegisterClientResponse;
-import au.id.tindall.distalg.raft.client.PendingResponseRegistry;
+import au.id.tindall.distalg.raft.client.responses.PendingClientRequestResponse;
+import au.id.tindall.distalg.raft.client.responses.PendingRegisterClientResponse;
+import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
@@ -15,7 +15,7 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
-import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 
 import java.io.Serializable;
 import java.util.HashMap;

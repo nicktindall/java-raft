@@ -1,4 +1,4 @@
-package au.id.tindall.distalg.raft.statemachine;
+package au.id.tindall.distalg.raft.client.sessions;
 
 import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;

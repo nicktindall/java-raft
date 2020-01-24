@@ -1,4 +1,4 @@
-package au.id.tindall.distalg.raft.client;
+package au.id.tindall.distalg.raft.client.responses;
 
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import org.junit.jupiter.api.BeforeEach;

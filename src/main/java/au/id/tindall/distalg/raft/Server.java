@@ -10,7 +10,7 @@ import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
-import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 
 import java.io.Serializable;

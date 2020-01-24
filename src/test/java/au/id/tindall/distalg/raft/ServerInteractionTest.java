@@ -1,6 +1,6 @@
 package au.id.tindall.distalg.raft;
 
-import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
+import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
@@ -12,7 +12,7 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.serverstates.TestStateMachine;
-import au.id.tindall.distalg.raft.statemachine.ClientSessionStoreFactory;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

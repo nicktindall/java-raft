@@ -1,11 +1,11 @@
-package au.id.tindall.distalg.raft.client;
+package au.id.tindall.distalg.raft.client.responses;
 
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionCreatedHandler;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
-import au.id.tindall.distalg.raft.statemachine.ClientSessionCreatedHandler;
-import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
 import au.id.tindall.distalg.raft.statemachine.CommandAppliedEventHandler;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import org.junit.jupiter.api.BeforeEach;

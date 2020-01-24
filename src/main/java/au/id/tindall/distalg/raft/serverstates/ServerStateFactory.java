@@ -1,11 +1,11 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import au.id.tindall.distalg.raft.client.PendingResponseRegistryFactory;
+import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
-import au.id.tindall.distalg.raft.statemachine.ClientSessionStore;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 
 import java.io.Serializable;
