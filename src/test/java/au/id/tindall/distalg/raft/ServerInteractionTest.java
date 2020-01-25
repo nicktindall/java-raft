@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
@@ -12,7 +13,6 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.serverstates.TestStateMachine;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -145,5 +145,21 @@ public class ServerInteractionTest {
         clusterFactory.fullyFlush();
         CompletableFuture<? extends ClientResponseMessage> response = server3.handle(new RegisterClientRequest<>(server3.getId()));
         assertThat(response.get()).isEqualToComparingFieldByFieldRecursively(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, server1.getId()));
+    }
+
+    @Test
+    void duplicateCommands_WillOnlyExecuteOnce() throws ExecutionException, InterruptedException {
+        server1.electionTimeout();
+        clusterFactory.fullyFlush();
+        server1.handle(new RegisterClientRequest<>(server1.getId()));
+        clusterFactory.fullyFlush();
+        CompletableFuture<? extends ClientResponseMessage> firstResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, COMMAND));
+        CompletableFuture<? extends ClientResponseMessage> secondResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, COMMAND));
+        clusterFactory.fullyFlush();
+        assertThat(firstResponse.get()).isEqualToComparingFieldByFieldRecursively(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
+        assertThat(secondResponse.get()).isEqualToComparingFieldByFieldRecursively(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
+        assertThat(((TestStateMachine) server1.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
+        assertThat(((TestStateMachine) server2.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
+        assertThat(((TestStateMachine) server3.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
     }
 }

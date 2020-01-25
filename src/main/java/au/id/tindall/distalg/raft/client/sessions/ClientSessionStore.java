@@ -4,6 +4,8 @@ import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.statemachine.CommandAppliedEventHandler;
+import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,12 +22,14 @@ public class ClientSessionStore {
     private final Map<Integer, ClientSession> activeSessions;
     private final EntryCommittedEventHandler clientRegistrationHandler;
     private final List<ClientSessionCreatedHandler> clientSessionCreatedHandlers;
+    private final CommandAppliedEventHandler commandAppliedEventHandler;
 
     public ClientSessionStore(int maxSessions) {
         this.maxSessions = maxSessions;
         this.activeSessions = new HashMap<>();
         this.clientSessionCreatedHandlers = new ArrayList<>();
         this.clientRegistrationHandler = this::handleClientRegistrations;
+        this.commandAppliedEventHandler = this::recordAppliedCommand;
     }
 
     public boolean hasSession(int clientId) {
@@ -57,6 +61,10 @@ public class ClientSessionStore {
                     .orElseThrow(() -> new IllegalStateException("No active sessions is more than maximum?!"));
             activeSessions.remove(leastRecentlyUsedClientSession.getClientId());
         }
+    }
+
+    public void startListeningForAppliedCommands(CommandExecutor commandExecutor) {
+        commandExecutor.addCommandAppliedEventHandler(this.commandAppliedEventHandler);
     }
 
     public void startListeningForClientRegistrations(Log log) {

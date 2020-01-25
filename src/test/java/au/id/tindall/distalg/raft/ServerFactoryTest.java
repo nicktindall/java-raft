@@ -1,14 +1,14 @@
 package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.comms.ClusterFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
@@ -62,7 +62,7 @@ class ServerFactoryTest {
         when(clusterFactory.createForNode(eq(SERVER_ID))).thenReturn(cluster);
         when(logFactory.createLog()).thenReturn(log);
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
-        when(commandExecutorFactory.createCommandExecutor(stateMachine)).thenReturn(commandExecutor);
+        when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore)).thenReturn(commandExecutor);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
                 commandExecutorFactory, stateMachineFactory);
     }

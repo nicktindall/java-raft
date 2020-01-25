@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.statemachine;
 
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
@@ -14,11 +15,14 @@ public class CommandExecutor {
     private final StateMachine stateMachine;
     private final EntryCommittedEventHandler commandHandler;
     private final List<CommandAppliedEventHandler> commandAppliedEventHandlers;
+    private final ClientSessionStore clientSessionStore;
 
-    public CommandExecutor(StateMachine stateMachine) {
+    public CommandExecutor(StateMachine stateMachine, ClientSessionStore clientSessionStore) {
         this.stateMachine = stateMachine;
+        this.clientSessionStore = clientSessionStore;
         this.commandAppliedEventHandlers = new ArrayList<>();
         this.commandHandler = this::handleStateMachineCommands;
+        this.clientSessionStore.startListeningForAppliedCommands(this);
     }
 
     public void startListeningForCommittedCommands(Log log) {
@@ -40,7 +44,8 @@ public class CommandExecutor {
     private void handleStateMachineCommands(int logIndex, LogEntry logEntry) {
         if (logEntry instanceof StateMachineCommandEntry) {
             StateMachineCommandEntry stateMachineCommandEntry = (StateMachineCommandEntry) logEntry;
-            byte[] result = this.stateMachine.apply(stateMachineCommandEntry.getCommand());
+            byte[] result = clientSessionStore.getCommandResult(stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.getClientSequenceNumber())
+                    .orElseGet(() -> this.stateMachine.apply(stateMachineCommandEntry.getCommand()));
             notifyCommandAppliedListeners(logIndex, stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.getClientSequenceNumber(), result);
         }
     }

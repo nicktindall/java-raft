@@ -1,13 +1,13 @@
 package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.comms.ClusterFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
@@ -44,7 +44,7 @@ public class ServerFactory<ID extends Serializable> {
         ClientSessionStore clientSessionStore = clientSessionStoreFactory.create(maxClientSessions);
         clientSessionStore.startListeningForClientRegistrations(log);
         StateMachine stateMachine = stateMachineFactory.createStateMachine();
-        CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine);
+        CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore);
         commandExecutor.startListeningForCommittedCommands(log);
         return new Server<>(id, new ServerStateFactory<>(id, log, clusterFactory.createForNode(id), pendingResponseRegistryFactory,
                 logReplicatorFactory, clientSessionStore, commandExecutor), stateMachine);
