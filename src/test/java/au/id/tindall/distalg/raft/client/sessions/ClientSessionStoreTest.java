@@ -5,6 +5,7 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -20,6 +21,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 public class ClientSessionStoreTest {
 
     private static final int MAX_SESSIONS = 2;
+    private static final byte[] RESULT = "result".getBytes();
     private ClientSessionStore clientSessionStore;
 
     @Mock
@@ -62,10 +64,10 @@ public class ClientSessionStoreTest {
     }
 
     @Test
-    void recordInteraction_WillPreventSessionBeingExpired() {
+    void recordAppliedCommand_WillPreventSessionBeingExpired() {
         clientSessionStore.createSession(1, 1);
         clientSessionStore.createSession(2, 2);
-        clientSessionStore.recordInteraction(1, 3);
+        clientSessionStore.recordAppliedCommand(3, 1, 0, "result".getBytes());
         clientSessionStore.createSession(4, 3);
 
         assertThat(clientSessionStore.hasSession(1)).isTrue();
@@ -112,5 +114,27 @@ public class ClientSessionStoreTest {
         clientSessionStore.createSession(2, 2);
         verify(clientSessionCreatedHandler).clientSessionCreated(1, 1);
         verifyNoMoreInteractions(clientSessionCreatedHandler);
+    }
+
+    @Nested
+    class GetCommandResult {
+
+        @Test
+        void returnsNothing_WhenNoSuchClientExists() {
+            assertThat(clientSessionStore.getCommandResult(1, 0)).isEmpty();
+        }
+
+        @Test
+        void returnsNothing_WhenNoMatchingCommandExists() {
+            clientSessionStore.createSession(10, 1);
+            assertThat(clientSessionStore.getCommandResult(1, 0)).isEmpty();
+        }
+
+        @Test
+        void returnsCommandResult_WhenAMatchingCommandWasFound() {
+            clientSessionStore.createSession(10, 1);
+            clientSessionStore.recordAppliedCommand(11, 1, 0, RESULT);
+            assertThat(clientSessionStore.getCommandResult(1, 0)).contains(RESULT);
+        }
     }
 }

@@ -15,7 +15,7 @@ import java.util.Optional;
 public class ClientSessionStore {
 
     private static final Comparator<ClientSession> LAST_INTERACTION_COMPARATOR =
-            Comparator.comparing(ClientSession::getLastInteractionSequence);
+            Comparator.comparing(ClientSession::getLastInteractionLogIndex);
     private final int maxSessions;
     private final Map<Integer, ClientSession> activeSessions;
     private final EntryCommittedEventHandler clientRegistrationHandler;
@@ -38,16 +38,16 @@ public class ClientSessionStore {
         }
         expireLeastRecentlyUsedSessionIfFull();
         activeSessions.put(clientId, new ClientSession(clientId, registrationIndex));
-        notifyListeners(registrationIndex, clientId);
+        notifySessionCreatedListeners(registrationIndex, clientId);
     }
 
-    private void notifyListeners(int logIndex, int clientId) {
+    private void notifySessionCreatedListeners(int logIndex, int clientId) {
         this.clientSessionCreatedHandlers.forEach(handler -> handler.clientSessionCreated(logIndex, clientId));
     }
 
-    public void recordInteraction(int clientId, int index) {
+    public void recordAppliedCommand(int logIndex, int clientId, int sequenceNumber, byte[] result) {
         Optional.ofNullable(activeSessions.get(clientId))
-                .ifPresent(session -> session.setLastInteractionSequence(index));
+                .ifPresent(session -> session.recordAppliedCommand(logIndex, sequenceNumber, result));
     }
 
     private void expireLeastRecentlyUsedSessionIfFull() {
@@ -79,5 +79,10 @@ public class ClientSessionStore {
         if (logEntry instanceof ClientRegistrationEntry) {
             createSession(index, ((ClientRegistrationEntry) logEntry).getClientId());
         }
+    }
+
+    public Optional<byte[]> getCommandResult(int clientId, int clientSequenceNumber) {
+        return Optional.ofNullable(activeSessions.get(clientId))
+                .flatMap(session -> session.getCommandResult(clientSequenceNumber));
     }
 }
