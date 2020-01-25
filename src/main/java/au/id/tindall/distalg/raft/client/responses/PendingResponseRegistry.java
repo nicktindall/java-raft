@@ -1,12 +1,12 @@
 package au.id.tindall.distalg.raft.client.responses;
 
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionCreatedHandler;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionCreatedHandler;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.statemachine.CommandAppliedEventHandler;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 
@@ -59,13 +59,13 @@ public class PendingResponseRegistry {
         pendingResponses.clear();
     }
 
-    private void handleCommandApplied(int index, byte[] commandResult) {
-        removePendingResponse(index).ifPresent(
+    private void handleCommandApplied(int logIndex, int clientId, int sequenceNumber, byte[] commandResult) {
+        removePendingResponse(logIndex).ifPresent(
                 pendingResponse -> pendingResponse.getResponseFuture().complete(new ClientRequestResponse<>(ClientRequestStatus.OK, commandResult, null)));
     }
 
-    private void handleSessionCreated(int index, int clientId) {
-        removePendingResponse(index).ifPresent(
+    private void handleSessionCreated(int logIndex, int clientId) {
+        removePendingResponse(logIndex).ifPresent(
                 pendingResponse -> pendingResponse.getResponseFuture().complete(new RegisterClientResponse<>(RegisterClientStatus.OK, clientId, null)));
     }
 

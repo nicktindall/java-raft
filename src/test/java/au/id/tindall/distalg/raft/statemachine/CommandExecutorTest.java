@@ -12,7 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static java.util.Collections.singletonList;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,22 +59,22 @@ class CommandExecutorTest {
         public void shouldNotifyListenersOfCommandResult() {
             when(stateMachine.apply(COMMAND)).thenReturn(RESULT);
             log.setCommitIndex(1);
-            verify(commandAppliedEventHandler).handleCommandApplied(1, RESULT);
+            verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, CLIENT_SEQUENCE_NUMBER, RESULT);
         }
 
         @Test
         public void shouldNotNotifyRemovedListenersOfCommandResult() {
             commandExecutor.removeCommandAppliedEventHandler(commandAppliedEventHandler);
             log.setCommitIndex(1);
-            verifyZeroInteractions(commandAppliedEventHandler);
+            verifyNoMoreInteractions(commandAppliedEventHandler);
         }
 
         @Test
         public void shouldNotBeNotifiedAfterWeStopListening() {
             commandExecutor.stopListeningForCommittedCommands(log);
             log.setCommitIndex(1);
-            verifyZeroInteractions(stateMachine);
-            verifyZeroInteractions(commandAppliedEventHandler);
+            verifyNoMoreInteractions(stateMachine);
+            verifyNoMoreInteractions(commandAppliedEventHandler);
         }
     }
 }

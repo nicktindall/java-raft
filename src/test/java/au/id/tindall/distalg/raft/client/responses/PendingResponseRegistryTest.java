@@ -90,6 +90,8 @@ public class PendingResponseRegistryTest {
     class HandleCommandApplied {
 
         private final byte[] RESULT = "result".getBytes();
+        private final int CLIENT_ID = 1234;
+        private final int SEQUENCE_NUMBER = 0;
 
         @Mock
         private CompletableFuture<ClientRequestResponse<Integer>> responseFuture;
@@ -99,14 +101,14 @@ public class PendingResponseRegistryTest {
             when(pendingResponse.getResponseFuture()).thenReturn((CompletableFuture) responseFuture);
 
             pendingResponseRegistry.registerOutstandingResponse(LOG_INDEX, pendingResponse);
-            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, RESULT);
+            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, CLIENT_ID, SEQUENCE_NUMBER, RESULT);
 
             verify(responseFuture).complete(refEq(new ClientRequestResponse<>(ClientRequestStatus.OK, RESULT, null)));
         }
 
         @Test
         void willDoNothing_WhenThereIsNoResponseRegistered() {
-            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, RESULT);
+            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, CLIENT_ID, SEQUENCE_NUMBER, RESULT);
         }
     }
 

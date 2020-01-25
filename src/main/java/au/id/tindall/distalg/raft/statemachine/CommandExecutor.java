@@ -37,15 +37,15 @@ public class CommandExecutor {
         this.commandAppliedEventHandlers.remove(commandAppliedEventHandler);
     }
 
-    private void handleStateMachineCommands(int index, LogEntry logEntry) {
+    private void handleStateMachineCommands(int logIndex, LogEntry logEntry) {
         if (logEntry instanceof StateMachineCommandEntry) {
             StateMachineCommandEntry stateMachineCommandEntry = (StateMachineCommandEntry) logEntry;
             byte[] result = this.stateMachine.apply(stateMachineCommandEntry.getCommand());
-            notifyListeners(index, result);
+            notifyCommandAppliedListeners(logIndex, stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.getClientSequenceNumber(), result);
         }
     }
 
-    private void notifyListeners(int index, byte[] result) {
-        this.commandAppliedEventHandlers.forEach(handler -> handler.handleCommandApplied(index, result));
+    private void notifyCommandAppliedListeners(int logIndex, int clientId, int sequenceNumber, byte[] result) {
+        this.commandAppliedEventHandlers.forEach(handler -> handler.handleCommandApplied(logIndex, clientId, sequenceNumber, result));
     }
 }
