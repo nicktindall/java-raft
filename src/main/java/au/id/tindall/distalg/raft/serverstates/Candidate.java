@@ -1,20 +1,21 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import static au.id.tindall.distalg.raft.serverstates.Result.complete;
-import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
-import static java.util.Collections.unmodifiableSet;
-import static java.util.Optional.empty;
+import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.log.Log;
+import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
+import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
-import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.Term;
-import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
+import static au.id.tindall.distalg.raft.serverstates.Result.complete;
+import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
+import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
+import static java.util.Collections.unmodifiableSet;
+import static java.util.Optional.empty;
 
 public class Candidate<ID extends Serializable> extends ServerState<ID> {
 
@@ -39,9 +40,16 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     protected Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
         if (messageIsNotStale(requestVoteResponse) &&
                 requestVoteResponse.isVoteGranted()) {
-            return recordVoteAndClaimLeadershipIfEligible(requestVoteResponse.getSource());
+            return complete(recordVoteAndClaimLeadershipIfEligible(requestVoteResponse.getSource()));
         }
         return complete(this);
+    }
+
+    @Override
+    protected Result<ID> handle(InitiateElectionMessage<ID> initiateElectionMessage) {
+        ServerState<ID> nextState = recordVoteAndClaimLeadershipIfEligible(initiateElectionMessage.getSource());
+        nextState.requestVotes();
+        return complete(nextState);
     }
 
     @Override
@@ -49,19 +57,20 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
         return CANDIDATE;
     }
 
-    public Result<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
+    @Override
+    protected void requestVotes() {
+        getCluster().sendRequestVoteRequest(getCurrentTerm(), getLog().getLastLogIndex(), getLog().getLastLogTerm());
+    }
+
+    public ServerState<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
         this.receivedVotes.add(voter);
         if (getCluster().isQuorum(getReceivedVotes())) {
             Leader<ID> leaderState = serverStateFactory.createLeader(getCurrentTerm());
             leaderState.sendHeartbeatMessage();
-            return complete(leaderState);
+            return leaderState;
         } else {
-            return complete(this);
+            return this;
         }
-    }
-
-    public void requestVotes() {
-        getCluster().sendRequestVoteRequest(getCurrentTerm(), getLog().getLastLogIndex(), getLog().getLastLogTerm());
     }
 
     public Set<ID> getReceivedVotes() {

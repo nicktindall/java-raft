@@ -2,10 +2,9 @@ package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
+import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
-import au.id.tindall.distalg.raft.serverstates.Candidate;
 import au.id.tindall.distalg.raft.serverstates.Follower;
-import au.id.tindall.distalg.raft.serverstates.Leader;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
@@ -20,12 +19,9 @@ import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
-import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -82,90 +78,21 @@ public class ServerTest {
     class ElectionTimeout {
 
         @Mock
-        private Candidate<Long> candidate;
-        @Mock
         private Follower<Long> currentState;
-        @Mock
-        private Leader<Long> leader;
 
         @BeforeEach
         void setUp() {
             when(currentState.getCurrentTerm()).thenReturn(TERM_0);
-            when(serverStateFactory.createCandidate(any(Term.class))).thenReturn(candidate);
-            when(candidate.recordVoteAndClaimLeadershipIfEligible(anyLong())).thenReturn(complete(candidate));
         }
 
         @Test
-        public void willSetStateToCandidate() {
-            when(candidate.getServerStateType()).thenReturn(CANDIDATE);
-
+        @SuppressWarnings({"ConstantConditions", "unchecked"})
+        public void willDispatchInitiateElectionMessageWithIncrementedTerm() {
+            when(currentState.handle(any(RpcMessage.class))).thenReturn(complete(currentState));
             var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
             server.electionTimeout();
 
-            assertThat(server.getState()).isEqualTo(CANDIDATE);
-        }
-
-        @Test
-        public void willDisposeOfCurrentState() {
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
-            server.electionTimeout();
-
-            verify(currentState).dispose();
-        }
-
-        @Test
-        public void willIncrementTerm() {
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
-            server.electionTimeout();
-
-            verify(serverStateFactory).createCandidate(TERM_1);
-        }
-
-        @Test
-        public void willVoteForSelf() {
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
-            server.electionTimeout();
-
-            verify(candidate).recordVoteAndClaimLeadershipIfEligible(SERVER_ID);
-        }
-
-        @Test
-        public void willBroadcastRequestVoteRequests() {
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
-            server.electionTimeout();
-
-            verify(candidate).requestVotes();
-        }
-
-        @Test
-        public void willTransitionToLeader_WhenOwnVoteIsQuorum() {
-            when(leader.getServerStateType()).thenReturn(LEADER);
-            when(candidate.recordVoteAndClaimLeadershipIfEligible(SERVER_ID)).thenReturn(complete(leader));
-
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
-            server.electionTimeout();
-
-            assertThat(server.getState()).isEqualTo(LEADER);
-        }
-
-        @Test
-        public void willDisposeOfCandidate_WhenOwnVoteIsQuorum() {
-            when(candidate.recordVoteAndClaimLeadershipIfEligible(SERVER_ID)).thenReturn(complete(leader));
-
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
-            server.electionTimeout();
-
-            verify(candidate).dispose();
-        }
-
-        @Test
-        public void willNotRequestVotes_WhenOwnVoteCausesTransitionToLeaderState() {
-            when(candidate.recordVoteAndClaimLeadershipIfEligible(SERVER_ID)).thenReturn(complete(leader));
-
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
-            server.electionTimeout();
-
-            verify(candidate, never()).requestVotes();
+            verify(currentState).handle(refEq(new InitiateElectionMessage<>(TERM_1, SERVER_ID)));
         }
     }
 

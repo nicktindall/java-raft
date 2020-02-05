@@ -43,7 +43,7 @@ public class ClientSession {
         return Optional.empty();
     }
 
-    class AppliedCommand {
+    static class AppliedCommand {
 
         private final int sequenceNumber;
         private final byte[] result;

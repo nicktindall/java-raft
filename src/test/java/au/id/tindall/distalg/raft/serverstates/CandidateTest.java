@@ -4,6 +4,7 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -20,6 +21,8 @@ import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -163,6 +166,66 @@ public class CandidateTest {
 
             assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(candidateState));
             verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, false, Optional.empty());
+        }
+    }
+
+    @Nested
+    class HandleInitializeElectionMessage {
+
+        @Nested
+        class WhenOwnVoteIsNotQuorum {
+
+            private static final int LAST_LOG_INDEX = 2631;
+            private Candidate<Long> candidate;
+
+            @BeforeEach
+            void setUp() {
+                when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(false);
+                when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
+                when(log.getLastLogTerm()).thenReturn(Optional.of(TERM_0));
+                candidate = new Candidate<>(TERM_1, log, cluster, SERVER_ID, serverStateFactory);
+            }
+
+            @Test
+            void willRemainIndCandidateStateAndCompleteProcessing() {
+                assertThat(candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID))).isEqualToComparingFieldByFieldRecursively(complete(candidate));
+            }
+
+            @Test
+            void willRequestVotes() {
+                candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID));
+                verify(cluster).sendRequestVoteRequest(TERM_1, LAST_LOG_INDEX, Optional.of(TERM_0));
+            }
+        }
+
+        @Nested
+        class WhenOwnVoteIsQuorum {
+
+            private Candidate<Long> candidate;
+
+            @BeforeEach
+            void setUp() {
+                when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(true);
+                when(serverStateFactory.createLeader(TERM_1)).thenReturn(leader);
+                candidate = new Candidate<>(TERM_1, log, cluster, SERVER_ID, serverStateFactory);
+            }
+
+            @Test
+            void willTransitionToLeaderAndCompleteProcessing() {
+                assertThat(candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID))).isEqualToComparingFieldByFieldRecursively(complete(leader));
+            }
+
+            @Test
+            void willNotRequestVotes() {
+                candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID));
+                verify(cluster, never()).sendRequestVoteRequest(any(), anyInt(), any());
+            }
+
+            @Test
+            void willSendHeartbeatToClaimLeadership() {
+                candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID));
+                verify(leader).sendHeartbeatMessage();
+            }
         }
     }
 }

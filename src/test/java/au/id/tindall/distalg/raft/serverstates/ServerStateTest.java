@@ -22,6 +22,7 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import org.junit.jupiter.api.Nested;
@@ -155,6 +156,21 @@ public class ServerStateTest {
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
                     .isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, LEADER_ID));
+        }
+    }
+
+    @Nested
+    public class HandleInitiateElectionMessage {
+
+        @Mock
+        private Candidate<Long> candidate;
+
+        @Test
+        void willTransitionToCandidateStateInTheCurrentTerm() {
+            when(serverStateFactory.createCandidate(TERM_0)).thenReturn(candidate);
+            var serverState = new ServerStateImpl(TERM_0, null, logContaining(), cluster, serverStateFactory, LEADER_ID);
+
+            assertThat(serverState.handle(new InitiateElectionMessage<>(TERM_0, SERVER_ID))).isEqualToComparingFieldByFieldRecursively(incomplete(candidate));
         }
     }
 

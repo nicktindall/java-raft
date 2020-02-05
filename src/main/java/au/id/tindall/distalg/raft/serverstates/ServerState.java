@@ -22,6 +22,7 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
@@ -67,9 +68,15 @@ public abstract class ServerState<ID extends Serializable> {
             return handle((AppendEntriesRequest<ID>) message);
         } else if (message instanceof AppendEntriesResponse) {
             return handle((AppendEntriesResponse<ID>) message);
+        } else if (message instanceof InitiateElectionMessage) {
+            return handle((InitiateElectionMessage<ID>) message);
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
+    }
+
+    protected void requestVotes() {
+        // Do nothing by default, only candidates request votes
     }
 
     protected CompletableFuture<ClientRequestResponse<ID>> handle(ClientRequestRequest<ID> clientRequestRequest) {
@@ -104,6 +111,10 @@ public abstract class ServerState<ID extends Serializable> {
 
     protected Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
         return complete(this);
+    }
+
+    protected Result<ID> handle(InitiateElectionMessage<ID> initiateElectionMessage) {
+        return incomplete(serverStateFactory.createCandidate(getCurrentTerm()));
     }
 
     private boolean candidatesLogIsAtLeastUpToDateAsMine(RequestVoteRequest<ID> requestVote) {

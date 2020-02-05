@@ -1,16 +1,16 @@
 package au.id.tindall.distalg.raft;
 
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
+import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
-import au.id.tindall.distalg.raft.serverstates.Candidate;
 import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 
 import java.io.Serializable;
@@ -58,12 +58,7 @@ public class Server<ID extends Serializable> {
     }
 
     public void electionTimeout() {
-        updateState(serverStateFactory.createCandidate(state.getCurrentTerm().next()));
-        Result<ID> recordVoteResult = ((Candidate<ID>) state).recordVoteAndClaimLeadershipIfEligible(id);
-        updateState(recordVoteResult.getNextState());
-        if (state instanceof Candidate) {
-            ((Candidate<ID>) state).requestVotes();
-        }
+        handle(new InitiateElectionMessage<>(state.getCurrentTerm().next(), id));
     }
 
     public ID getId() {
