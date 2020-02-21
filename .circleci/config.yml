@@ -40,3 +40,6 @@ jobs:
 
       # run tests, coverage & sonar
       - run: ./gradlew test jacocoTestReport sonarqube
+
+      - store_test_results:
+          path: build/test-results
