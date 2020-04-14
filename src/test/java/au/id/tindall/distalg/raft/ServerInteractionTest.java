@@ -48,6 +48,9 @@ public class ServerInteractionTest {
         server1 = serverFactory.create(1L);
         server2 = serverFactory.create(2L);
         server3 = serverFactory.create(3L);
+        server1.start();
+        server2.start();
+        server3.start();
         clusterFactory.setServers(server1, server2, server3);
     }
 

@@ -1,11 +1,11 @@
 package au.id.tindall.distalg.raft.serverstates;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 
 import java.io.Serializable;
@@ -35,6 +35,10 @@ public class ServerStateFactory<ID extends Serializable> {
     public Leader<ID> createLeader(Term currentTerm) {
         return new Leader<>(currentTerm, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
                 logReplicatorFactory, this, clientSessionStore, id);
+    }
+
+    public Follower<ID> createInitialState() {
+        return createFollower(new Term(0), null, null);
     }
 
     public Follower<ID> createFollower(Term currentTerm, ID currentLeader) {

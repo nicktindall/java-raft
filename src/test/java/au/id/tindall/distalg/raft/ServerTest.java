@@ -19,7 +19,9 @@ import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
+import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.verify;
@@ -30,8 +32,6 @@ import static org.mockito.Mockito.when;
 public class ServerTest {
 
     private static final long SERVER_ID = 100L;
-    private static final Term RESTORED_TERM = new Term(111);
-    private static final long RESTORED_VOTED_FOR = 999L;
     private static final Term TERM_1 = new Term(1);
     private static final Term TERM_0 = new Term(0);
 
@@ -39,78 +39,101 @@ public class ServerTest {
     private ServerStateFactory<Long> serverStateFactory;
     @Mock
     private StateMachine stateMachine;
+    @Mock
+    private Follower<Long> serverState;
+
+    private Server<Long> server;
+
+    @BeforeEach
+    void setUp() {
+        server = new Server<>(SERVER_ID, serverStateFactory, stateMachine);
+    }
 
     @Nested
-    class NewServerConstructor {
+    class Constructor {
 
         @Test
         public void willSetId() {
-            var server = new Server<>(SERVER_ID, serverStateFactory, stateMachine);
             assertThat(server.getId()).isEqualTo(SERVER_ID);
         }
 
         @Test
-        public void willInitializeStateToFollowerWithTermZeroAndVotedForNull() {
-            new Server<>(SERVER_ID, serverStateFactory, stateMachine);
-            verify(serverStateFactory).createFollower(new Term(0), null);
+        public void willNotInitializeState() {
+            verifyNoMoreInteractions(serverStateFactory);
         }
     }
 
     @Nested
-    class ResetServerConstructor {
+    class Start {
 
-        @Test
-        public void willSetId() {
-            var server = new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, serverStateFactory, stateMachine);
-
-            assertThat(server.getId()).isEqualTo(SERVER_ID);
+        @BeforeEach
+        void setUp() {
+            when(serverStateFactory.createInitialState()).thenReturn(serverState);
+            when(serverState.getServerStateType()).thenReturn(FOLLOWER);
+            server.start();
         }
 
         @Test
-        public void willInitializeStateToFollowerWithSpecifiedTermAndVotedFor() {
-            new Server<>(SERVER_ID, RESTORED_TERM, RESTORED_VOTED_FOR, serverStateFactory, stateMachine);
-
-            verify(serverStateFactory).createFollower(RESTORED_TERM, RESTORED_VOTED_FOR);
+        void willInitializeStateToFollower() {
+            verify(serverStateFactory).createInitialState();
+            assertThat(server.getState()).isEqualTo(FOLLOWER);
         }
     }
 
     @Nested
     class ElectionTimeout {
 
-        @Mock
-        private Follower<Long> currentState;
-
         @BeforeEach
         void setUp() {
-            when(currentState.getCurrentTerm()).thenReturn(TERM_0);
+            when(serverState.getCurrentTerm()).thenReturn(TERM_0);
+            when(serverStateFactory.createInitialState()).thenReturn(serverState);
+            server.start();
         }
 
         @Test
         @SuppressWarnings({"ConstantConditions", "unchecked"})
         public void willDispatchInitiateElectionMessageWithIncrementedTerm() {
-            when(currentState.handle(any(RpcMessage.class))).thenReturn(complete(currentState));
-            var server = new Server<>(SERVER_ID, currentState, serverStateFactory, stateMachine);
+            when(serverState.handle(any(RpcMessage.class))).thenReturn(complete(serverState));
             server.electionTimeout();
 
-            verify(currentState).handle(refEq(new InitiateElectionMessage<>(TERM_1, SERVER_ID)));
+            verify(serverState).handle(refEq(new InitiateElectionMessage<>(TERM_1, SERVER_ID)));
         }
     }
 
     @Nested
     class ClientRequests {
 
-        @Mock
-        private ServerState<Long> serverState;
+        @Nested
+        class WhenServerNotStarted {
 
-        @Test
-        @SuppressWarnings("unchecked")
-        void willBeHandledByTheCurrentState() {
-            var clientRequest = new ClientRequestMessage<>(SERVER_ID) {
-            };
-            var clientResponse = new CompletableFuture();
-            when(serverState.handle(clientRequest)).thenReturn(clientResponse);
-            var server = new Server<>(SERVER_ID, serverState, serverStateFactory, stateMachine);
-            assertThat(server.handle(clientRequest)).isSameAs(clientResponse);
+            @Test
+            void willThrowWhenServerIsNotStarted() {
+                var clientRequest = new ClientRequestMessage<>(SERVER_ID) {
+                };
+                assertThatThrownBy(() -> server.handle(clientRequest))
+                        .isInstanceOf(IllegalStateException.class);
+            }
+        }
+
+
+        @Nested
+        class WhenServerStarted {
+
+            @BeforeEach
+            void setUp() {
+                when(serverStateFactory.createInitialState()).thenReturn(serverState);
+                server.start();
+            }
+
+            @Test
+            @SuppressWarnings("unchecked")
+            void willBeHandledByTheCurrentState() {
+                var clientRequest = new ClientRequestMessage<>(SERVER_ID) {
+                };
+                var clientResponse = new CompletableFuture();
+                when(serverState.handle(clientRequest)).thenReturn(clientResponse);
+                assertThat(server.handle(clientRequest)).isSameAs(clientResponse);
+            }
         }
     }
 
@@ -118,52 +141,67 @@ public class ServerTest {
     class HandleRpcMessage {
 
         @Mock
-        private ServerState<Long> serverState;
-        @Mock
         private ServerState<Long> nextServerState;
         @Mock
         private RpcMessage<Long> rpcMessage;
 
-        @Test
-        void willDelegateToCurrentState() {
-            when(serverState.handle(rpcMessage)).thenReturn(complete(serverState));
+        @Nested
+        class WhenServerNotStarted {
 
-            new Server<>(SERVER_ID, serverState, serverStateFactory, stateMachine).handle(rpcMessage);
-
-            verify(serverState).handle(rpcMessage);
-            verifyNoMoreInteractions(serverState);
+            @Test
+            void willThrow() {
+                assertThatThrownBy(() -> server.handle(rpcMessage))
+                        .isInstanceOf(IllegalStateException.class);
+            }
         }
 
-        @Test
-        void willTransitionToNextStateAndDisposeOfPrevious() {
-            when(serverState.handle(rpcMessage)).thenReturn(complete(nextServerState));
-            when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
-            Server<Long> server = new Server<>(SERVER_ID, serverState, serverStateFactory, stateMachine);
+        @Nested
+        class WhenServerStarted {
 
-            server.handle(rpcMessage);
-            verify(serverState).handle(rpcMessage);
-            verify(serverState).dispose();
+            @BeforeEach
+            void setUp() {
+                when(serverStateFactory.createInitialState()).thenReturn(serverState);
+                server.start();
+            }
 
-            server.handle(rpcMessage);
-            verify(nextServerState).handle(rpcMessage);
+            @Test
+            void willDelegateToCurrentState() {
+                when(serverState.handle(rpcMessage)).thenReturn(complete(serverState));
 
-            verifyNoMoreInteractions(serverState, nextServerState);
-        }
+                server.handle(rpcMessage);
 
-        @Test
-        public void willContinueHandling_WhenHandlingIsIncomplete() {
-            when(serverState.handle(rpcMessage)).thenReturn(incomplete(nextServerState));
-            when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
+                verify(serverState).handle(rpcMessage);
+                verifyNoMoreInteractions(serverState);
+            }
 
-            Server<Long> server = new Server<>(SERVER_ID, serverState, serverStateFactory, stateMachine);
+            @Test
+            void willTransitionToNextStateAndDisposeOfPrevious() {
+                when(serverState.handle(rpcMessage)).thenReturn(complete(nextServerState));
+                when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
-            server.handle(rpcMessage);
-            verify(serverState).handle(rpcMessage);
-            verify(serverState).dispose();
-            verify(nextServerState).handle(rpcMessage);
+                server.handle(rpcMessage);
+                verify(serverState).handle(rpcMessage);
+                verify(serverState).dispose();
 
-            verifyNoMoreInteractions(serverState, nextServerState);
+                server.handle(rpcMessage);
+                verify(nextServerState).handle(rpcMessage);
+
+                verifyNoMoreInteractions(serverState, nextServerState);
+            }
+
+            @Test
+            public void willContinueHandling_WhenHandlingIsIncomplete() {
+                when(serverState.handle(rpcMessage)).thenReturn(incomplete(nextServerState));
+                when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
+
+                server.handle(rpcMessage);
+                verify(serverState).handle(rpcMessage);
+                verify(serverState).dispose();
+                verify(nextServerState).handle(rpcMessage);
+
+                verifyNoMoreInteractions(serverState, nextServerState);
+            }
         }
     }
 }
