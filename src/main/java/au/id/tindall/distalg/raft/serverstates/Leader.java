@@ -114,7 +114,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     }
 
     @Override
-    public void dispose() {
+    public void leaveState() {
         pendingResponseRegistry.dispose();
     }
 }

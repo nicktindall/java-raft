@@ -94,8 +94,8 @@ public class LeaderTest {
     }
 
     @Test
-    public void dispose_WillDisposeOfPendingResponseRegistry() {
-        leader.dispose();
+    public void leaveState_WillDisposeOfPendingResponseRegistry() {
+        leader.leaveState();
         verify(pendingResponseRegistry).dispose();
     }
 

@@ -151,6 +151,9 @@ public abstract class ServerState<ID extends Serializable> {
         return cluster;
     }
 
-    public void dispose() {
+    public void enterState() {
+    }
+
+    public void leaveState() {
     }
 }

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -24,6 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.refEq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -69,14 +72,19 @@ public class ServerTest {
         @BeforeEach
         void setUp() {
             when(serverStateFactory.createInitialState()).thenReturn(serverState);
-            when(serverState.getServerStateType()).thenReturn(FOLLOWER);
             server.start();
         }
 
         @Test
         void willInitializeStateToFollower() {
+            when(serverState.getServerStateType()).thenReturn(FOLLOWER);
             verify(serverStateFactory).createInitialState();
             assertThat(server.getState()).isEqualTo(FOLLOWER);
+        }
+
+        @Test
+        void willEnterInitialState() {
+            verify(serverState).enterState();
         }
     }
 
@@ -163,6 +171,7 @@ public class ServerTest {
             void setUp() {
                 when(serverStateFactory.createInitialState()).thenReturn(serverState);
                 server.start();
+                reset(serverState);
             }
 
             @Test
@@ -176,18 +185,20 @@ public class ServerTest {
             }
 
             @Test
-            void willTransitionToNextStateAndDisposeOfPrevious() {
+            void willLeavePreviousStateThenEnterNextState() {
                 when(serverState.handle(rpcMessage)).thenReturn(complete(nextServerState));
                 when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
+                InOrder inOrder = inOrder(serverState, nextServerState);
                 server.handle(rpcMessage);
-                verify(serverState).handle(rpcMessage);
-                verify(serverState).dispose();
+                inOrder.verify(serverState).handle(rpcMessage);
+                inOrder.verify(serverState).leaveState();
+                inOrder.verify(nextServerState).enterState();
 
                 server.handle(rpcMessage);
-                verify(nextServerState).handle(rpcMessage);
+                inOrder.verify(nextServerState).handle(rpcMessage);
 
-                verifyNoMoreInteractions(serverState, nextServerState);
+                inOrder.verifyNoMoreInteractions();
             }
 
             @Test
@@ -195,12 +206,14 @@ public class ServerTest {
                 when(serverState.handle(rpcMessage)).thenReturn(incomplete(nextServerState));
                 when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 
+                InOrder inOrder = inOrder(serverState, nextServerState);
                 server.handle(rpcMessage);
-                verify(serverState).handle(rpcMessage);
-                verify(serverState).dispose();
-                verify(nextServerState).handle(rpcMessage);
+                inOrder.verify(serverState).handle(rpcMessage);
+                inOrder.verify(serverState).leaveState();
+                inOrder.verify(nextServerState).enterState();
+                inOrder.verify(nextServerState).handle(rpcMessage);
 
-                verifyNoMoreInteractions(serverState, nextServerState);
+                inOrder.verifyNoMoreInteractions();
             }
         }
     }

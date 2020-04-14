@@ -56,10 +56,13 @@ public class Server<ID extends Serializable> {
     }
 
     private void updateState(ServerState<ID> nextState) {
-        if (state != null && state != nextState) {
-            state.dispose();
+        if (state != nextState) {
+            if (state != null) {
+                state.leaveState();
+            }
+            state = nextState;
+            state.enterState();
         }
-        state = nextState;
     }
 
     public void electionTimeout() {
