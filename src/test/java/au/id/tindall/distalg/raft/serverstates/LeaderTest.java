@@ -5,6 +5,7 @@ import au.id.tindall.distalg.raft.client.responses.PendingRegisterClientResponse
 import au.id.tindall.distalg.raft.client.responses.PendingResponse;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
@@ -73,6 +74,8 @@ public class LeaderTest {
     private ServerStateFactory<Long> serverStateFactory;
     @Mock
     private ClientSessionStore clientSessionStore;
+    @Mock
+    private HeartbeatScheduler<Long> heartbeatScheduler;
 
     private Leader<Long> leader;
 
@@ -81,7 +84,7 @@ public class LeaderTest {
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
         when(logReplicatorFactory.createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
-        leader = new Leader<>(TERM_2, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, SERVER_ID);
+        leader = new Leader<>(TERM_2, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, SERVER_ID, heartbeatScheduler);
     }
 
     @Nested
@@ -90,6 +93,34 @@ public class LeaderTest {
         @Test
         public void willCreateLogReplicators() {
             verify(logReplicatorFactory).createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
+        }
+    }
+
+    @Nested
+    class OnEnterState {
+
+        @BeforeEach
+        void setUp() {
+            leader.enterState();
+        }
+
+        @Test
+        void willScheduleHeartbeats() {
+            verify(heartbeatScheduler).scheduleHeartbeats(leader);
+        }
+    }
+
+    @Nested
+    class OnLeaveState {
+
+        @BeforeEach
+        void setUp() {
+            leader.leaveState();
+        }
+
+        @Test
+        void willCancelHeartbeats() {
+            verify(heartbeatScheduler).cancelHeartbeats();
         }
     }
 

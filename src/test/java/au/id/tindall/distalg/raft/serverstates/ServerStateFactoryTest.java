@@ -57,7 +57,7 @@ class ServerStateFactoryTest {
         when(pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor)).thenReturn(pendingResponseRegistry);
 
         assertThat(serverStateFactory.createLeader(TERM))
-                .isEqualToComparingFieldByFieldRecursively(new Leader<>(TERM, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, SERVER_ID));
+                .isEqualToComparingFieldByFieldRecursively(new Leader<>(TERM, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, SERVER_ID, heartbeatScheduler));
     }
 
     @Test

@@ -3,7 +3,9 @@ package au.id.tindall.distalg.raft.serverstates;
 import au.id.tindall.distalg.raft.client.responses.PendingClientRequestResponse;
 import au.id.tindall.distalg.raft.client.responses.PendingRegisterClientResponse;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
@@ -15,7 +17,6 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -36,14 +37,16 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     private final Map<ID, LogReplicator<ID>> replicators;
     private final PendingResponseRegistry pendingResponseRegistry;
     private final ClientSessionStore clientSessionStore;
+    private final HeartbeatScheduler<ID> heartbeatScheduler;
 
     public Leader(Term currentTerm, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
                   LogReplicatorFactory<ID> logReplicatorFactory, ServerStateFactory<ID> serverStateFactory,
-                  ClientSessionStore clientSessionStore, ID id) {
+                  ClientSessionStore clientSessionStore, ID id, HeartbeatScheduler<ID> heartbeatScheduler) {
         super(currentTerm, null, log, cluster, serverStateFactory, id);
         replicators = createReplicators(logReplicatorFactory);
         this.pendingResponseRegistry = pendingResponseRegistry;
         this.clientSessionStore = clientSessionStore;
+        this.heartbeatScheduler = heartbeatScheduler;
     }
 
     @Override
@@ -114,7 +117,13 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     }
 
     @Override
+    public void enterState() {
+        heartbeatScheduler.scheduleHeartbeats(this);
+    }
+
+    @Override
     public void leaveState() {
         pendingResponseRegistry.dispose();
+        heartbeatScheduler.cancelHeartbeats();
     }
 }

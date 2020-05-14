@@ -40,7 +40,7 @@ public class ServerStateFactory<ID extends Serializable> {
 
     public Leader<ID> createLeader(Term currentTerm) {
         return new Leader<>(currentTerm, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
-                logReplicatorFactory, this, clientSessionStore, id);
+                logReplicatorFactory, this, clientSessionStore, id, heartbeatScheduler);
     }
 
     public Follower<ID> createInitialState() {
