@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.serverstates;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.driver.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
@@ -21,11 +22,23 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     private final Term followerForTerm;
     private final ID leaderForTerm;
+    private final ElectionScheduler<ID> electionScheduler;
 
-    public Follower(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader) {
+    public Follower(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader, ElectionScheduler<ID> electionScheduler) {
         super(currentTerm, votedFor, log, cluster, serverStateFactory, currentLeader);
         this.followerForTerm = currentTerm;
         this.leaderForTerm = currentLeader;
+        this.electionScheduler = electionScheduler;
+    }
+
+    @Override
+    public void enterState() {
+        electionScheduler.startTimeouts();
+    }
+
+    @Override
+    public void leaveState() {
+        electionScheduler.stopTimeouts();
     }
 
     @Override
@@ -44,6 +57,8 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
             getCluster().sendAppendEntriesResponse(getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }
+
+        electionScheduler.resetTimeout();
 
         if (appendEntriesRequest.getPrevLogIndex() > 0 &&
                 !getLog().containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {

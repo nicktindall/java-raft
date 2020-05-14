@@ -52,7 +52,7 @@ public class ServerStateFactory<ID extends Serializable> {
     }
 
     public Follower<ID> createFollower(Term currentTerm, ID currentLeader, ID votedFor) {
-        return new Follower<>(currentTerm, votedFor, log, cluster, this, currentLeader);
+        return new Follower<>(currentTerm, votedFor, log, cluster, this, currentLeader, electionScheduler);
     }
 
     public Candidate<ID> createCandidate(Term currentTerm) {

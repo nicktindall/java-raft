@@ -63,13 +63,13 @@ class ServerStateFactoryTest {
     @Test
     void willCreateFollowerStateWithEmptyVotedFor() {
         assertThat(serverStateFactory.createFollower(TERM, LEADER_ID))
-                .isEqualToComparingFieldByFieldRecursively(new Follower<>(TERM, null, log, cluster, serverStateFactory, LEADER_ID));
+                .isEqualToComparingFieldByFieldRecursively(new Follower<>(TERM, null, log, cluster, serverStateFactory, LEADER_ID, electionScheduler));
     }
 
     @Test
     void willCreateFollowerState() {
         assertThat(serverStateFactory.createFollower(TERM, LEADER_ID, VOTED_FOR))
-                .isEqualToComparingFieldByFieldRecursively(new Follower<>(TERM, VOTED_FOR, log, cluster, serverStateFactory, LEADER_ID));
+                .isEqualToComparingFieldByFieldRecursively(new Follower<>(TERM, VOTED_FOR, log, cluster, serverStateFactory, LEADER_ID, electionScheduler));
     }
 
     @Test
