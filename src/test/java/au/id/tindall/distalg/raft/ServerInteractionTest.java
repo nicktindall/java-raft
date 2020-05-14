@@ -3,6 +3,10 @@ package au.id.tindall.distalg.raft;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
+import au.id.tindall.distalg.raft.driver.ElectionScheduler;
+import au.id.tindall.distalg.raft.driver.ElectionSchedulerFactory;
+import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
+import au.id.tindall.distalg.raft.driver.HeartbeatSchedulerFactory;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
@@ -16,16 +20,23 @@ import au.id.tindall.distalg.raft.serverstates.TestStateMachine;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 public class ServerInteractionTest {
 
     private static final byte[] COMMAND = "TheCommand".getBytes();
@@ -35,16 +46,26 @@ public class ServerInteractionTest {
     private Server<Long> server2;
     private Server<Long> server3;
     private TestClusterFactory clusterFactory;
+    @Mock
+    private ElectionScheduler<Long> electionScheduler;
+    @Mock
+    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
+    @Mock
+    private HeartbeatScheduler<Long> heartbeatScheduler;
+    @Mock
+    private HeartbeatSchedulerFactory<Long> heartbeatSchedulerFactory;
 
     @BeforeEach
     void setUp() {
+        when(heartbeatSchedulerFactory.createHeartbeatScheduler(any(ScheduledExecutorService.class))).thenReturn(heartbeatScheduler);
+        when(electionSchedulerFactory.createElectionScheduler(any(ScheduledExecutorService.class))).thenReturn(electionScheduler);
         PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
         LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>();
         LogFactory logFactory = new LogFactory();
         clusterFactory = new TestClusterFactory();
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                new CommandExecutorFactory(), TestStateMachine::new);
+                new CommandExecutorFactory(), TestStateMachine::new, electionSchedulerFactory, heartbeatSchedulerFactory);
         server1 = serverFactory.create(1L);
         server2 = serverFactory.create(2L);
         server3 = serverFactory.create(3L);

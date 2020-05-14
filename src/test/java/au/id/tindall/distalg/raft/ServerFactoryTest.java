@@ -5,6 +5,10 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.comms.ClusterFactory;
+import au.id.tindall.distalg.raft.driver.ElectionScheduler;
+import au.id.tindall.distalg.raft.driver.ElectionSchedulerFactory;
+import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
+import au.id.tindall.distalg.raft.driver.HeartbeatSchedulerFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
@@ -19,7 +23,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.concurrent.ScheduledExecutorService;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +61,14 @@ class ServerFactoryTest {
     private CommandExecutor commandExecutor;
     @Mock
     private StateMachine stateMachine;
+    @Mock
+    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
+    @Mock
+    private ElectionScheduler<Long> electionScheduler;
+    @Mock
+    private HeartbeatSchedulerFactory<Long> heartbeatSchedulerFactory;
+    @Mock
+    private HeartbeatScheduler<Long> heartbeatScheduler;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
@@ -62,15 +77,17 @@ class ServerFactoryTest {
         when(clusterFactory.createForNode(eq(SERVER_ID))).thenReturn(cluster);
         when(logFactory.createLog()).thenReturn(log);
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
+        when(electionSchedulerFactory.createElectionScheduler(any(ScheduledExecutorService.class))).thenReturn(electionScheduler);
+        when(heartbeatSchedulerFactory.createHeartbeatScheduler(any(ScheduledExecutorService.class))).thenReturn(heartbeatScheduler);
         when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore)).thenReturn(commandExecutor);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                commandExecutorFactory, stateMachineFactory);
+                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, heartbeatSchedulerFactory);
     }
 
     @Test
     void createsServersAndTheirDependencies() {
         assertThat(serverFactory.create(SERVER_ID)).isEqualToComparingFieldByFieldRecursively(new Server<>(SERVER_ID, new ServerStateFactory<>(SERVER_ID,
-                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor), stateMachine));
+                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, heartbeatScheduler), stateMachine));
     }
 
     @Test

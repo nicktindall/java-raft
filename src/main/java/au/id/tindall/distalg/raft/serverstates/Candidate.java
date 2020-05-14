@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.serverstates;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.driver.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
@@ -20,10 +21,22 @@ import static java.util.Optional.empty;
 public class Candidate<ID extends Serializable> extends ServerState<ID> {
 
     private final Set<ID> receivedVotes;
+    private final ElectionScheduler<ID> electionScheduler;
 
-    public Candidate(Term currentTerm, Log log, Cluster<ID> cluster, ID ownId, ServerStateFactory<ID> serverStateFactory) {
+    public Candidate(Term currentTerm, Log log, Cluster<ID> cluster, ID ownId, ServerStateFactory<ID> serverStateFactory, ElectionScheduler<ID> electionScheduler) {
         super(currentTerm, ownId, log, cluster, serverStateFactory, null);
+        this.electionScheduler = electionScheduler;
         receivedVotes = new HashSet<>();
+    }
+
+    @Override
+    public void enterState() {
+        this.electionScheduler.startTimeouts();
+    }
+
+    @Override
+    public void leaveState() {
+        this.electionScheduler.stopTimeouts();
     }
 
     @Override
@@ -48,6 +61,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     @Override
     protected Result<ID> handle(InitiateElectionMessage<ID> initiateElectionMessage) {
         ServerState<ID> nextState = recordVoteAndClaimLeadershipIfEligible(initiateElectionMessage.getSource());
+        electionScheduler.resetTimeout();
         nextState.requestVotes();
         return complete(nextState);
     }
