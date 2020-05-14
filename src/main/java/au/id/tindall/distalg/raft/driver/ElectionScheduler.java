@@ -17,8 +17,8 @@ public class ElectionScheduler<ID extends Serializable> {
     private Server<ID> server;
     private final ElectionTimeoutGenerator electionTimeoutGenerator;
     private final ScheduledExecutorService scheduledExecutorService;
-    private volatile ScheduledFuture<?> nextElectionTimeout;
-    private volatile boolean timeoutsRunning = false;
+    private ScheduledFuture<?> nextElectionTimeout;
+    private boolean timeoutsRunning = false;
 
     public ElectionScheduler(ElectionTimeoutGenerator electionTimeoutGenerator, ScheduledExecutorService scheduledExecutorService) {
         this.electionTimeoutGenerator = electionTimeoutGenerator;
