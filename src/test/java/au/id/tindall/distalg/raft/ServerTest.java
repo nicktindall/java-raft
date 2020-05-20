@@ -79,12 +79,33 @@ public class ServerTest {
         void willInitializeStateToFollower() {
             when(serverState.getServerStateType()).thenReturn(FOLLOWER);
             verify(serverStateFactory).createInitialState();
-            assertThat(server.getState()).isEqualTo(FOLLOWER);
+            assertThat(server.getState()).contains(FOLLOWER);
         }
 
         @Test
         void willEnterInitialState() {
             verify(serverState).enterState();
+        }
+    }
+
+    @Nested
+    class Stop {
+
+        @BeforeEach
+        void setUp() {
+            when(serverStateFactory.createInitialState()).thenReturn(serverState);
+            server.start();
+            server.stop();
+        }
+
+        @Test
+        void willLeaveCurrentState() {
+            verify(serverState).leaveState();
+        }
+
+        @Test
+        void willNullifyServerState() {
+            assertThat(server.getState()).isEmpty();
         }
     }
 

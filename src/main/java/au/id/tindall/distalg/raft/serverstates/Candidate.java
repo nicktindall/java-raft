@@ -7,6 +7,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
+import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
 import java.util.HashSet;
@@ -17,8 +18,11 @@ import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Optional.empty;
+import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Candidate<ID extends Serializable> extends ServerState<ID> {
+
+    private static final Logger LOGGER = getLogger();
 
     private final Set<ID> receivedVotes;
     private final ElectionScheduler<ID> electionScheduler;
@@ -31,6 +35,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     public void enterState() {
+        LOGGER.debug("Server entering Candidate state");
         this.electionScheduler.startTimeouts();
     }
 

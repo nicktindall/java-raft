@@ -13,6 +13,7 @@ import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 
 import java.io.Serializable;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public class Server<ID extends Serializable> {
@@ -33,6 +34,13 @@ public class Server<ID extends Serializable> {
             throw new IllegalStateException("Server is already started!");
         }
         updateState(serverStateFactory.createInitialState());
+    }
+
+    public void stop() {
+        if (state == null) {
+            throw new IllegalStateException("Server is not started");
+        }
+        updateState(null);
     }
 
     public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
@@ -61,7 +69,9 @@ public class Server<ID extends Serializable> {
                 state.leaveState();
             }
             state = nextState;
-            state.enterState();
+            if (nextState != null) {
+                state.enterState();
+            }
         }
     }
 
@@ -73,8 +83,9 @@ public class Server<ID extends Serializable> {
         return id;
     }
 
-    public ServerStateType getState() {
-        return state.getServerStateType();
+    public Optional<ServerStateType> getState() {
+        return Optional.ofNullable(state)
+                .map(ServerState::getServerStateType);
     }
 
     public Log getLog() {

@@ -17,6 +17,7 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
+import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -31,8 +32,11 @@ import static java.util.Collections.singletonList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Leader<ID extends Serializable> extends ServerState<ID> {
+
+    private static final Logger LOGGER = getLogger();
 
     private final Map<ID, LogReplicator<ID>> replicators;
     private final PendingResponseRegistry pendingResponseRegistry;
@@ -118,6 +122,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     public void enterState() {
+        LOGGER.debug("Server entering Leader state");
         heartbeatScheduler.scheduleHeartbeats(this);
     }
 
