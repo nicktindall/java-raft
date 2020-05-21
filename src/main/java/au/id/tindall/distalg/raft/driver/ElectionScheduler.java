@@ -30,7 +30,7 @@ public class ElectionScheduler<ID extends Serializable> {
     }
 
     public synchronized void startTimeouts() {
-        LOGGER.debug("Starting election timeouts for server " + server.getId());
+        LOGGER.debug("Starting election timeouts for server {}", server.getId());
         if (timeoutsRunning) {
             throw new IllegalStateException("Timeouts are already started");
         }
@@ -47,7 +47,7 @@ public class ElectionScheduler<ID extends Serializable> {
     }
 
     public synchronized void stopTimeouts() {
-        LOGGER.debug("Stopping election timeouts for server " + server.getId());
+        LOGGER.debug("Stopping election timeouts for server {}", server.getId());
         if (!timeoutsRunning) {
             throw new IllegalStateException("Timeouts are not started");
         }
@@ -57,12 +57,12 @@ public class ElectionScheduler<ID extends Serializable> {
 
     private void cancelPendingTimeout() {
         if (nextElectionTimeout != null) {
-            LOGGER.debug("Cancelling election timeout... (" + server.getId() + ")");
+            LOGGER.debug("Cancelling election timeout... ({})",  server.getId());
             boolean cancel = nextElectionTimeout.cancel(false);
             if (cancel) {
-                LOGGER.debug("Successfully cancelled timeout (" + server.getId() + ")");
+                LOGGER.debug("Successfully cancelled timeout ({})", server.getId());
             } else {
-                LOGGER.debug("Couldn't cancel previous timeout (" + server.getId() + ")");
+                LOGGER.debug("Couldn't cancel previous timeout ({})", server.getId());
             }
             nextElectionTimeout = null;
         }
@@ -70,7 +70,7 @@ public class ElectionScheduler<ID extends Serializable> {
 
     private void scheduleElectionTimeout() {
         Long next = electionTimeoutGenerator.next();
-        LOGGER.debug("Scheduling election timeout for " + next + " milliseconds (" + server.getId() + ")");
+        LOGGER.debug("Scheduling election timeout for {} milliseconds ({})", next, server.getId());
         nextElectionTimeout = scheduledExecutorService.schedule(
                 this::performElectionTimeout,
                 next,
@@ -78,7 +78,7 @@ public class ElectionScheduler<ID extends Serializable> {
     }
 
     private synchronized void performElectionTimeout() {
-        LOGGER.debug("Election timeout occurred: server " + server.getId());
+        LOGGER.debug("Election timeout occurred: server {}", server.getId());
         nextElectionTimeout = null;
         server.electionTimeout();
         resetTimeout();
