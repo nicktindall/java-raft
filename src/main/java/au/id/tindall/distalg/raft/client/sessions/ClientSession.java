@@ -9,6 +9,7 @@ public class ClientSession {
     private final int clientId;
     private int lastInteractionLogIndex;
     private final LinkedList<AppliedCommand> appliedCommands;
+    private Integer lastSequenceNumber = null;
 
     public ClientSession(int clientId, int registrationIndex) {
         this.clientId = clientId;
@@ -26,7 +27,10 @@ public class ClientSession {
 
     public void recordAppliedCommand(int logIndex, int sequenceNumber, byte[] result) {
         lastInteractionLogIndex = logIndex;
-        appliedCommands.add(new AppliedCommand(sequenceNumber, result));
+        if (lastSequenceNumber == null || sequenceNumber > lastSequenceNumber) {
+            appliedCommands.add(new AppliedCommand(sequenceNumber, result));
+            lastSequenceNumber = sequenceNumber;
+        }
     }
 
     public Optional<byte[]> getCommandResult(int clientSequenceNumber) {

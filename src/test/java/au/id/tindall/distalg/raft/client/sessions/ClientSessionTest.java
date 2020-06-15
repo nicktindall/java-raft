@@ -14,6 +14,7 @@ class ClientSessionTest {
     private static final int REGISTRATION_INDEX = 456;
     private static final int CLIENT_ID = 123;
     private static final byte[] RESULT = "results".getBytes();
+    private static final byte[] OTHER_RESULT = "results".getBytes();
 
     private ClientSession clientSession;
 
@@ -36,6 +37,13 @@ class ClientSessionTest {
             clientSession.recordAppliedCommand(REGISTRATION_INDEX + 2, 1, RESULT);
             assertThat(clientSession.getLastInteractionLogIndex()).isEqualTo(REGISTRATION_INDEX + 2);
         }
+
+        @Test
+        void returnsMostRecentIndex_WhenDuplicateCommandsAreApplied() {
+            clientSession.recordAppliedCommand(REGISTRATION_INDEX + 1, 0, RESULT);
+            clientSession.recordAppliedCommand(REGISTRATION_INDEX + 2, 0, RESULT);
+            assertThat(clientSession.getLastInteractionLogIndex()).isEqualTo(REGISTRATION_INDEX + 2);
+        }
     }
 
     @Nested
@@ -49,6 +57,14 @@ class ClientSessionTest {
         @Test
         void returnsCommandResult_WhenCommandHasBeenApplied() {
             clientSession.recordAppliedCommand(123, 0, RESULT);
+            assertThat(clientSession.getCommandResult(0)).contains(RESULT);
+        }
+
+        @Test
+        void returnsFirstCommandResult_WhenCommandIsDuplicated() {
+            clientSession.recordAppliedCommand(123, 0, RESULT);
+            // This would never happen, it is just to illustrate that duplicate commands are recorded once
+            clientSession.recordAppliedCommand(124, 0, OTHER_RESULT);
             assertThat(clientSession.getCommandResult(0)).contains(RESULT);
         }
     }
