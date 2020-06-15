@@ -77,6 +77,14 @@ public class LogTest {
                     () -> log.appendEntries(1, List.of(ENTRY_1, ENTRY_2))
             ).isInstanceOf(IllegalArgumentException.class);
         }
+
+        @Test
+        public void willFail_WhenAttemptIsMadeToRewriteLogBeforeCommitIndex() {
+            Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3);
+            log.advanceCommitIndex(3);
+            assertThatThrownBy(() -> log.appendEntries(2, List.of(ENTRY_3B)))
+                    .isInstanceOf(IllegalStateException.class);
+        }
     }
 
     @Nested
@@ -241,11 +249,13 @@ public class LogTest {
         }
 
         @Test
-        public void willThrowIllegalArgumentException_WhenCommitIndexGoesBackwards() {
+        public void willIgnore_WhenCommitIndexGoesBackwards() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             log.advanceCommitIndex(4);
             log.addEntryCommittedEventHandler(entryCommittedEventHandler);
-            assertThatThrownBy(() -> log.advanceCommitIndex(3)).isInstanceOf(IllegalArgumentException.class);
+            log.advanceCommitIndex(3);
+            verifyNoInteractions(entryCommittedEventHandler);
+            assertThat(log.getCommitIndex()).isEqualTo(4);
         }
     }
 }

@@ -101,6 +101,9 @@ public class Log {
     }
 
     private List<LogEntry> truncate(int fromIndex) {
+        if (fromIndex <= this.commitIndex) {
+            throw new IllegalStateException("Attempt made to truncate prior to commit index, this is a bug");
+        }
         return new ArrayList<>(entries.subList(0, fromIndex - 1));
     }
 
@@ -114,8 +117,6 @@ public class Log {
                     .map(i -> i + 1)
                     .forEach(this::notifyListeners);
             this.commitIndex = newCommitIndex;
-        } else if (newCommitIndex < this.commitIndex) {
-            throw new IllegalArgumentException("Attempt was made to reduce commit index, this is probably a bug");
         }
     }
 
