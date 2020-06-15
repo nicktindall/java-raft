@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
+import au.id.tindall.distalg.raft.exceptions.AlreadyRunningException;
+import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
@@ -31,14 +33,14 @@ public class Server<ID extends Serializable> {
 
     public void start() {
         if (state != null) {
-            throw new IllegalStateException("Server is already started!");
+            throw new AlreadyRunningException("Can't start, server is already started!");
         }
         updateState(serverStateFactory.createInitialState());
     }
 
     public void stop() {
         if (state == null) {
-            throw new IllegalStateException("Server is not started");
+            throw new NotRunningException("Can't stop, server is not started");
         }
         updateState(null);
     }
@@ -59,7 +61,7 @@ public class Server<ID extends Serializable> {
 
     private void assertThatNodeIsRunning() {
         if (state == null) {
-            throw new IllegalStateException("Server is not running, call start() before attempting to interact with it");
+            throw new NotRunningException("Server is not running, call start() before attempting to interact with it");
         }
     }
 
