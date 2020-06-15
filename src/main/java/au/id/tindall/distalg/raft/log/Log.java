@@ -33,7 +33,7 @@ public class Log {
         if (matchIndicesHigherThanTheCommitIndexInAscendingOrder.size() + 1 > majorityThreshold) {
             Integer newCommitIndex = matchIndicesHigherThanTheCommitIndexInAscendingOrder
                     .get(matchIndicesHigherThanTheCommitIndexInAscendingOrder.size() - majorityThreshold);
-            setCommitIndex(newCommitIndex);
+            advanceCommitIndex(newCommitIndex);
             return Optional.of(newCommitIndex);
         }
         return Optional.empty();
@@ -108,13 +108,15 @@ public class Log {
         return commitIndex;
     }
 
-    public void setCommitIndex(int newCommitIndex) {
+    public void advanceCommitIndex(int newCommitIndex) {
         if (newCommitIndex > this.commitIndex) {
             range(this.commitIndex, newCommitIndex)
                     .map(i -> i + 1)
                     .forEach(this::notifyListeners);
+            this.commitIndex = newCommitIndex;
+        } else if (newCommitIndex < this.commitIndex) {
+            throw new IllegalArgumentException("Attempt was made to reduce commit index, this is probably a bug");
         }
-        this.commitIndex = newCommitIndex;
     }
 
     public void addEntryCommittedEventHandler(EntryCommittedEventHandler eventHandler) {

@@ -15,10 +15,11 @@ import java.util.Optional;
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 
 @ExtendWith(MockitoExtension.class)
 public class LogTest {
@@ -218,25 +219,33 @@ public class LogTest {
     }
 
     @Nested
-    class SetCommitIndex {
+    class AdvanceCommitIndex {
 
         @Test
         public void willNotifyEntryCommittedEventHandlers_WhenCommitIndexAdvances() {
             Log log = logContaining(ENTRY_1, ENTRY_2);
             log.addEntryCommittedEventHandler(entryCommittedEventHandler);
-            log.setCommitIndex(2);
+            log.advanceCommitIndex(2);
             InOrder sequence = inOrder(entryCommittedEventHandler);
             sequence.verify(entryCommittedEventHandler).entryCommitted(1, ENTRY_1);
             sequence.verify(entryCommittedEventHandler).entryCommitted(2, ENTRY_2);
         }
 
         @Test
-        public void willNotNotifyEntryCommittedEventHandlers_WhenCommitIndexRecedes() {
+        public void willNotNotifyCommittedEventHandlers_WhenCommitIndexDoesNotAdvance() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            log.setCommitIndex(4);
+            log.advanceCommitIndex(4);
             log.addEntryCommittedEventHandler(entryCommittedEventHandler);
-            log.setCommitIndex(2);
-            verifyZeroInteractions(entryCommittedEventHandler);
+            log.advanceCommitIndex(4);
+            verifyNoInteractions(entryCommittedEventHandler);
+        }
+
+        @Test
+        public void willThrowIllegalArgumentException_WhenCommitIndexGoesBackwards() {
+            Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+            log.advanceCommitIndex(4);
+            log.addEntryCommittedEventHandler(entryCommittedEventHandler);
+            assertThatThrownBy(() -> log.advanceCommitIndex(3)).isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

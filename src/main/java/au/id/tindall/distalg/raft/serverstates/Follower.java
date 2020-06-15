@@ -68,7 +68,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         }
 
         getLog().appendEntries(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getEntries());
-        getLog().setCommitIndex(min(getLog().getLastLogIndex(), appendEntriesRequest.getLeaderCommit()));
+        getLog().advanceCommitIndex(min(getLog().getLastLogIndex(), appendEntriesRequest.getLeaderCommit()));
         int indexOfLastEntryAppended = appendEntriesRequest.getPrevLogIndex() + appendEntriesRequest.getEntries().size();
         getCluster().sendAppendEntriesResponse(appendEntriesRequest.getTerm(), appendEntriesRequest.getLeaderId(), true, Optional.of(indexOfLastEntryAppended));
         return complete(this);

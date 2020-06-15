@@ -43,7 +43,7 @@ public class LogReplicatorTest {
     @BeforeEach
     public void setUp() {
         log = logContaining(ENTRY_ONE, ENTRY_TWO, ENTRY_THREE, ENTRY_FOUR);
-        log.setCommitIndex(COMMIT_INDEX);
+        log.advanceCommitIndex(COMMIT_INDEX);
         logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, INITIAL_NEXT_INDEX);
     }
 

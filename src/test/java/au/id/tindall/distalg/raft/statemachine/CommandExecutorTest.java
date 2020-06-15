@@ -70,14 +70,14 @@ class CommandExecutorTest {
             @Test
             void shouldNotApplyCommandToStateMachine() {
                 when(clientSessionStore.getCommandResult(CLIENT_ID, CLIENT_SEQUENCE_NUMBER)).thenReturn(Optional.of(RESULT));
-                log.setCommitIndex(1);
+                log.advanceCommitIndex(1);
                 verifyNoMoreInteractions(stateMachine);
             }
 
             @Test
             public void shouldNotifyListenersOfCommandResult_WhenCommandIsDuplicate() {
                 when(clientSessionStore.getCommandResult(CLIENT_ID, CLIENT_SEQUENCE_NUMBER)).thenReturn(Optional.of(RESULT));
-                log.setCommitIndex(1);
+                log.advanceCommitIndex(1);
                 verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, CLIENT_SEQUENCE_NUMBER, RESULT);
             }
         }
@@ -87,14 +87,14 @@ class CommandExecutorTest {
 
             @Test
             void shouldApplyCommandToStateMachine() {
-                log.setCommitIndex(1);
+                log.advanceCommitIndex(1);
                 verify(stateMachine).apply(COMMAND);
             }
 
             @Test
             public void shouldNotifyListenersOfCommandResult() {
                 when(stateMachine.apply(COMMAND)).thenReturn(RESULT);
-                log.setCommitIndex(1);
+                log.advanceCommitIndex(1);
                 verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, CLIENT_SEQUENCE_NUMBER, RESULT);
             }
         }
@@ -102,14 +102,14 @@ class CommandExecutorTest {
         @Test
         public void shouldNotNotifyRemovedListenersOfCommandResult() {
             commandExecutor.removeCommandAppliedEventHandler(commandAppliedEventHandler);
-            log.setCommitIndex(1);
+            log.advanceCommitIndex(1);
             verifyNoMoreInteractions(commandAppliedEventHandler);
         }
 
         @Test
         public void shouldNotBeNotifiedAfterWeStopListening() {
             commandExecutor.stopListeningForCommittedCommands(log);
-            log.setCommitIndex(1);
+            log.advanceCommitIndex(1);
             verifyNoMoreInteractions(stateMachine);
             verifyNoMoreInteractions(commandAppliedEventHandler);
         }
