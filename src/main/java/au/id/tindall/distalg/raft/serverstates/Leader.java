@@ -109,6 +109,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         return getLog().updateCommitIndex(followerMatchIndices).isPresent();
     }
 
+    @Override
     public void sendHeartbeatMessage() {
         replicators.values()
                 .forEach(replicator -> replicator.sendAppendEntriesRequest(getCurrentTerm(), getLog()));
@@ -123,7 +124,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     @Override
     public void enterState() {
         LOGGER.debug("Server entering Leader state");
-        heartbeatScheduler.scheduleHeartbeats(this);
+        heartbeatScheduler.scheduleHeartbeats();
     }
 
     @Override

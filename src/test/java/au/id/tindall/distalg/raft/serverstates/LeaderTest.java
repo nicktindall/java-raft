@@ -106,7 +106,7 @@ public class LeaderTest {
 
         @Test
         void willScheduleHeartbeats() {
-            verify(heartbeatScheduler).scheduleHeartbeats(leader);
+            verify(heartbeatScheduler).scheduleHeartbeats();
         }
     }
 

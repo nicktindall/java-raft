@@ -31,32 +31,36 @@ public class Server<ID extends Serializable> {
         this.stateMachine = stateMachine;
     }
 
-    public void start() {
+    public synchronized void start() {
         if (state != null) {
             throw new AlreadyRunningException("Can't start, server is already started!");
         }
         updateState(serverStateFactory.createInitialState());
     }
 
-    public void stop() {
+    public synchronized void stop() {
         if (state == null) {
             throw new NotRunningException("Can't stop, server is not started");
         }
         updateState(null);
     }
 
-    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
+    public synchronized CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
         assertThatNodeIsRunning();
         return state.handle(clientRequestMessage);
     }
 
-    public void handle(RpcMessage<ID> message) {
+    public synchronized void handle(RpcMessage<ID> message) {
         assertThatNodeIsRunning();
         Result<ID> result;
         do {
             result = state.handle(message);
             updateState(result.getNextState());
         } while (!result.isFinished());
+    }
+
+    public synchronized void sendHeartbeatMessage() {
+        state.sendHeartbeatMessage();
     }
 
     private void assertThatNodeIsRunning() {
@@ -77,7 +81,7 @@ public class Server<ID extends Serializable> {
         }
     }
 
-    public void electionTimeout() {
+    public synchronized void electionTimeout() {
         handle(new InitiateElectionMessage<>(state.getCurrentTerm().next(), id));
     }
 

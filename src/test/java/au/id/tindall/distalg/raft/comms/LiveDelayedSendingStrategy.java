@@ -28,7 +28,7 @@ public class LiveDelayedSendingStrategy implements SendingStrategy {
         this.minimumMessageDelayMillis = minimumMessageDelayMillis;
         this.maximumMessageDelayMillis = maximumMessageDelayMillis;
         this.random = new Random();
-        this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        this.scheduledExecutorService = Executors.newScheduledThreadPool(10);
     }
 
     @Override

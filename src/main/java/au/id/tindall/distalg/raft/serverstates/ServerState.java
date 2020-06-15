@@ -75,6 +75,10 @@ public abstract class ServerState<ID extends Serializable> {
         }
     }
 
+    public void sendHeartbeatMessage() {
+        // Do nothing by default, only leaders send heartbeat messages
+    }
+
     protected void requestVotes() {
         // Do nothing by default, only candidates request votes
     }

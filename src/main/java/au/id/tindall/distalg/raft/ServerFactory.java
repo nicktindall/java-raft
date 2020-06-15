@@ -51,7 +51,7 @@ public class ServerFactory<ID extends Serializable> {
 
     public Server<ID> create(ID id) {
         Log log = logFactory.createLog();
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(5);
         ClientSessionStore clientSessionStore = clientSessionStoreFactory.create(maxClientSessions);
         clientSessionStore.startListeningForClientRegistrations(log);
         StateMachine stateMachine = stateMachineFactory.createStateMachine();
@@ -62,6 +62,7 @@ public class ServerFactory<ID extends Serializable> {
         Server<ID> server = new Server<>(id, new ServerStateFactory<>(id, log, clusterFactory.createForNode(id), pendingResponseRegistryFactory,
                 logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, heartbeatScheduler), stateMachine);
         electionScheduler.setServer(server);
+        heartbeatScheduler.setServer(server);
         return server;
     }
 }

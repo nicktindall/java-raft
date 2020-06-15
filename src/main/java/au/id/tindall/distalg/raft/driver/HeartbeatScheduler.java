@@ -1,6 +1,6 @@
 package au.id.tindall.distalg.raft.driver;
 
-import au.id.tindall.distalg.raft.serverstates.Leader;
+import au.id.tindall.distalg.raft.Server;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
@@ -17,20 +17,25 @@ public class HeartbeatScheduler<ID extends Serializable> {
     private final ScheduledExecutorService scheduledExecutorService;
     private final long delayBetweenHeartbeatsInMilliseconds;
     private ScheduledFuture<?> currentHeartbeatFuture;
+    private Server<ID> server;
 
     public HeartbeatScheduler(long delayBetweenHeartbeatsInMilliseconds, ScheduledExecutorService scheduledExecutorService) {
         this.scheduledExecutorService = scheduledExecutorService;
         this.delayBetweenHeartbeatsInMilliseconds = delayBetweenHeartbeatsInMilliseconds;
     }
 
-    public void scheduleHeartbeats(Leader<ID> leader) {
+    public void setServer(Server<ID> server) {
+        this.server = server;
+    }
+
+    public void scheduleHeartbeats() {
         LOGGER.debug("Scheduling heartbeats for leader");
         if (currentHeartbeatFuture != null) {
             throw new IllegalStateException("Heartbeats already scheduled!");
         }
         this.currentHeartbeatFuture = this.scheduledExecutorService.scheduleAtFixedRate(() -> {
             LOGGER.debug("Sending heartbeat");
-            leader.sendHeartbeatMessage();
+            server.sendHeartbeatMessage();
         }, 0, delayBetweenHeartbeatsInMilliseconds, MILLISECONDS);
     }
 

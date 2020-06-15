@@ -1,6 +1,6 @@
 package au.id.tindall.distalg.raft.driver;
 
-import au.id.tindall.distalg.raft.serverstates.Leader;
+import au.id.tindall.distalg.raft.Server;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ class HeartbeatSchedulerTest {
     @Mock
     private ScheduledExecutorService scheduledExecutorService;
     @Mock
-    private Leader<Long> leader;
+    private Server<Long> server;
     @Mock
     private ScheduledFuture heartbeatFuture;
 
@@ -38,6 +38,7 @@ class HeartbeatSchedulerTest {
     @BeforeEach
     void setUp() {
         heartbeatScheduler = new HeartbeatScheduler<>(DELAY_MILLIS, scheduledExecutorService);
+        heartbeatScheduler.setServer(server);
     }
 
     @Nested
@@ -52,14 +53,14 @@ class HeartbeatSchedulerTest {
 
         @Test
         void willScheduleRegularHeartbeats() {
-            heartbeatScheduler.scheduleHeartbeats(leader);
+            heartbeatScheduler.scheduleHeartbeats();
             verify(scheduledExecutorService).scheduleAtFixedRate(any(Runnable.class), eq(0L), eq(DELAY_MILLIS), eq(MILLISECONDS));
         }
 
         @Test
         void willThrowIfHeartbeatsAlreadyScheduled() {
-            heartbeatScheduler.scheduleHeartbeats(leader);
-            assertThatThrownBy(() -> heartbeatScheduler.scheduleHeartbeats(leader)).isInstanceOf(IllegalStateException.class);
+            heartbeatScheduler.scheduleHeartbeats();
+            assertThatThrownBy(() -> heartbeatScheduler.scheduleHeartbeats()).isInstanceOf(IllegalStateException.class);
         }
     }
 
@@ -71,7 +72,7 @@ class HeartbeatSchedulerTest {
         void willCancelScheduledHeartbeat() {
             when(scheduledExecutorService.scheduleAtFixedRate(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
                     .thenReturn(heartbeatFuture);
-            heartbeatScheduler.scheduleHeartbeats(leader);
+            heartbeatScheduler.scheduleHeartbeats();
             heartbeatScheduler.cancelHeartbeats();
             verify(heartbeatFuture).cancel(false);
         }
@@ -92,7 +93,7 @@ class HeartbeatSchedulerTest {
         void setUp() {
             when(scheduledExecutorService.scheduleAtFixedRate(any(Runnable.class), anyLong(), anyLong(), any(TimeUnit.class)))
                     .thenReturn(heartbeatFuture);
-            heartbeatScheduler.scheduleHeartbeats(leader);
+            heartbeatScheduler.scheduleHeartbeats();
             ArgumentCaptor<Runnable> captor = ArgumentCaptor.forClass(Runnable.class);
             verify(scheduledExecutorService).scheduleAtFixedRate(captor.capture(), eq(0L), eq(DELAY_MILLIS), eq(MILLISECONDS));
             heartbeat = captor.getValue();
@@ -101,7 +102,7 @@ class HeartbeatSchedulerTest {
         @Test
         void willCallSendHeartbeatMessageOnLeader() {
             heartbeat.run();
-            verify(leader).sendHeartbeatMessage();
+            verify(server).sendHeartbeatMessage();
         }
     }
 }
