@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.comms;
 
 import au.id.tindall.distalg.raft.Server;
+import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
@@ -10,6 +11,7 @@ import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
+import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Arrays;
@@ -98,8 +100,14 @@ public class TestClusterFactory implements ClusterFactory<Long> {
     }
 
     private void deliverMessageIfServerIsRunning(RpcMessage<Long> message, Server<Long> server) {
-        if (server.getState().isPresent()) {
-            server.handle(message);
+        try(CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
+            if (server.getState().isPresent()) {
+                try {
+                    server.handle(message);
+                } catch (NotRunningException ex) {
+                    // Ignore, this can happen sometimes
+                }
+            }
         }
     }
 }
