@@ -41,7 +41,7 @@ public class LiveServerTest {
     private static final int DELAY_BETWEEN_HEARTBEATS_MILLISECONDS = 200;
     private static final int MINIMUM_ELECTION_TIMEOUT_MILLISECONDS = 300;
     private static final int MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS = 500;
-    private static final int COUNT_UP_TARGET = 300;
+    private static final int COUNT_UP_TARGET = 1_000;
 
     private Server<Long> server1;
     private Server<Long> server2;

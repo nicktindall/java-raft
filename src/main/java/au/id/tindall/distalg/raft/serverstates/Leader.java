@@ -90,15 +90,19 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     private void handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {
         ID remoteServerId = appendEntriesResponse.getSource();
+        LogReplicator<ID> sourceReplicator = replicators.get(remoteServerId);
         if (appendEntriesResponse.isSuccess()) {
             int lastAppendedIndex = appendEntriesResponse.getAppendedIndex()
                     .orElseThrow(() -> new IllegalStateException("Append entries response was success with no appendedIndex"));
-            replicators.get(remoteServerId).logSuccessResponse(lastAppendedIndex);
+            sourceReplicator.logSuccessResponse(lastAppendedIndex);
             if (updateCommitIndex()) {
                 sendHeartbeatMessage();
+            } else if (lastAppendedIndex < getLog().getLastLogIndex()) {
+                sourceReplicator.sendAppendEntriesRequest(getCurrentTerm(), getLog());
             }
         } else {
-            replicators.get(remoteServerId).logFailedResponse();
+            sourceReplicator.logFailedResponse();
+            sourceReplicator.sendAppendEntriesRequest(getCurrentTerm(), getLog());
         }
     }
 

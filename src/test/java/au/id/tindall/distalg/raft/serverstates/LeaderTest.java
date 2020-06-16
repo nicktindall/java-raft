@@ -133,55 +133,110 @@ public class LeaderTest {
     @Nested
     class HandleAppendEntriesResponse {
 
-        @Test
-        public void willIgnoreMessage_WhenItIsStale() {
-            leader.handle(new AppendEntriesResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-            verifyNoMoreInteractions(otherServerLogReplicator, log);
+        @Nested
+        class WhenMessageIsStale {
+
+            @Test
+            public void willIgnoreMessage() {
+                leader.handle(new AppendEntriesResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                verifyNoMoreInteractions(otherServerLogReplicator, log);
+            }
         }
 
-        @Test
-        public void willLogSuccessResponseWithReplicatorThenUpdateCommitIndex_WhenResultIsSuccess() {
-            int otherServerMatchIndex = 3;
-            when(otherServerLogReplicator.getMatchIndex()).thenReturn(otherServerMatchIndex);
+        @Nested
+        class WhenResultIsSuccess {
 
-            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-            InOrder inOrder = inOrder(otherServerLogReplicator, log);
-            inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
-            inOrder.verify(log).updateCommitIndex(List.of(otherServerMatchIndex));
+            private static final int OTHER_SERVER_MATCH_INDEX = 3;
+
+            @BeforeEach
+            void setUp() {
+                when(otherServerLogReplicator.getMatchIndex()).thenReturn(OTHER_SERVER_MATCH_INDEX);
+            }
+
+            @Test
+            public void willLogSuccessWithReplicatorThenUpdateCommitIndex() {
+                leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                InOrder inOrder = inOrder(otherServerLogReplicator, log);
+                inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
+                inOrder.verify(log).updateCommitIndex(List.of(OTHER_SERVER_MATCH_INDEX));
+            }
+
+            @Nested
+            class AndTheCommitIndexIsAdvanced {
+
+                @BeforeEach
+                void setUp() {
+                    when(log.updateCommitIndex(anyList())).thenReturn(Optional.of(5));
+                }
+
+                @Test
+                public void willLogSuccessWithReplicatorThenReplicate() {
+                    leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                    InOrder inOrder = inOrder(otherServerLogReplicator, log);
+                    inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
+                    inOrder.verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
+                }
+            }
+
+            @Nested
+            class AndTheCommitIndexIsNotAdvanced {
+
+                @BeforeEach
+                void setUp() {
+                    when(log.updateCommitIndex(anyList())).thenReturn(Optional.empty());
+                }
+
+                @Nested
+                class AndAppendedIndexIsBeforeEndOfLog {
+
+                    @BeforeEach
+                    void setUp() {
+                        when(log.getLastLogIndex()).thenReturn(6);
+                    }
+
+                    @Test
+                    public void willLogSuccessWithReplicatorThenReplicate() {
+                        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                        InOrder inOrder = inOrder(otherServerLogReplicator, log);
+                        inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
+                        inOrder.verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
+                    }
+                }
+
+                @Nested
+                class AndAppendedIndexIsAtEndOfLog {
+
+                    @BeforeEach
+                    void setUp() {
+                        when(log.getLastLogIndex()).thenReturn(5);
+                    }
+
+                    @Test
+                    public void willNotReplicate() {
+                        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+
+                        verify(otherServerLogReplicator, never()).sendAppendEntriesRequest(any(Term.class), any(Log.class));
+                    }
+                }
+            }
         }
 
-        @Test
-        public void willSendAHeartbeat_WhenTheCommitIndexIsAdvanced() {
-            int otherServerMatchIndex = 3;
-            when(otherServerLogReplicator.getMatchIndex()).thenReturn(otherServerMatchIndex);
-            when(log.updateCommitIndex(anyList())).thenReturn(Optional.of(5));
+        @Nested
+        class WhenResultIsFail {
 
-            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+            @Test
+            public void willNotUpdateCommitIndex() {
+                leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+                verify(log, never()).updateCommitIndex(anyList());
+            }
 
-            verify(otherServerLogReplicator, times(1)).sendAppendEntriesRequest(TERM_2, log);
-        }
-
-        @Test
-        public void willNotSendAHeartbeat_WhenTheCommitIndexIsNotAdvanced() {
-            int otherServerMatchIndex = 3;
-            when(otherServerLogReplicator.getMatchIndex()).thenReturn(otherServerMatchIndex);
-            when(log.updateCommitIndex(anyList())).thenReturn(Optional.empty());
-
-            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-
-            verify(otherServerLogReplicator, never()).sendAppendEntriesRequest(TERM_2, log);
-        }
-
-        @Test
-        public void willLogFailureResponseWithReplicator_WhenResultIsFail() {
-            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
-            verify(otherServerLogReplicator).logFailedResponse();
-        }
-
-        @Test
-        public void willNotUpdateCommitIndex_WhenResultIsFail() {
-            leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
-            verify(log, never()).updateCommitIndex(anyList());
+            @Test
+            public void willLogFailureWithReplicatorThenReplicate() {
+                leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+                InOrder sequence = inOrder(otherServerLogReplicator);
+                sequence.verify(otherServerLogReplicator).logFailedResponse();
+                sequence.verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
+            }
         }
     }
 
