@@ -17,12 +17,14 @@ public class LogReplicator<ID extends Serializable> {
 
     private final Cluster<ID> cluster;
     private final ID followerId;
+    private final int maxBatchSize;
     private int matchIndex;
     private int nextIndex;
 
-    public LogReplicator(Cluster<ID> cluster, ID followerId, int nextIndex) {
+    public LogReplicator(Cluster<ID> cluster, ID followerId, int maxBatchSize, int nextIndex) {
         this.cluster = cluster;
         this.followerId = followerId;
+        this.maxBatchSize = maxBatchSize;
         this.matchIndex = 0;
         this.nextIndex = nextIndex;
     }
@@ -61,7 +63,7 @@ public class LogReplicator<ID extends Serializable> {
 
     private List<LogEntry> getEntryToReplicate(Log log, int nextIndex) {
         if (log.hasEntry(nextIndex)) {
-            return singletonList(log.getEntry(nextIndex));
+            return log.getEntries(nextIndex, maxBatchSize);
         } else {
             return emptyList();
         }

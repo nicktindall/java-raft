@@ -32,6 +32,7 @@ public class LogReplicatorTest {
     private static final LogEntry ENTRY_TWO = new StateMachineCommandEntry(new Term(1), CLIENT_ID, 1, "two".getBytes());
     private static final LogEntry ENTRY_THREE = new StateMachineCommandEntry(new Term(2), CLIENT_ID, 2, "three".getBytes());
     private static final LogEntry ENTRY_FOUR = new StateMachineCommandEntry(new Term(2), CLIENT_ID, 3, "four".getBytes());
+    private static final int MAX_BATCH_SIZE = 1;
 
     private LogReplicator<Long> logReplicator;
 
@@ -44,7 +45,7 @@ public class LogReplicatorTest {
     public void setUp() {
         log = logContaining(ENTRY_ONE, ENTRY_TWO, ENTRY_THREE, ENTRY_FOUR);
         log.advanceCommitIndex(COMMIT_INDEX);
-        logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, INITIAL_NEXT_INDEX);
+        logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX);
     }
 
     @Test
@@ -85,7 +86,7 @@ public class LogReplicatorTest {
 
     @Test
     public void shouldSendEmptyAppendEntriesRequest_WhenThereAreNoLogEntries() {
-        logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, 1);
+        logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, MAX_BATCH_SIZE, 1);
         logReplicator.sendAppendEntriesRequest(CURRENT_TERM, logContaining());
         verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, 0,
                 Optional.empty(), emptyList(), 0);
@@ -100,7 +101,7 @@ public class LogReplicatorTest {
 
     @Test
     public void shouldSendSingleEntryAppendEntriesRequest_WhenFollowerIsLagging() {
-        logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, LAST_LOG_INDEX - 1);
+        logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, MAX_BATCH_SIZE, LAST_LOG_INDEX - 1);
         logReplicator.sendAppendEntriesRequest(CURRENT_TERM, log);
         verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX - 2,
                 Optional.of(ENTRY_TWO.getTerm()), singletonList(ENTRY_THREE), COMMIT_INDEX);

@@ -99,6 +99,32 @@ public class LogTest {
                     () -> entries.remove(0)
             ).isInstanceOf(UnsupportedOperationException.class);
         }
+
+        @Test
+        public void returnsLimitedSubList() {
+            Log log = new Log();
+            log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
+            List<LogEntry> entries = log.getEntries(1, 2);
+            assertThat(entries).isEqualTo(List.of(ENTRY_1, ENTRY_2));
+        }
+
+        @Test
+        public void returnsAllAvailableUpToLimit() {
+            Log log = new Log();
+            log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
+            List<LogEntry> entries = log.getEntries(2, 10);
+            assertThat(entries).isEqualTo(List.of(ENTRY_2, ENTRY_3));
+        }
+
+        @Test
+        public void returnsUnmodifiableSubList() {
+            Log log = new Log();
+            log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
+            List<LogEntry> entries = log.getEntries(2, 10);
+            assertThatCode(
+                    () -> entries.remove(0)
+            ).isInstanceOf(UnsupportedOperationException.class);
+        }
     }
 
     @Nested

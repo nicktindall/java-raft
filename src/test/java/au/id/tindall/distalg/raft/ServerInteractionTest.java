@@ -42,6 +42,7 @@ public class ServerInteractionTest {
 
     private static final byte[] COMMAND = "TheCommand".getBytes();
     private static final int MAX_CLIENT_SESSIONS = 10;
+    private static final int MAX_BATCH_SIZE = 10;
 
     private Server<Long> server1;
     private Server<Long> server2;
@@ -62,7 +63,7 @@ public class ServerInteractionTest {
         when(heartbeatSchedulerFactory.createHeartbeatScheduler(any(ScheduledExecutorService.class))).thenReturn(heartbeatScheduler);
         when(electionSchedulerFactory.createElectionScheduler(any(ScheduledExecutorService.class))).thenReturn(electionScheduler);
         PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
-        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>();
+        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE);
         LogFactory logFactory = new LogFactory();
         queuedSendingStrategy = new QueuedSendingStrategy();
         clusterFactory = new TestClusterFactory(queuedSendingStrategy);

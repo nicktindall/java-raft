@@ -100,6 +100,14 @@ public class Log {
         return entries.get(index - 1);
     }
 
+    public List<LogEntry> getEntries(int index, int limit) {
+        if (index < 1) {
+            throw new IllegalArgumentException("Log indices start at 1");
+        }
+        int toIndex = Math.min(entries.size(), index + limit - 1);
+        return unmodifiableList(entries.subList(index - 1, toIndex));
+    }
+
     private List<LogEntry> truncate(int fromIndex) {
         if (fromIndex <= this.commitIndex) {
             throw new IllegalStateException("Attempt made to truncate prior to commit index, this is a bug");

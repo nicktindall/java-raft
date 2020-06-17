@@ -43,6 +43,8 @@ public class LiveServerTest {
     private static final int MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS = 500;
     private static final int COUNT_UP_TARGET = 1_000;
 
+    private static final int MAX_BATCH_SIZE = 20;
+
     private Server<Long> server1;
     private Server<Long> server2;
     private Server<Long> server3;
@@ -51,7 +53,7 @@ public class LiveServerTest {
     @BeforeEach
     public void setUp() {
         PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
-        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>();
+        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE);
         LogFactory logFactory = new LogFactory();
         clusterFactory = new TestClusterFactory(new LiveDelayedSendingStrategy(MINIMUM_MESSAGE_DELAY, MAXIMUM_MESSAGE_DELAY));
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
