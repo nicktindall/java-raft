@@ -21,7 +21,7 @@ public class AppendEntriesResponse<ID extends Serializable> extends UnicastMessa
     }
 
     public Optional<Integer> getAppendedIndex() {
-        return Optional.of(appendedIndex);
+        return Optional.ofNullable(appendedIndex);
     }
 
     @Override
