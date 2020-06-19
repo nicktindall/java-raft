@@ -30,10 +30,12 @@ public class TestClusterFactory implements ClusterFactory<Long> {
 
     private final SendingStrategy sendingStrategy;
     private Map<Long, Server<Long>> servers;
+    private MessageStats messageStats;
 
     public TestClusterFactory(SendingStrategy sendingStrategy) {
         this.sendingStrategy = sendingStrategy;
         this.sendingStrategy.setDispatchFunction(this::dispatch);
+        this.messageStats = new MessageStats();
     }
 
     @SafeVarargs
@@ -87,13 +89,21 @@ public class TestClusterFactory implements ClusterFactory<Long> {
         };
     }
 
+    public void logStats() {
+        messageStats.logStats();
+    }
+
     private void dispatch(RpcMessage<Long> message) {
         if (message instanceof BroadcastMessage) {
             LOGGER.info("Broadcasting {} from Server {}", message.getClass().getSimpleName(), message.getSource());
-            servers.values().forEach(server -> deliverMessageIfServerIsRunning(message, server));
+            servers.values().forEach(server -> {
+                deliverMessageIfServerIsRunning(message, server);
+                messageStats.recordMessageSent(message);
+            });
         } else if (message instanceof UnicastMessage) {
             LOGGER.info("Sending {} from Server {} to Server {}", message.getClass().getSimpleName(), message.getSource(), ((UnicastMessage<Long>) message).getDestination());
             deliverMessageIfServerIsRunning(message, servers.get(((UnicastMessage<Long>) message).getDestination()));
+            messageStats.recordMessageSent(message);
         } else {
             throw new IllegalStateException("Unknown message type: " + message.getClass().getName());
         }

@@ -69,6 +69,7 @@ class LiveServerTest {
 
     @AfterEach
     void tearDown() {
+        clusterFactory.logStats();
         stopServers();
     }
 
