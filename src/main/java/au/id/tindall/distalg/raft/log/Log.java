@@ -13,9 +13,9 @@ import static java.util.stream.IntStream.range;
 
 public class Log {
 
+    private final List<EntryCommittedEventHandler> entryCommittedEventHandlers;
     private List<LogEntry> entries;
     private int commitIndex;
-    private List<EntryCommittedEventHandler> entryCommittedEventHandlers;
 
     public Log() {
         entries = new ArrayList<>();
@@ -87,23 +87,17 @@ public class Log {
     }
 
     public boolean hasEntry(int index) {
-        if (index < 1) {
-            throw new IllegalArgumentException("Log indices start at 1");
-        }
+        validateIndex(index);
         return entries.size() >= index;
     }
 
     public LogEntry getEntry(int index) {
-        if (index < 1) {
-            throw new IllegalArgumentException("Log indices start at 1");
-        }
+        validateIndex(index);
         return entries.get(index - 1);
     }
 
     public List<LogEntry> getEntries(int index, int limit) {
-        if (index < 1) {
-            throw new IllegalArgumentException("Log indices start at 1");
-        }
+        validateIndex(index);
         int toIndex = Math.min(entries.size(), index + limit - 1);
         return unmodifiableList(entries.subList(index - 1, toIndex));
     }
@@ -139,5 +133,11 @@ public class Log {
     private void notifyListeners(int committedIndex) {
         entryCommittedEventHandlers
                 .forEach(handler -> handler.entryCommitted(committedIndex, getEntry(committedIndex)));
+    }
+
+    private void validateIndex(int index) {
+        if (index < 1) {
+            throw new IllegalArgumentException("Log indices start at 1");
+        }
     }
 }
