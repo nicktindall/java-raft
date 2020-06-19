@@ -27,7 +27,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class PendingResponseRegistryTest {
+class PendingResponseRegistryTest {
 
     private static final int LOG_INDEX = 456;
     private static final int OTHER_LOG_INDEX = 789;

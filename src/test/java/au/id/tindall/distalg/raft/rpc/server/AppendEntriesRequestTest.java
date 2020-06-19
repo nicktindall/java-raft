@@ -13,20 +13,20 @@ import static au.id.tindall.distalg.raft.SerializationUtils.roundTripSerializeDe
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-public class AppendEntriesRequestTest {
+class AppendEntriesRequestTest {
 
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
     private static final byte[] COMMAND_BYTES = "what".getBytes();
 
     @Test
-    public void isSerializable() {
+    void isSerializable() {
         assertThatCode(() -> roundTripSerializeDeserialize(new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), List.of(new StateMachineCommandEntry(TERM_0, 444, 0, COMMAND_BYTES)), 10)))
                 .doesNotThrowAnyException();
     }
 
     @Test
-    public void getEntries_WillReturnAnUnmodifiableList() {
+    void getEntries_WillReturnAnUnmodifiableList() {
         AppendEntriesRequest<Long> request = new AppendEntriesRequest<>(TERM_1, 111L, 222L, 333, Optional.of(TERM_0), List.of(new StateMachineCommandEntry(TERM_0, 444, 0, COMMAND_BYTES)), 10);
         assertThatCode(
                 () -> request.getEntries().add(new StateMachineCommandEntry(TERM_0, 444, 0, COMMAND_BYTES))
@@ -34,7 +34,7 @@ public class AppendEntriesRequestTest {
     }
 
     @Test
-    public void constructor_WillStoreACopyOfTheEntriesList() {
+    void constructor_WillStoreACopyOfTheEntriesList() {
         ArrayList<LogEntry> originalEntriesList = new ArrayList<>();
         LogEntry e1 = new StateMachineCommandEntry(TERM_0, 444, 0, COMMAND_BYTES);
         originalEntriesList.add(e1);

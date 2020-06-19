@@ -11,7 +11,7 @@ import java.util.concurrent.ExecutionException;
 import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.NOT_LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class PendingRegisterClientResponseTest {
+class PendingRegisterClientResponseTest {
 
     private PendingRegisterClientResponse<Serializable> response;
 
@@ -27,7 +27,7 @@ public class PendingRegisterClientResponseTest {
     }
 
     @Test
-    public void shouldFail() throws ExecutionException, InterruptedException {
+    void shouldFail() throws ExecutionException, InterruptedException {
         response.fail();
         assertThat(response.getResponseFuture().get()).usingRecursiveComparison()
                 .isEqualTo(new RegisterClientResponse<>(NOT_LEADER, null, null));

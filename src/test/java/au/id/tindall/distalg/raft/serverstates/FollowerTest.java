@@ -27,7 +27,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
-public class FollowerTest {
+class FollowerTest {
 
     private static final long SERVER_ID = 100L;
     private static final long LEADER_SERVER_ID = 101L;
@@ -85,7 +85,7 @@ public class FollowerTest {
     class HandleAppendEntriesRequest {
 
         @Test
-        public void willRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
+        void willRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
             Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_0, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.empty());
@@ -94,7 +94,7 @@ public class FollowerTest {
         }
 
         @Test
-        public void willRejectRequest_PrevLogEntryHasIncorrectTerm() {
+        void willRejectRequest_PrevLogEntryHasIncorrectTerm() {
             Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_1), emptyList(), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.empty());
@@ -103,7 +103,7 @@ public class FollowerTest {
         }
 
         @Test
-        public void willAcceptRequest_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm() {
+        void willAcceptRequest_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm() {
             Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
@@ -112,7 +112,7 @@ public class FollowerTest {
         }
 
         @Test
-        public void willThrowIllegalStateException_WhenLeaderTermIsGreaterThanLocalTerm() {
+        void willThrowIllegalStateException_WhenLeaderTermIsGreaterThanLocalTerm() {
             Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             IllegalStateException ex = assertThrows(IllegalStateException.class,
                     () -> followerState.handle(new AppendEntriesRequest<>(TERM_2, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0)));
@@ -121,7 +121,7 @@ public class FollowerTest {
         }
 
         @Test
-        public void willAcceptRequest_AndAdvanceCommitIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLocal() {
+        void willAcceptRequest_AndAdvanceCommitIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLocal() {
             Log log = logContaining(ENTRY_1, ENTRY_2);
             Follower<Long> followerState = new Follower<>(TERM_1, null, log, cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 2));
@@ -132,7 +132,7 @@ public class FollowerTest {
         }
 
         @Test
-        public void willAcceptRequest_AndAdvanceCommitIndexToLastLocalIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLastLocalIndex() {
+        void willAcceptRequest_AndAdvanceCommitIndexToLastLocalIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLastLocalIndex() {
             Log log = logContaining(ENTRY_1, ENTRY_2);
             Follower<Long> followerState = new Follower<>(TERM_1, null, log, cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 10));
@@ -143,7 +143,7 @@ public class FollowerTest {
         }
 
         @Test
-        public void willReturnLastAppendedIndex_WhenAppendIsSuccessful() {
+        void willReturnLastAppendedIndex_WhenAppendIsSuccessful() {
             Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 1, Optional.of(TERM_0), List.of(ENTRY_2), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(2));
@@ -152,7 +152,7 @@ public class FollowerTest {
         }
 
         @Test
-        public void willRejectRequest_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndSenderIsNotTheCurrentLeader() {
+        void willRejectRequest_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndSenderIsNotTheCurrentLeader() {
             Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, NON_LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, NON_LEADER_SERVER_ID, false, Optional.empty());

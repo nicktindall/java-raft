@@ -32,7 +32,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class ServerTest {
+class ServerTest {
 
     private static final long SERVER_ID = 100L;
     private static final Term TERM_1 = new Term(1);
@@ -56,12 +56,12 @@ public class ServerTest {
     class Constructor {
 
         @Test
-        public void willSetId() {
+        void willSetId() {
             assertThat(server.getId()).isEqualTo(SERVER_ID);
         }
 
         @Test
-        public void willNotInitializeState() {
+        void willNotInitializeState() {
             verifyNoMoreInteractions(serverStateFactory);
         }
     }
@@ -121,7 +121,7 @@ public class ServerTest {
 
         @Test
         @SuppressWarnings({"ConstantConditions", "unchecked"})
-        public void willDispatchInitiateElectionMessageWithIncrementedTerm() {
+        void willDispatchInitiateElectionMessageWithIncrementedTerm() {
             when(serverState.handle(any(RpcMessage.class))).thenReturn(complete(serverState));
             server.electionTimeout();
 
@@ -223,7 +223,7 @@ public class ServerTest {
             }
 
             @Test
-            public void willContinueHandling_WhenHandlingIsIncomplete() {
+            void willContinueHandling_WhenHandlingIsIncomplete() {
                 when(serverState.handle(rpcMessage)).thenReturn(incomplete(nextServerState));
                 when(nextServerState.handle(rpcMessage)).thenReturn(complete(nextServerState));
 

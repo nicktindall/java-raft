@@ -32,7 +32,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class CandidateTest {
+class CandidateTest {
 
     private static final long SERVER_ID = 100L;
     private static final long OTHER_SERVER_ID = 101L;
@@ -54,19 +54,19 @@ public class CandidateTest {
     private ElectionScheduler<Long> electionScheduler;
 
     @Test
-    public void receivedVotes_WillBeInitializedEmpty() {
+    void receivedVotes_WillBeInitializedEmpty() {
         Candidate<Long> candidateState = new Candidate<>(TERM_2, log, cluster, SERVER_ID, serverStateFactory, electionScheduler);
         assertThat(candidateState.getReceivedVotes()).isEmpty();
     }
 
     @Test
-    public void votedFor_WillBeInitializedToOwnId() {
+    void votedFor_WillBeInitializedToOwnId() {
         Candidate<Long> candidateState = new Candidate<>(TERM_2, log, cluster, SERVER_ID, serverStateFactory, electionScheduler);
         assertThat(candidateState.getVotedFor()).contains(SERVER_ID);
     }
 
     @Test
-    public void getReceivedVotes_WillReturnUnmodifiableSet() {
+    void getReceivedVotes_WillReturnUnmodifiableSet() {
         Candidate<Long> candidateState = new Candidate<>(TERM_2, log, cluster, SERVER_ID, serverStateFactory, electionScheduler);
         assertThatCode(
                 () -> candidateState.getReceivedVotes().add(OTHER_SERVER_ID)
@@ -74,7 +74,7 @@ public class CandidateTest {
     }
 
     @Test
-    public void requestVotes_WillBroadcastRequestVoteRpc() {
+    void requestVotes_WillBroadcastRequestVoteRpc() {
         Candidate<Long> candidateState = new Candidate<>(TERM_2, log, cluster, SERVER_ID, serverStateFactory, electionScheduler);
         candidateState.requestVotes();
         verify(cluster).sendRequestVoteRequest(TERM_2, 0, Optional.empty());
@@ -139,12 +139,12 @@ public class CandidateTest {
             }
 
             @Test
-            public void willRecordVote() {
+            void willRecordVote() {
                 assertThat(candidateState.getReceivedVotes()).contains(OTHER_SERVER_ID);
             }
 
             @Test
-            public void willRemainInCandidateState() {
+            void willRemainInCandidateState() {
                 assertThat(result).isEqualToComparingFieldByField(complete(candidateState));
             }
         }
@@ -187,7 +187,7 @@ public class CandidateTest {
     class HandleAppendEntriesRequest {
 
         @Test
-        public void willTransitionToFollowerAndContinueProcessingMessage_WhenTermIsGreaterThanOrEqualToLocalTerm() {
+        void willTransitionToFollowerAndContinueProcessingMessage_WhenTermIsGreaterThanOrEqualToLocalTerm() {
             when(serverStateFactory.createFollower(TERM_2, OTHER_SERVER_ID)).thenReturn(follower);
 
             Candidate<Long> candidateState = new Candidate<>(TERM_1, log, cluster, SERVER_ID, serverStateFactory, electionScheduler);
@@ -197,7 +197,7 @@ public class CandidateTest {
         }
 
         @Test
-        public void willRespondUnsuccessful_WhenRequestIsStale() {
+        void willRespondUnsuccessful_WhenRequestIsStale() {
             Candidate<Long> candidateState = new Candidate<>(TERM_1, log, cluster, SERVER_ID, serverStateFactory, electionScheduler);
             Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_0, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
 

@@ -18,7 +18,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
-public class ClientSessionStoreTest {
+class ClientSessionStoreTest {
 
     private static final int MAX_SESSIONS = 2;
     private static final byte[] RESULT = "result".getBytes();
@@ -99,7 +99,7 @@ public class ClientSessionStoreTest {
     }
 
     @Test
-    public void shouldEmitClientSessionCreatedEvents_WhenClientSessionCreated() {
+    void shouldEmitClientSessionCreatedEvents_WhenClientSessionCreated() {
         clientSessionStore.addClientSessionCreatedHandler(clientSessionCreatedHandler);
 
         clientSessionStore.createSession(1, 1);
@@ -107,7 +107,7 @@ public class ClientSessionStoreTest {
     }
 
     @Test
-    public void shouldNotNotifyListeners_AfterTheyHaveBeenRemoved() {
+    void shouldNotNotifyListeners_AfterTheyHaveBeenRemoved() {
         clientSessionStore.addClientSessionCreatedHandler(clientSessionCreatedHandler);
         clientSessionStore.createSession(1, 1);
         clientSessionStore.removeClientSessionCreatedHandler(clientSessionCreatedHandler);

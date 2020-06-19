@@ -8,10 +8,10 @@ import java.util.Optional;
 import au.id.tindall.distalg.raft.log.Term;
 import org.junit.jupiter.api.Test;
 
-public class RequestVoteRequestTest {
+class RequestVoteRequestTest {
 
     @Test
-    public void isSerializable() {
+    void isSerializable() {
         assertThatCode(() -> roundTripSerializeDeserialize(new RequestVoteRequest<>(new Term(16), 12345L, 456, Optional.of(new Term(5))))).doesNotThrowAnyException();
     }
 }

@@ -22,7 +22,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
-public class LogTest {
+class LogTest {
 
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
@@ -42,28 +42,28 @@ public class LogTest {
     class AppendEntries {
 
         @Test
-        public void willAddNewEntriesToTheEndOfTheLog() {
+        void willAddNewEntriesToTheEndOfTheLog() {
             Log log = new Log();
             log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
             assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3);
         }
 
         @Test
-        public void willOverwriteTail_WhenItDiffers() {
+        void willOverwriteTail_WhenItDiffers() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             log.appendEntries(2, List.of(ENTRY_3B, ENTRY_4B));
             assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3B, ENTRY_4B);
         }
 
         @Test
-        public void willOverwriteTail_WhenItPartiallyDiffers() {
+        void willOverwriteTail_WhenItPartiallyDiffers() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             log.appendEntries(2, List.of(ENTRY_3, ENTRY_4B));
             assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4B);
         }
 
         @Test
-        public void willFail_WhenPrevLogIndexIsInvalid() {
+        void willFail_WhenPrevLogIndexIsInvalid() {
             Log log = new Log();
             assertThatCode(
                     () -> log.appendEntries(-1, List.of(ENTRY_1, ENTRY_2))
@@ -71,7 +71,7 @@ public class LogTest {
         }
 
         @Test
-        public void willFail_WhenPrevLogIndexIsNotPresent() {
+        void willFail_WhenPrevLogIndexIsNotPresent() {
             Log log = new Log();
             assertThatCode(
                     () -> log.appendEntries(1, List.of(ENTRY_1, ENTRY_2))
@@ -79,7 +79,7 @@ public class LogTest {
         }
 
         @Test
-        public void willFail_WhenAttemptIsMadeToRewriteLogBeforeCommitIndex() {
+        void willFail_WhenAttemptIsMadeToRewriteLogBeforeCommitIndex() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3);
             log.advanceCommitIndex(3);
             assertThatThrownBy(() -> log.appendEntries(2, List.of(ENTRY_3B)))
@@ -91,7 +91,7 @@ public class LogTest {
     class GetEntries {
 
         @Test
-        public void returnsUnmodifiableList() {
+        void returnsUnmodifiableList() {
             Log log = new Log();
             log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
             List<LogEntry> entries = log.getEntries();
@@ -101,7 +101,7 @@ public class LogTest {
         }
 
         @Test
-        public void returnsLimitedSubList() {
+        void returnsLimitedSubList() {
             Log log = new Log();
             log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
             List<LogEntry> entries = log.getEntries(1, 2);
@@ -109,7 +109,7 @@ public class LogTest {
         }
 
         @Test
-        public void returnsAllAvailableUpToLimit() {
+        void returnsAllAvailableUpToLimit() {
             Log log = new Log();
             log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
             List<LogEntry> entries = log.getEntries(2, 10);
@@ -117,7 +117,7 @@ public class LogTest {
         }
 
         @Test
-        public void returnsUnmodifiableSubList() {
+        void returnsUnmodifiableSubList() {
             Log log = new Log();
             log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
             List<LogEntry> entries = log.getEntries(2, 10);
@@ -131,17 +131,17 @@ public class LogTest {
     class ContainsPrevLogEntry {
 
         @Test
-        public void containsPrevLogEntry_WillReturnTrue_WhenAMatchingEntryIsFound() {
+        void containsPrevLogEntry_WillReturnTrue_WhenAMatchingEntryIsFound() {
             assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).containsPreviousEntry(1, TERM_0)).isTrue();
         }
 
         @Test
-        public void containsPrevLogEntry_WillReturnFalse_WhenTermsDoNotMatch() {
+        void containsPrevLogEntry_WillReturnFalse_WhenTermsDoNotMatch() {
             assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).containsPreviousEntry(1, TERM_1)).isFalse();
         }
 
         @Test
-        public void containsPrevLogEntry_WillReturnFalse_WhenPreviousIsNotPresent() {
+        void containsPrevLogEntry_WillReturnFalse_WhenPreviousIsNotPresent() {
             assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).containsPreviousEntry(5, TERM_1)).isFalse();
         }
     }
@@ -150,12 +150,12 @@ public class LogTest {
     class GetLastLogIndex {
 
         @Test
-        public void willReturnIndexOfLastLogEntry() {
+        void willReturnIndexOfLastLogEntry() {
             assertThat(logContaining(ENTRY_1, ENTRY_2).getLastLogIndex()).isEqualTo(2);
         }
 
         @Test
-        public void willReturnZero_WhenLogIsEmpty() {
+        void willReturnZero_WhenLogIsEmpty() {
             assertThat(logContaining().getLastLogIndex()).isZero();
         }
     }
@@ -178,23 +178,23 @@ public class LogTest {
     class GetLastLogTerm {
 
         @Test
-        public void willReturnTermOfLastEntry() {
+        void willReturnTermOfLastEntry() {
             assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getLastLogTerm()).contains(TERM_1);
         }
 
         @Test
-        public void willReturnEmptyWhenLogIsEmpty() {
+        void willReturnEmptyWhenLogIsEmpty() {
             assertThat(logContaining().getLastLogTerm()).isEmpty();
         }
     }
 
     @Test
-    public void getSummary_WillReturnLastLogTermAndIndex() {
+    void getSummary_WillReturnLastLogTermAndIndex() {
         assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getSummary()).isEqualTo(new LogSummary(Optional.of(TERM_1), 3));
     }
 
     @Test
-    public void commitIndex_WillBeInitializedToZero() {
+    void commitIndex_WillBeInitializedToZero() {
         assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4).getCommitIndex()).isZero();
     }
 
@@ -202,35 +202,35 @@ public class LogTest {
     class UpdateCommitIndex {
 
         @Test
-        public void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveAdvanced() {
+        void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 3, 4));
             assertThat(newCommitIndex).contains(3);
         }
 
         @Test
-        public void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveAdvanced() {
+        void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 2, 3));
             assertThat(newCommitIndex).contains(2);
         }
 
         @Test
-        public void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveNotAdvanced() {
+        void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveNotAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 0, 4));
             assertThat(newCommitIndex).isEmpty();
         }
 
         @Test
-        public void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveNotAdvanced() {
+        void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveNotAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 4));
             assertThat(newCommitIndex).isEmpty();
         }
 
         @Test
-        public void updateCommitIndex_WillNotifyEntryCommittedEventHandlers_WhenCommitIndexAdvances() {
+        void updateCommitIndex_WillNotifyEntryCommittedEventHandlers_WhenCommitIndexAdvances() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             log.addEntryCommittedEventHandler(entryCommittedEventHandler);
             log.updateCommitIndex(List.of(0, 0, 3, 4));
@@ -256,7 +256,7 @@ public class LogTest {
     class AdvanceCommitIndex {
 
         @Test
-        public void willNotifyEntryCommittedEventHandlers_WhenCommitIndexAdvances() {
+        void willNotifyEntryCommittedEventHandlers_WhenCommitIndexAdvances() {
             Log log = logContaining(ENTRY_1, ENTRY_2);
             log.addEntryCommittedEventHandler(entryCommittedEventHandler);
             log.advanceCommitIndex(2);
@@ -266,7 +266,7 @@ public class LogTest {
         }
 
         @Test
-        public void willNotNotifyCommittedEventHandlers_WhenCommitIndexDoesNotAdvance() {
+        void willNotNotifyCommittedEventHandlers_WhenCommitIndexDoesNotAdvance() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             log.advanceCommitIndex(4);
             log.addEntryCommittedEventHandler(entryCommittedEventHandler);
@@ -275,7 +275,7 @@ public class LogTest {
         }
 
         @Test
-        public void willIgnore_WhenCommitIndexGoesBackwards() {
+        void willIgnore_WhenCommitIndexGoesBackwards() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             log.advanceCommitIndex(4);
             log.addEntryCommittedEventHandler(entryCommittedEventHandler);

@@ -40,7 +40,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    public void shouldStartNotifyingClientSessionStoreOfAppliedCommands() {
+    void shouldStartNotifyingClientSessionStoreOfAppliedCommands() {
         verify(clientSessionStore).startListeningForAppliedCommands(commandExecutor);
     }
 
@@ -75,7 +75,7 @@ class CommandExecutorTest {
             }
 
             @Test
-            public void shouldNotifyListenersOfCommandResult_WhenCommandIsDuplicate() {
+            void shouldNotifyListenersOfCommandResult_WhenCommandIsDuplicate() {
                 when(clientSessionStore.getCommandResult(CLIENT_ID, CLIENT_SEQUENCE_NUMBER)).thenReturn(Optional.of(RESULT));
                 log.advanceCommitIndex(1);
                 verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, CLIENT_SEQUENCE_NUMBER, RESULT);
@@ -92,7 +92,7 @@ class CommandExecutorTest {
             }
 
             @Test
-            public void shouldNotifyListenersOfCommandResult() {
+            void shouldNotifyListenersOfCommandResult() {
                 when(stateMachine.apply(COMMAND)).thenReturn(RESULT);
                 log.advanceCommitIndex(1);
                 verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, CLIENT_SEQUENCE_NUMBER, RESULT);
@@ -100,14 +100,14 @@ class CommandExecutorTest {
         }
 
         @Test
-        public void shouldNotNotifyRemovedListenersOfCommandResult() {
+        void shouldNotNotifyRemovedListenersOfCommandResult() {
             commandExecutor.removeCommandAppliedEventHandler(commandAppliedEventHandler);
             log.advanceCommitIndex(1);
             verifyNoMoreInteractions(commandAppliedEventHandler);
         }
 
         @Test
-        public void shouldNotBeNotifiedAfterWeStopListening() {
+        void shouldNotBeNotifiedAfterWeStopListening() {
             commandExecutor.stopListeningForCommittedCommands(log);
             log.advanceCommitIndex(1);
             verifyNoMoreInteractions(stateMachine);

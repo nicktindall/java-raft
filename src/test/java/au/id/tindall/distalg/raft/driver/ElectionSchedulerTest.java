@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ElectionSchedulerTest {
 
-    public static final long TIMEOUT_MILLIS = 12345L;
+    private static final long TIMEOUT_MILLIS = 12345L;
     @Mock
     private Server<Long> server;
     @Mock
@@ -69,7 +69,7 @@ class ElectionSchedulerTest {
 
         @Test
         @SuppressWarnings("unchecked")
-        public void willCancelExistingTimeoutThenScheduleANewOne() {
+        void willCancelExistingTimeoutThenScheduleANewOne() {
             when(electionTimeoutGenerator.next()).thenReturn(TIMEOUT_MILLIS);
             when(scheduledExecutorService.schedule(any(Runnable.class), eq(TIMEOUT_MILLIS), eq(MILLISECONDS)))
                     .thenReturn(timeoutFuture);
@@ -84,7 +84,7 @@ class ElectionSchedulerTest {
         }
 
         @Test
-        public void willThrowIfTimeoutsAreNotStarted() {
+        void willThrowIfTimeoutsAreNotStarted() {
             assertThatThrownBy(() -> electionScheduler.resetTimeout()).isInstanceOf(IllegalStateException.class);
         }
     }

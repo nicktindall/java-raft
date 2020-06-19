@@ -38,7 +38,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class ServerInteractionTest {
+class ServerInteractionTest {
 
     private static final byte[] COMMAND = "TheCommand".getBytes();
     private static final int MAX_CLIENT_SESSIONS = 10;
@@ -143,7 +143,7 @@ public class ServerInteractionTest {
     }
 
     @Test
-    public void clientSessionsAreCreatedAsRegistrationsAreDistributed() {
+    void clientSessionsAreCreatedAsRegistrationsAreDistributed() {
         server1.electionTimeout();
         queuedSendingStrategy.fullyFlush();
         server1.handle(new RegisterClientRequest<>(server1.getId()));

@@ -14,7 +14,7 @@ import static au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus.NOT_LEAD
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(MockitoExtension.class)
-public class PendingClientRequestResponseTest {
+class PendingClientRequestResponseTest {
 
     private PendingClientRequestResponse<Serializable> response;
 

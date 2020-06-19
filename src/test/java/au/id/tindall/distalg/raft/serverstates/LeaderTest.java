@@ -49,7 +49,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class LeaderTest {
+class LeaderTest {
 
     private static final long SERVER_ID = 111;
     private static final long OTHER_SERVER_ID = 112;
@@ -80,7 +80,7 @@ public class LeaderTest {
     private Leader<Long> leader;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
         when(logReplicatorFactory.createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
@@ -91,7 +91,7 @@ public class LeaderTest {
     class Constructor {
 
         @Test
-        public void willCreateLogReplicators() {
+        void willCreateLogReplicators() {
             verify(logReplicatorFactory).createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
         }
     }
@@ -125,7 +125,7 @@ public class LeaderTest {
     }
 
     @Test
-    public void leaveState_WillDisposeOfPendingResponseRegistry() {
+    void leaveState_WillDisposeOfPendingResponseRegistry() {
         leader.leaveState();
         verify(pendingResponseRegistry).dispose();
     }
@@ -137,7 +137,7 @@ public class LeaderTest {
         class WhenMessageIsStale {
 
             @Test
-            public void willIgnoreMessage() {
+            void willIgnoreMessage() {
                 leader.handle(new AppendEntriesResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                 verifyNoMoreInteractions(otherServerLogReplicator, log);
             }
@@ -154,7 +154,7 @@ public class LeaderTest {
             }
 
             @Test
-            public void willLogSuccessWithReplicatorThenUpdateCommitIndex() {
+            void willLogSuccessWithReplicatorThenUpdateCommitIndex() {
                 leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                 InOrder inOrder = inOrder(otherServerLogReplicator, log);
                 inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
@@ -170,7 +170,7 @@ public class LeaderTest {
                 }
 
                 @Test
-                public void willLogSuccessWithReplicatorThenReplicate() {
+                void willLogSuccessWithReplicatorThenReplicate() {
                     leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                     InOrder inOrder = inOrder(otherServerLogReplicator, log);
                     inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
@@ -195,7 +195,7 @@ public class LeaderTest {
                     }
 
                     @Test
-                    public void willLogSuccessWithReplicatorThenReplicate() {
+                    void willLogSuccessWithReplicatorThenReplicate() {
                         leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                         InOrder inOrder = inOrder(otherServerLogReplicator, log);
                         inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
@@ -212,7 +212,7 @@ public class LeaderTest {
                     }
 
                     @Test
-                    public void willNotReplicate() {
+                    void willNotReplicate() {
                         leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
 
                         verify(otherServerLogReplicator, never()).sendAppendEntriesRequest(any(Term.class), any(Log.class));
@@ -225,13 +225,13 @@ public class LeaderTest {
         class WhenResultIsFail {
 
             @Test
-            public void willNotUpdateCommitIndex() {
+            void willNotUpdateCommitIndex() {
                 leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
                 verify(log, never()).updateCommitIndex(anyList());
             }
 
             @Test
-            public void willLogFailureWithReplicatorThenReplicate() {
+            void willLogFailureWithReplicatorThenReplicate() {
                 leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
                 InOrder sequence = inOrder(otherServerLogReplicator);
                 sequence.verify(otherServerLogReplicator).logFailedResponse();

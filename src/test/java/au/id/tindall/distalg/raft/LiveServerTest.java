@@ -30,7 +30,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.fail;
 
-public class LiveServerTest {
+class LiveServerTest {
 
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -51,7 +51,7 @@ public class LiveServerTest {
     private TestClusterFactory clusterFactory;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
         LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE);
         LogFactory logFactory = new LogFactory();
@@ -96,7 +96,7 @@ public class LiveServerTest {
     }
 
     @Test
-    public void willProgressWithFailures() throws InterruptedException, ExecutionException {
+    void willProgressWithFailures() throws InterruptedException, ExecutionException {
         AtomicBoolean clientIsFinished = new AtomicBoolean(false);
         ExecutorService executorService = Executors.newCachedThreadPool();
         Future<?> counterClientThread = executorService.submit(() -> {

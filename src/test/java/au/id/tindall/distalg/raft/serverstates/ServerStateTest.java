@@ -32,7 +32,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class ServerStateTest {
+class ServerStateTest {
 
     private static final long SERVER_ID = 100;
     private static final long OTHER_SERVER_ID = 101;
@@ -77,7 +77,7 @@ public class ServerStateTest {
     class HandleRequestVoteRequest {
 
         @Test
-        public void willNotGrantVote_WhenRequesterTermIsLowerThanLocalTerm() {
+        void willNotGrantVote_WhenRequesterTermIsLowerThanLocalTerm() {
             var serverState = new ServerStateImpl(TERM_3, null, log, cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
 
@@ -86,7 +86,7 @@ public class ServerStateTest {
         }
 
         @Test
-        public void willNotGrantVote_WhenServerHasAlreadyVoted() {
+        void willNotGrantVote_WhenServerHasAlreadyVoted() {
             var serverState = new ServerStateImpl(TERM_3, SERVER_ID, log, cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_3, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
 
@@ -95,7 +95,7 @@ public class ServerStateTest {
         }
 
         @Test
-        public void willNotGrantVote_WhenServerLogIsMoreUpToDateThanRequesterLog() {
+        void willNotGrantVote_WhenServerLogIsMoreUpToDateThanRequesterLog() {
             var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0)));
 
@@ -104,7 +104,7 @@ public class ServerStateTest {
         }
 
         @Test
-        public void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasNotAlreadyVoted() {
+        void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasNotAlreadyVoted() {
             var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
 
@@ -113,7 +113,7 @@ public class ServerStateTest {
         }
 
         @Test
-        public void willGrantVote_WhenRequesterTermIsEqualServerLogIsLessUpToDateAndServerHasNotAlreadyVoted() {
+        void willGrantVote_WhenRequesterTermIsEqualServerLogIsLessUpToDateAndServerHasNotAlreadyVoted() {
             var serverState = new ServerStateImpl(TERM_2, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
 
@@ -122,7 +122,7 @@ public class ServerStateTest {
         }
 
         @Test
-        public void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasAlreadyVotedForRequester() {
+        void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasAlreadyVotedForRequester() {
             var serverState = new ServerStateImpl(TERM_2, OTHER_SERVER_ID, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
 
@@ -146,7 +146,7 @@ public class ServerStateTest {
     }
 
     @Nested
-    public class HandleClientRequestRequest {
+    class HandleClientRequestRequest {
 
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
@@ -160,7 +160,7 @@ public class ServerStateTest {
     }
 
     @Nested
-    public class HandleInitiateElectionMessage {
+    class HandleInitiateElectionMessage {
 
         @Mock
         private Candidate<Long> candidate;

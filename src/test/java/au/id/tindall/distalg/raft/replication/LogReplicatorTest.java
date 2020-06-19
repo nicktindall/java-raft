@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
-public class LogReplicatorTest {
+class LogReplicatorTest {
 
     private static final long FOLLOWER_ID = 456L;
     private static final int INITIAL_NEXT_INDEX = 5;
@@ -42,50 +42,50 @@ public class LogReplicatorTest {
     private Log log;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         log = logContaining(ENTRY_ONE, ENTRY_TWO, ENTRY_THREE, ENTRY_FOUR);
         log.advanceCommitIndex(COMMIT_INDEX);
         logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX);
     }
 
     @Test
-    public void matchIndexWillBeInitializedToZero() {
+    void matchIndexWillBeInitializedToZero() {
         assertThat(logReplicator.getMatchIndex()).isZero();
     }
 
     @Test
-    public void nextIndexWillBeInitializedToValuePassed() {
+    void nextIndexWillBeInitializedToValuePassed() {
         assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX);
     }
 
     @Test
-    public void logSuccessResponseWillSetNextIndex() {
+    void logSuccessResponseWillSetNextIndex() {
         int lastAppendedIndex = 2;
         logReplicator.logSuccessResponse(lastAppendedIndex);
         assertThat(logReplicator.getNextIndex()).isEqualTo(lastAppendedIndex + 1);
     }
 
     @Test
-    public void logSuccessResponseWillSetMatchIndex() {
+    void logSuccessResponseWillSetMatchIndex() {
         int lastAppendedIndex = 2;
         logReplicator.logSuccessResponse(lastAppendedIndex);
         assertThat(logReplicator.getMatchIndex()).isEqualTo(lastAppendedIndex);
     }
 
     @Test
-    public void logFailedResponseWillDecrementNextIndex() {
+    void logFailedResponseWillDecrementNextIndex() {
         logReplicator.logFailedResponse();
         assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX - 1);
     }
 
     @Test
-    public void logFailedResponseWillNotModifyMatchIndex() {
+    void logFailedResponseWillNotModifyMatchIndex() {
         logReplicator.logFailedResponse();
         assertThat(logReplicator.getMatchIndex()).isZero();
     }
 
     @Test
-    public void shouldSendEmptyAppendEntriesRequest_WhenThereAreNoLogEntries() {
+    void shouldSendEmptyAppendEntriesRequest_WhenThereAreNoLogEntries() {
         logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, MAX_BATCH_SIZE, 1);
         logReplicator.sendAppendEntriesRequest(CURRENT_TERM, logContaining());
         verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, 0,
@@ -93,14 +93,14 @@ public class LogReplicatorTest {
     }
 
     @Test
-    public void shouldSendEmptyAppendEntriesRequest_WhenFollowerIsCaughtUp() {
+    void shouldSendEmptyAppendEntriesRequest_WhenFollowerIsCaughtUp() {
         logReplicator.sendAppendEntriesRequest(CURRENT_TERM, log);
         verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX,
                 Optional.of(ENTRY_FOUR.getTerm()), emptyList(), COMMIT_INDEX);
     }
 
     @Test
-    public void shouldSendSingleEntryAppendEntriesRequest_WhenFollowerIsLagging() {
+    void shouldSendSingleEntryAppendEntriesRequest_WhenFollowerIsLagging() {
         logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, MAX_BATCH_SIZE, LAST_LOG_INDEX - 1);
         logReplicator.sendAppendEntriesRequest(CURRENT_TERM, log);
         verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX - 2,
