@@ -20,12 +20,13 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -88,68 +89,48 @@ class LiveServerTest {
     @Test
     void willProgressWithNoFailures() throws ExecutionException, InterruptedException {
         countUp();
-        ExecutorService executorService = Executors.newCachedThreadPool();
-        executorService.submit(() -> waitForServerToArrive(server1, COUNT_UP_TARGET)).get();
-        executorService.submit(() -> waitForServerToArrive(server2, COUNT_UP_TARGET)).get();
-        executorService.submit(() -> waitForServerToArrive(server3, COUNT_UP_TARGET)).get();
-
+        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server1));
+        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server2));
+        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server3));
     }
 
     @Test
     void willProgressWithFailures() throws InterruptedException, ExecutionException {
-        AtomicBoolean clientIsFinished = new AtomicBoolean(false);
-        ExecutorService executorService = Executors.newCachedThreadPool();
+        ScheduledExecutorService executorService = Executors.newScheduledThreadPool(10);
         Future<?> counterClientThread = executorService.submit(() -> {
             try {
                 countUp();
-                clientIsFinished.set(true);
             } catch (ExecutionException | InterruptedException ex) {
                 fail(ex);
             }
         });
-
-        Future<?> chaosMonkey = executorService.submit(() -> {
-            try {
-                while (!clientIsFinished.get()) {
-                    Thread.sleep(5000);
-                    killThenResurrectCurrentLeader();
-                }
-            } catch (InterruptedException e) {
-                fail(e);
-            }
-        });
+        ScheduledFuture<?> periodicLeaderKiller = executorService.scheduleAtFixedRate(this::killThenResurrectCurrentLeader, 5, 5, SECONDS);
 
         counterClientThread.get();
-        chaosMonkey.get();
-        executorService.submit(() -> waitForServerToArrive(server1, COUNT_UP_TARGET)).get();
-        executorService.submit(() -> waitForServerToArrive(server2, COUNT_UP_TARGET)).get();
-        executorService.submit(() -> waitForServerToArrive(server3, COUNT_UP_TARGET)).get();
+        periodicLeaderKiller.cancel(false);
+        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server1));
+        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server2));
+        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server3));
     }
 
-    private void waitForServerToArrive(Server<Long> server, int target) {
+    private boolean serverHasCaughtUp(Server<Long> server) {
         MonotonicCounter counter = (MonotonicCounter) server.getStateMachine();
-        while (counter.getCounter().intValue() < target) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ex) {
-                throw new RuntimeException(ex);
-            }
-        }
+        return counter.getCounter().intValue() == COUNT_UP_TARGET;
     }
 
     private void killThenResurrectCurrentLeader() {
         Server<Long> currentLeader = getLeader().get();
-        LOGGER.warn("Killing server " +  currentLeader.getId());
+        LOGGER.warn("Killing server " + currentLeader.getId());
         currentLeader.stop();
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
-        LOGGER.warn("Server " +  currentLeader.getId() + " restarted");
+        LOGGER.warn("Server " + currentLeader.getId() + " restarted");
         currentLeader.start();
     }
 
     private void countUp() throws ExecutionException, InterruptedException {
         MonotonicCounterClient counterClient = new MonotonicCounterClient(List.of(server1, server2, server3));
         counterClient.register();
-        for (int i = 0; i <= COUNT_UP_TARGET; i++) {
+        for (int i = 0; i < COUNT_UP_TARGET; i++) {
             counterClient.increment();
         }
     }
