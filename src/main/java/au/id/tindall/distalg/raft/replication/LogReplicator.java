@@ -45,8 +45,8 @@ public class LogReplicator<ID extends Serializable> {
     }
 
     public void logSuccessResponse(int lastAppendedIndex) {
-        nextIndex = lastAppendedIndex + 1;
-        matchIndex = lastAppendedIndex;
+        nextIndex = Math.max(lastAppendedIndex + 1, nextIndex);
+        matchIndex = Math.max(lastAppendedIndex, matchIndex);
     }
 
     public void logFailedResponse() {

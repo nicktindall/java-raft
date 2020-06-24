@@ -6,6 +6,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -58,18 +59,34 @@ class LogReplicatorTest {
         assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX);
     }
 
-    @Test
-    void logSuccessResponseWillSetNextIndex() {
-        int lastAppendedIndex = 2;
-        logReplicator.logSuccessResponse(lastAppendedIndex);
-        assertThat(logReplicator.getNextIndex()).isEqualTo(lastAppendedIndex + 1);
-    }
+    @Nested
+    class LogSuccessResponse {
 
-    @Test
-    void logSuccessResponseWillSetMatchIndex() {
-        int lastAppendedIndex = 2;
-        logReplicator.logSuccessResponse(lastAppendedIndex);
-        assertThat(logReplicator.getMatchIndex()).isEqualTo(lastAppendedIndex);
+        @Test
+        void willSetNextIndex() {
+            int lastAppendedIndex = INITIAL_NEXT_INDEX + 1;
+            logReplicator.logSuccessResponse(lastAppendedIndex);
+            assertThat(logReplicator.getNextIndex()).isEqualTo(lastAppendedIndex + 1);
+        }
+
+        @Test
+        void willSetMatchIndex() {
+            int lastAppendedIndex = 2;
+            logReplicator.logSuccessResponse(lastAppendedIndex);
+            assertThat(logReplicator.getMatchIndex()).isEqualTo(lastAppendedIndex);
+        }
+
+        @Test
+        void willOnlyAdvanceIndices() {
+            int lastAppendedIndex = INITIAL_NEXT_INDEX + 1;
+            logReplicator.logSuccessResponse(lastAppendedIndex);
+            assertThat(logReplicator.getMatchIndex()).isEqualTo(lastAppendedIndex);
+            assertThat(logReplicator.getNextIndex()).isEqualTo(lastAppendedIndex + 1);
+
+            logReplicator.logSuccessResponse(lastAppendedIndex - 1);
+            assertThat(logReplicator.getMatchIndex()).isEqualTo(lastAppendedIndex);
+            assertThat(logReplicator.getNextIndex()).isEqualTo(lastAppendedIndex + 1);
+        }
     }
 
     @Test
