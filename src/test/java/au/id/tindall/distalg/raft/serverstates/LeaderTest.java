@@ -187,28 +187,30 @@ class LeaderTest {
                 }
 
                 @Nested
-                class AndAppendedIndexIsBeforeEndOfLog {
+                class AndSourceNextIndexIsBeforeEndOfLog {
 
                     @BeforeEach
                     void setUp() {
                         when(log.getLastLogIndex()).thenReturn(6);
+                        when(otherServerLogReplicator.getNextIndex()).thenReturn(5);
                     }
 
                     @Test
                     void willLogSuccessWithReplicatorThenReplicate() {
-                        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(4)));
                         InOrder inOrder = inOrder(otherServerLogReplicator, log);
-                        inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
+                        inOrder.verify(otherServerLogReplicator).logSuccessResponse(4);
                         inOrder.verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
                     }
                 }
 
                 @Nested
-                class AndAppendedIndexIsAtEndOfLog {
+                class AndSourceNextIndexIsAtEndOfLog {
 
                     @BeforeEach
                     void setUp() {
                         when(log.getLastLogIndex()).thenReturn(5);
+                        when(otherServerLogReplicator.getNextIndex()).thenReturn(6);
                     }
 
                     @Test

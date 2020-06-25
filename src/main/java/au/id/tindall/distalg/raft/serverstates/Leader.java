@@ -97,7 +97,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
             sourceReplicator.logSuccessResponse(lastAppendedIndex);
             if (updateCommitIndex()) {
                 sendHeartbeatMessage();
-            } else if (lastAppendedIndex < getLog().getLastLogIndex()) {
+            } else if (sourceReplicator.getNextIndex() <= getLog().getLastLogIndex()) {
                 sourceReplicator.sendAppendEntriesRequest(getCurrentTerm(), getLog());
             }
         } else {
