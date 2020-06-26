@@ -42,7 +42,7 @@ public class HeartbeatReplicationScheduler implements ReplicationScheduler {
         future.cancel(true);
     }
 
-    private void run() {
+    private Void run() throws InterruptedException {
         try {
             while (running) {
                 if (replicationScheduled.getAndSet(false)) {
@@ -54,11 +54,10 @@ public class HeartbeatReplicationScheduler implements ReplicationScheduler {
                     replicationScheduled.set(true);
                 }
             }
-        } catch (InterruptedException ex) {
-            // Do nothing, just end
         } catch (RuntimeException ex) {
             LOGGER.error("Replication thread failed!", ex);
         }
+        return null;
     }
 
     @Override
