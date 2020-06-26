@@ -171,8 +171,8 @@ public class Log {
     }
 
     private <V> V acquireLockAnd(Lock lock, Supplier<V> function) {
+        lock.lock();
         try {
-            lock.lock();
             return function.get();
         } finally {
             lock.unlock();
