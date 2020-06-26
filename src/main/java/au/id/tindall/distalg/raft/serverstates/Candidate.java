@@ -84,9 +84,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     public ServerState<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
         this.receivedVotes.add(voter);
         if (getCluster().isQuorum(getReceivedVotes())) {
-            Leader<ID> leaderState = serverStateFactory.createLeader(getCurrentTerm());
-            leaderState.sendHeartbeatMessage();
-            return leaderState;
+            return serverStateFactory.createLeader(getCurrentTerm());
         } else {
             return this;
         }

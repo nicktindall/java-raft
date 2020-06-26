@@ -59,10 +59,6 @@ public class Server<ID extends Serializable> {
         } while (!result.isFinished());
     }
 
-    public synchronized void sendHeartbeatMessage() {
-        state.sendHeartbeatMessage();
-    }
-
     private void assertThatNodeIsRunning() {
         if (state == null) {
             throw new NotRunningException("Server is not running, call start() before attempting to interact with it");

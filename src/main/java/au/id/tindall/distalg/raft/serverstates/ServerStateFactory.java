@@ -4,7 +4,6 @@ import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactor
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.driver.ElectionScheduler;
-import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
@@ -22,11 +21,10 @@ public class ServerStateFactory<ID extends Serializable> {
     private final ClientSessionStore clientSessionStore;
     private final CommandExecutor commandExecutor;
     private final ElectionScheduler<ID> electionScheduler;
-    private final HeartbeatScheduler<ID> heartbeatScheduler;
 
     public ServerStateFactory(ID id, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                               LogReplicatorFactory<ID> logReplicatorFactory, ClientSessionStore clientSessionStore,
-                              CommandExecutor commandExecutor, ElectionScheduler<ID> electionScheduler, HeartbeatScheduler<ID> heartbeatScheduler) {
+                              CommandExecutor commandExecutor, ElectionScheduler<ID> electionScheduler) {
         this.id = id;
         this.log = log;
         this.cluster = cluster;
@@ -35,12 +33,11 @@ public class ServerStateFactory<ID extends Serializable> {
         this.clientSessionStore = clientSessionStore;
         this.commandExecutor = commandExecutor;
         this.electionScheduler = electionScheduler;
-        this.heartbeatScheduler = heartbeatScheduler;
     }
 
     public Leader<ID> createLeader(Term currentTerm) {
         return new Leader<>(currentTerm, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
-                logReplicatorFactory, this, clientSessionStore, id, heartbeatScheduler);
+                logReplicatorFactory, this, clientSessionStore, id);
     }
 
     public Follower<ID> createInitialState() {

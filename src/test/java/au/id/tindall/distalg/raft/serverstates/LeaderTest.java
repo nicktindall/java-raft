@@ -4,8 +4,8 @@ import au.id.tindall.distalg.raft.client.responses.PendingClientRequestResponse;
 import au.id.tindall.distalg.raft.client.responses.PendingRegisterClientResponse;
 import au.id.tindall.distalg.raft.client.responses.PendingResponse;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
@@ -19,7 +19,6 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
-import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -43,7 +42,6 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -74,8 +72,6 @@ class LeaderTest {
     private ServerStateFactory<Long> serverStateFactory;
     @Mock
     private ClientSessionStore clientSessionStore;
-    @Mock
-    private HeartbeatScheduler<Long> heartbeatScheduler;
 
     private Leader<Long> leader;
 
@@ -83,8 +79,8 @@ class LeaderTest {
     void setUp() {
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
-        when(logReplicatorFactory.createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
-        leader = new Leader<>(TERM_2, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, SERVER_ID, heartbeatScheduler);
+        when(logReplicatorFactory.createLogReplicator(log, TERM_2, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
+        leader = new Leader<>(TERM_2, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, SERVER_ID);
     }
 
     @Nested
@@ -92,7 +88,7 @@ class LeaderTest {
 
         @Test
         void willCreateLogReplicators() {
-            verify(logReplicatorFactory).createLogReplicator(cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
+            verify(logReplicatorFactory).createLogReplicator(log, TERM_2, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
         }
     }
 
@@ -105,8 +101,13 @@ class LeaderTest {
         }
 
         @Test
-        void willScheduleHeartbeats() {
-            verify(heartbeatScheduler).scheduleHeartbeats();
+        void willStartReplicators() {
+            verify(otherServerLogReplicator).start();
+        }
+
+        @Test
+        void willReplicateToEveryoneToClaimLeadership() {
+            verify(otherServerLogReplicator).replicate();
         }
     }
 
@@ -119,8 +120,8 @@ class LeaderTest {
         }
 
         @Test
-        void willCancelHeartbeats() {
-            verify(heartbeatScheduler).cancelHeartbeats();
+        void willStopReplicators() {
+            verify(otherServerLogReplicator).stop();
         }
     }
 
@@ -174,7 +175,7 @@ class LeaderTest {
                     leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                     InOrder inOrder = inOrder(otherServerLogReplicator, log);
                     inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
-                    inOrder.verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
+                    inOrder.verify(otherServerLogReplicator).replicate();
                 }
             }
 
@@ -200,7 +201,7 @@ class LeaderTest {
                         leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(4)));
                         InOrder inOrder = inOrder(otherServerLogReplicator, log);
                         inOrder.verify(otherServerLogReplicator).logSuccessResponse(4);
-                        inOrder.verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
+                        inOrder.verify(otherServerLogReplicator).replicate();
                     }
                 }
 
@@ -217,7 +218,7 @@ class LeaderTest {
                     void willNotReplicate() {
                         leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
 
-                        verify(otherServerLogReplicator, never()).sendAppendEntriesRequest(any(Term.class), any(Log.class));
+                        verify(otherServerLogReplicator, never()).replicate();
                     }
                 }
             }
@@ -237,7 +238,7 @@ class LeaderTest {
                 leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
                 InOrder sequence = inOrder(otherServerLogReplicator);
                 sequence.verify(otherServerLogReplicator).logFailedResponse();
-                sequence.verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
+                sequence.verify(otherServerLogReplicator).replicate();
             }
         }
     }
@@ -267,7 +268,7 @@ class LeaderTest {
         void willTriggerReplication() {
             leader.handle(new RegisterClientRequest<>(SERVER_ID));
 
-            verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
+            verify(otherServerLogReplicator).replicate();
         }
 
         @Test
@@ -328,7 +329,7 @@ class LeaderTest {
             void willTriggerReplication() {
                 leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, COMMAND));
 
-                verify(otherServerLogReplicator).sendAppendEntriesRequest(TERM_2, log);
+                verify(otherServerLogReplicator).replicate();
             }
 
             @Test

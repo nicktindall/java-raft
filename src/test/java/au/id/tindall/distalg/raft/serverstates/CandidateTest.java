@@ -162,12 +162,7 @@ class CandidateTest {
 
             @Test
             void willTransitionToLeaderState() {
-                assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(leader));
-            }
-
-            @Test
-            void willSendHeartbeatMessage() {
-                verify(leader).sendHeartbeatMessage();
+                assertThat(result).usingRecursiveComparison().isEqualTo(complete(leader));
             }
         }
 
@@ -179,7 +174,7 @@ class CandidateTest {
             verifyNoMoreInteractions(serverStateFactory);
             verify(cluster, never()).isQuorum(anySet());
             assertThat(candidateState.getReceivedVotes()).doesNotContain(OTHER_SERVER_ID);
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(candidateState));
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(candidateState));
         }
     }
 
@@ -193,7 +188,7 @@ class CandidateTest {
             Candidate<Long> candidateState = new Candidate<>(TERM_1, log, cluster, SERVER_ID, serverStateFactory, electionScheduler);
             Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
 
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(incomplete(follower));
+            assertThat(result).usingRecursiveComparison().isEqualTo(incomplete(follower));
         }
 
         @Test
@@ -201,7 +196,7 @@ class CandidateTest {
             Candidate<Long> candidateState = new Candidate<>(TERM_1, log, cluster, SERVER_ID, serverStateFactory, electionScheduler);
             Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_0, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
 
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(candidateState));
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(candidateState));
             verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, false, Optional.empty());
         }
     }
@@ -225,7 +220,7 @@ class CandidateTest {
 
             @Test
             void willRemainIndCandidateStateAndCompleteProcessing() {
-                assertThat(candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID))).isEqualToComparingFieldByFieldRecursively(complete(candidate));
+                assertThat(candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID))).usingRecursiveComparison().isEqualTo(complete(candidate));
             }
 
             @Test
@@ -255,19 +250,13 @@ class CandidateTest {
 
             @Test
             void willTransitionToLeaderAndCompleteProcessing() {
-                assertThat(candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID))).isEqualToComparingFieldByFieldRecursively(complete(leader));
+                assertThat(candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID))).usingRecursiveComparison().isEqualTo(complete(leader));
             }
 
             @Test
             void willNotRequestVotes() {
                 candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID));
                 verify(cluster, never()).sendRequestVoteRequest(any(), anyInt(), any());
-            }
-
-            @Test
-            void willSendHeartbeatToClaimLeadership() {
-                candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID));
-                verify(leader).sendHeartbeatMessage();
             }
 
             @Test

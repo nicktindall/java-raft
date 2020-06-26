@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.comms;
 
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.threading.NamedThreadFactory;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Random;
@@ -28,7 +29,7 @@ public class LiveDelayedSendingStrategy implements SendingStrategy {
         this.minimumMessageDelayMillis = minimumMessageDelayMillis;
         this.maximumMessageDelayMillis = maximumMessageDelayMillis;
         this.random = new Random();
-        this.scheduledExecutorService = Executors.newScheduledThreadPool(10);
+        this.scheduledExecutorService = Executors.newScheduledThreadPool(10, new NamedThreadFactory("dispatch"));
     }
 
     @Override

@@ -1,39 +1,57 @@
 package au.id.tindall.distalg.raft.replication;
 
-import static java.lang.Math.max;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
-
-import java.io.Serializable;
-import java.util.List;
-import java.util.Optional;
-
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 
+import java.io.Serializable;
+import java.util.List;
+import java.util.Optional;
+
+import static java.lang.Math.max;
+import static java.util.Collections.emptyList;
+
 public class LogReplicator<ID extends Serializable> {
 
+    private final Log log;
+    private final Term term;
     private final Cluster<ID> cluster;
     private final ID followerId;
     private final int maxBatchSize;
     private int matchIndex;
     private int nextIndex;
+    private final ReplicationScheduler replicationScheduler;
 
-    public LogReplicator(Cluster<ID> cluster, ID followerId, int maxBatchSize, int nextIndex) {
+    public LogReplicator(Log log, Term term, Cluster<ID> cluster, ID followerId, int maxBatchSize, int nextIndex, ReplicationScheduler replicationScheduler) {
+        this.log = log;
+        this.term = term;
         this.cluster = cluster;
         this.followerId = followerId;
         this.maxBatchSize = maxBatchSize;
+        this.replicationScheduler = replicationScheduler;
         this.matchIndex = 0;
         this.nextIndex = nextIndex;
+        replicationScheduler.setSendAppendEntriesRequest(this::sendAppendEntriesRequest);
     }
 
-    public void sendAppendEntriesRequest(Term currentTerm, Log log) {
+    public void start() {
+        replicationScheduler.start();
+    }
+
+    public void stop() {
+        replicationScheduler.stop();
+    }
+
+    public void replicate() {
+        replicationScheduler.replicate();
+    }
+
+    private void sendAppendEntriesRequest() {
         int prevLogIndex = nextIndex - 1;
         Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
-        List<LogEntry> entriesToReplicate = getEntryToReplicate(log, nextIndex);
-        cluster.sendAppendEntriesRequest(currentTerm, followerId,
+        List<LogEntry> entriesToReplicate = getEntriesToReplicate(log, nextIndex);
+        cluster.sendAppendEntriesRequest(term, followerId,
                 prevLogIndex, prevLogTerm, entriesToReplicate,
                 log.getCommitIndex());
     }
@@ -61,7 +79,7 @@ public class LogReplicator<ID extends Serializable> {
         return nextIndex;
     }
 
-    private List<LogEntry> getEntryToReplicate(Log log, int nextIndex) {
+    private List<LogEntry> getEntriesToReplicate(Log log, int nextIndex) {
         if (log.hasEntry(nextIndex)) {
             return log.getEntries(nextIndex, maxBatchSize);
         } else {

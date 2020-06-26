@@ -12,12 +12,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,17 +49,54 @@ class LogReplicatorTest {
     void setUp() {
         log = logContaining(ENTRY_ONE, ENTRY_TWO, ENTRY_THREE, ENTRY_FOUR);
         log.advanceCommitIndex(COMMIT_INDEX);
-        logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX);
+        logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX, new SynchronousReplicationScheduler());
+        logReplicator.start();
     }
 
-    @Test
-    void matchIndexWillBeInitializedToZero() {
-        assertThat(logReplicator.getMatchIndex()).isZero();
+    @Nested
+    class Constructor {
+        @Test
+        void matchIndexWillBeInitializedToZero() {
+            assertThat(logReplicator.getMatchIndex()).isZero();
+        }
+
+        @Test
+        void nextIndexWillBeInitializedToValuePassed() {
+            assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX);
+        }
+
+        @Test
+        void willSetSendAppendEntriesRequestOnReplicationScheduler() {
+            ReplicationScheduler replicationScheduler = mock(ReplicationScheduler.class);
+            new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX, replicationScheduler);
+            verify(replicationScheduler).setSendAppendEntriesRequest(any(Runnable.class));
+        }
     }
 
-    @Test
-    void nextIndexWillBeInitializedToValuePassed() {
-        assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX);
+    @Nested
+    class Start {
+
+        @Test
+        void willStartLogReplicator() {
+            ReplicationScheduler replicationScheduler = mock(ReplicationScheduler.class);
+            LogReplicator<Long> replicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX, replicationScheduler);
+            reset(replicationScheduler);
+            replicator.start();
+            verify(replicationScheduler).start();
+        }
+    }
+
+    @Nested
+    class Stop {
+
+        @Test
+        void willStopLogReplicator() {
+            ReplicationScheduler replicationScheduler = mock(ReplicationScheduler.class);
+            LogReplicator<Long> replicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX, replicationScheduler);
+            reset(replicationScheduler);
+            replicator.stop();
+            verify(replicationScheduler).stop();
+        }
     }
 
     @Nested
@@ -89,38 +129,44 @@ class LogReplicatorTest {
         }
     }
 
-    @Test
-    void logFailedResponseWillDecrementNextIndex() {
-        logReplicator.logFailedResponse();
-        assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX - 1);
+    @Nested
+    class LogFailedResponse {
+
+        @Test
+        void willDecrementNextIndex() {
+            logReplicator.logFailedResponse();
+            assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX - 1);
+        }
+
+        @Test
+        void willNotModifyMatchIndex() {
+            logReplicator.logFailedResponse();
+            assertThat(logReplicator.getMatchIndex()).isZero();
+        }
     }
 
-    @Test
-    void logFailedResponseWillNotModifyMatchIndex() {
-        logReplicator.logFailedResponse();
-        assertThat(logReplicator.getMatchIndex()).isZero();
-    }
+    @Nested
+    class Replicate {
 
-    @Test
-    void shouldSendEmptyAppendEntriesRequest_WhenThereAreNoLogEntries() {
-        logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, MAX_BATCH_SIZE, 1);
-        logReplicator.sendAppendEntriesRequest(CURRENT_TERM, logContaining());
-        verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, 0,
-                Optional.empty(), emptyList(), 0);
-    }
+        @Test
+        void willSendEmptyAppendEntriesRequest_WhenThereAreNoLogEntries() {
+            logReplicator = new LogReplicator<>(logContaining(), CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, 1, new SynchronousReplicationScheduler());
+            logReplicator.replicate();
+            verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, 0, Optional.empty(), emptyList(), 0);
+        }
 
-    @Test
-    void shouldSendEmptyAppendEntriesRequest_WhenFollowerIsCaughtUp() {
-        logReplicator.sendAppendEntriesRequest(CURRENT_TERM, log);
-        verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX,
-                Optional.of(ENTRY_FOUR.getTerm()), emptyList(), COMMIT_INDEX);
-    }
+        @Test
+        void shouldSendEmptyAppendEntriesRequest_WhenFollowerIsCaughtUp() {
+            logReplicator.replicate();
+            verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX, Optional.of(ENTRY_FOUR.getTerm()), emptyList(), COMMIT_INDEX);
+        }
 
-    @Test
-    void shouldSendSingleEntryAppendEntriesRequest_WhenFollowerIsLagging() {
-        logReplicator = new LogReplicator<>(cluster, FOLLOWER_ID, MAX_BATCH_SIZE, LAST_LOG_INDEX - 1);
-        logReplicator.sendAppendEntriesRequest(CURRENT_TERM, log);
-        verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX - 2,
-                Optional.of(ENTRY_TWO.getTerm()), singletonList(ENTRY_THREE), COMMIT_INDEX);
+        @Test
+        void shouldSendUpToMaxBatchSizeEntries_WhenFollowerIsLagging() {
+            int maxBatchSize = 2;
+            logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, maxBatchSize, LAST_LOG_INDEX - 2, new SynchronousReplicationScheduler());
+            logReplicator.replicate();
+            verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX - 3, Optional.of(ENTRY_ONE.getTerm()), List.of(ENTRY_TWO, ENTRY_THREE), COMMIT_INDEX);
+        }
     }
 }

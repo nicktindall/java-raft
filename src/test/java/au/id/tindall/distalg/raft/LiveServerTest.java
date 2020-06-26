@@ -5,11 +5,12 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.comms.LiveDelayedSendingStrategy;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
 import au.id.tindall.distalg.raft.driver.ElectionSchedulerFactory;
-import au.id.tindall.distalg.raft.driver.HeartbeatSchedulerFactory;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounter;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounterClient;
+import au.id.tindall.distalg.raft.replication.HeartbeatReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,14 +36,14 @@ class LiveServerTest {
 
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private static final int MINIMUM_MESSAGE_DELAY = 5;
-    private static final int MAXIMUM_MESSAGE_DELAY = 20;
+    private static final int MINIMUM_MESSAGE_DELAY = 1;
+    private static final int MAXIMUM_MESSAGE_DELAY = 5;
 
     private static final int MAX_CLIENT_SESSIONS = 10;
     private static final int DELAY_BETWEEN_HEARTBEATS_MILLISECONDS = 200;
     private static final int MINIMUM_ELECTION_TIMEOUT_MILLISECONDS = 300;
     private static final int MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS = 500;
-    private static final int COUNT_UP_TARGET = 1_000;
+    private static final int COUNT_UP_TARGET = 5_000;
 
     private static final int MAX_BATCH_SIZE = 20;
 
@@ -54,12 +55,13 @@ class LiveServerTest {
     @BeforeEach
     void setUp() {
         PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
-        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE);
+        ReplicationSchedulerFactory replicationSchedulerFactory = new HeartbeatReplicationSchedulerFactory(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS);
+        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE, replicationSchedulerFactory);
         LogFactory logFactory = new LogFactory();
         clusterFactory = new TestClusterFactory(new LiveDelayedSendingStrategy(MINIMUM_MESSAGE_DELAY, MAXIMUM_MESSAGE_DELAY));
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                new CommandExecutorFactory(), MonotonicCounter::new, new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS), new HeartbeatSchedulerFactory<>(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS));
+                new CommandExecutorFactory(), MonotonicCounter::new, new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS));
         server1 = serverFactory.create(1L);
         server2 = serverFactory.create(2L);
         server3 = serverFactory.create(3L);

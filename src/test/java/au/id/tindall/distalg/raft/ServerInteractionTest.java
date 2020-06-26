@@ -6,10 +6,9 @@ import au.id.tindall.distalg.raft.comms.QueuedSendingStrategy;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
 import au.id.tindall.distalg.raft.driver.ElectionScheduler;
 import au.id.tindall.distalg.raft.driver.ElectionSchedulerFactory;
-import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
-import au.id.tindall.distalg.raft.driver.HeartbeatSchedulerFactory;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.SynchronousReplicationScheduler;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
@@ -33,6 +32,7 @@ import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
+import static java.lang.Integer.MAX_VALUE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -53,23 +53,18 @@ class ServerInteractionTest {
     private ElectionScheduler<Long> electionScheduler;
     @Mock
     private ElectionSchedulerFactory<Long> electionSchedulerFactory;
-    @Mock
-    private HeartbeatScheduler<Long> heartbeatScheduler;
-    @Mock
-    private HeartbeatSchedulerFactory<Long> heartbeatSchedulerFactory;
 
     @BeforeEach
     void setUp() {
-        when(heartbeatSchedulerFactory.createHeartbeatScheduler(any(ScheduledExecutorService.class))).thenReturn(heartbeatScheduler);
         when(electionSchedulerFactory.createElectionScheduler(any(ScheduledExecutorService.class))).thenReturn(electionScheduler);
         PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
-        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE);
+        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE, SynchronousReplicationScheduler::new);
         LogFactory logFactory = new LogFactory();
         queuedSendingStrategy = new QueuedSendingStrategy();
         clusterFactory = new TestClusterFactory(queuedSendingStrategy);
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                new CommandExecutorFactory(), TestStateMachine::new, electionSchedulerFactory, heartbeatSchedulerFactory);
+                new CommandExecutorFactory(), TestStateMachine::new, electionSchedulerFactory);
         server1 = serverFactory.create(1L);
         server2 = serverFactory.create(2L);
         server3 = serverFactory.create(3L);

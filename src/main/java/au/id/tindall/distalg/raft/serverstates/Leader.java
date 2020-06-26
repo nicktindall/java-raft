@@ -5,7 +5,6 @@ import au.id.tindall.distalg.raft.client.responses.PendingRegisterClientResponse
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
@@ -41,16 +40,14 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     private final Map<ID, LogReplicator<ID>> replicators;
     private final PendingResponseRegistry pendingResponseRegistry;
     private final ClientSessionStore clientSessionStore;
-    private final HeartbeatScheduler<ID> heartbeatScheduler;
 
     public Leader(Term currentTerm, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
                   LogReplicatorFactory<ID> logReplicatorFactory, ServerStateFactory<ID> serverStateFactory,
-                  ClientSessionStore clientSessionStore, ID id, HeartbeatScheduler<ID> heartbeatScheduler) {
+                  ClientSessionStore clientSessionStore, ID id) {
         super(currentTerm, null, log, cluster, serverStateFactory, id);
         replicators = createReplicators(logReplicatorFactory);
         this.pendingResponseRegistry = pendingResponseRegistry;
         this.clientSessionStore = clientSessionStore;
-        this.heartbeatScheduler = heartbeatScheduler;
     }
 
     @Override
@@ -58,7 +55,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         int logEntryIndex = getLog().getNextLogIndex();
         ClientRegistrationEntry registrationEntry = new ClientRegistrationEntry(getCurrentTerm(), logEntryIndex);
         getLog().appendEntries(getLog().getLastLogIndex(), singletonList(registrationEntry));
-        sendHeartbeatMessage();
+        replicateToEveryone();
         return pendingResponseRegistry.registerOutstandingResponse(logEntryIndex, new PendingRegisterClientResponse<>());
     }
 
@@ -71,7 +68,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         StateMachineCommandEntry stateMachineCommandEntry = new StateMachineCommandEntry(getCurrentTerm(), clientRequestRequest.getClientId(),
                 clientRequestRequest.getSequenceNumber(), clientRequestRequest.getCommand());
         getLog().appendEntries(getLog().getLastLogIndex(), singletonList(stateMachineCommandEntry));
-        sendHeartbeatMessage();
+        replicateToEveryone();
         return pendingResponseRegistry.registerOutstandingResponse(logEntryIndex, new PendingClientRequestResponse<>());
     }
 
@@ -96,13 +93,13 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
                     .orElseThrow(() -> new IllegalStateException("Append entries response was success with no appendedIndex"));
             sourceReplicator.logSuccessResponse(lastAppendedIndex);
             if (updateCommitIndex()) {
-                sendHeartbeatMessage();
+                replicateToEveryone();
             } else if (sourceReplicator.getNextIndex() <= getLog().getLastLogIndex()) {
-                sourceReplicator.sendAppendEntriesRequest(getCurrentTerm(), getLog());
+                sourceReplicator.replicate();
             }
         } else {
             sourceReplicator.logFailedResponse();
-            sourceReplicator.sendAppendEntriesRequest(getCurrentTerm(), getLog());
+            sourceReplicator.replicate();
         }
     }
 
@@ -113,27 +110,26 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         return getLog().updateCommitIndex(followerMatchIndices).isPresent();
     }
 
-    @Override
-    public void sendHeartbeatMessage() {
-        replicators.values()
-                .forEach(replicator -> replicator.sendAppendEntriesRequest(getCurrentTerm(), getLog()));
+    private void replicateToEveryone() {
+        replicators.values().forEach(LogReplicator::replicate);
     }
 
     private Map<ID, LogReplicator<ID>> createReplicators(LogReplicatorFactory<ID> logReplicatorFactory) {
         int defaultNextIndex = getLog().getNextLogIndex();
         return new HashMap<>(getCluster().getOtherMemberIds().stream()
-                .collect(toMap(identity(), id -> logReplicatorFactory.createLogReplicator(getCluster(), id, defaultNextIndex))));
+                .collect(toMap(identity(), id -> logReplicatorFactory.createLogReplicator(getLog(), getCurrentTerm(), getCluster(), id, defaultNextIndex))));
     }
 
     @Override
     public void enterState() {
         LOGGER.debug("Server entering Leader state");
-        heartbeatScheduler.scheduleHeartbeats();
+        replicateToEveryone();
+        replicators.values().forEach(LogReplicator::start);
     }
 
     @Override
     public void leaveState() {
         pendingResponseRegistry.dispose();
-        heartbeatScheduler.cancelHeartbeats();
+        replicators.values().forEach(LogReplicator::stop);
     }
 }

@@ -4,7 +4,6 @@ import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.driver.ElectionScheduler;
-import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
@@ -44,12 +43,10 @@ class ServerStateFactoryTest {
     private CommandExecutor commandExecutor;
     @Mock
     private ElectionScheduler<Long> electionScheduler;
-    @Mock
-    private HeartbeatScheduler<Long> heartbeatScheduler;
 
     @BeforeEach
     void setUp() {
-        serverStateFactory = new ServerStateFactory<>(SERVER_ID, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, heartbeatScheduler);
+        serverStateFactory = new ServerStateFactory<>(SERVER_ID, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler);
     }
 
     @Test
@@ -57,25 +54,24 @@ class ServerStateFactoryTest {
         when(pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor)).thenReturn(pendingResponseRegistry);
 
         assertThat(serverStateFactory.createLeader(TERM))
-                .isEqualToComparingFieldByFieldRecursively(new Leader<>(TERM, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, SERVER_ID, heartbeatScheduler));
+                .usingRecursiveComparison().isEqualTo(new Leader<>(TERM, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, SERVER_ID));
     }
 
     @Test
     void willCreateFollowerStateWithEmptyVotedFor() {
         assertThat(serverStateFactory.createFollower(TERM, LEADER_ID))
-                .isEqualToComparingFieldByFieldRecursively(new Follower<>(TERM, null, log, cluster, serverStateFactory, LEADER_ID, electionScheduler));
+                .usingRecursiveComparison().isEqualTo(new Follower<>(TERM, null, log, cluster, serverStateFactory, LEADER_ID, electionScheduler));
     }
 
     @Test
     void willCreateFollowerState() {
         assertThat(serverStateFactory.createFollower(TERM, LEADER_ID, VOTED_FOR))
-                .isEqualToComparingFieldByFieldRecursively(new Follower<>(TERM, VOTED_FOR, log, cluster, serverStateFactory, LEADER_ID, electionScheduler));
+                .usingRecursiveComparison().isEqualTo(new Follower<>(TERM, VOTED_FOR, log, cluster, serverStateFactory, LEADER_ID, electionScheduler));
     }
 
     @Test
     void willCreateCandidateState() {
         assertThat(serverStateFactory.createCandidate(TERM))
-                .isEqualToComparingFieldByFieldRecursively(new Candidate<>(TERM, log, cluster, SERVER_ID, serverStateFactory, electionScheduler));
+                .usingRecursiveComparison().isEqualTo(new Candidate<>(TERM, log, cluster, SERVER_ID, serverStateFactory, electionScheduler));
     }
-
 }

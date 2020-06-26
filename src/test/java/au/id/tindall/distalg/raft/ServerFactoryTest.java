@@ -7,8 +7,6 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.comms.ClusterFactory;
 import au.id.tindall.distalg.raft.driver.ElectionScheduler;
 import au.id.tindall.distalg.raft.driver.ElectionSchedulerFactory;
-import au.id.tindall.distalg.raft.driver.HeartbeatScheduler;
-import au.id.tindall.distalg.raft.driver.HeartbeatSchedulerFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
@@ -65,10 +63,6 @@ class ServerFactoryTest {
     private ElectionSchedulerFactory<Long> electionSchedulerFactory;
     @Mock
     private ElectionScheduler<Long> electionScheduler;
-    @Mock
-    private HeartbeatSchedulerFactory<Long> heartbeatSchedulerFactory;
-    @Mock
-    private HeartbeatScheduler<Long> heartbeatScheduler;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
@@ -78,16 +72,15 @@ class ServerFactoryTest {
         when(logFactory.createLog()).thenReturn(log);
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
         when(electionSchedulerFactory.createElectionScheduler(any(ScheduledExecutorService.class))).thenReturn(electionScheduler);
-        when(heartbeatSchedulerFactory.createHeartbeatScheduler(any(ScheduledExecutorService.class))).thenReturn(heartbeatScheduler);
         when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore)).thenReturn(commandExecutor);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, heartbeatSchedulerFactory);
+                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory);
     }
 
     @Test
     void createsServersAndTheirDependencies() {
-        assertThat(serverFactory.create(SERVER_ID)).isEqualToComparingFieldByFieldRecursively(new Server<>(SERVER_ID, new ServerStateFactory<>(SERVER_ID,
-                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, heartbeatScheduler), stateMachine));
+        assertThat(serverFactory.create(SERVER_ID)).usingRecursiveComparison().isEqualTo(new Server<>(SERVER_ID, new ServerStateFactory<>(SERVER_ID,
+                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler), stateMachine));
     }
 
     @Test
