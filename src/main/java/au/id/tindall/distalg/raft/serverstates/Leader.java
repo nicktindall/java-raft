@@ -107,7 +107,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         List<Integer> followerMatchIndices = replicators.values().stream()
                 .map(LogReplicator::getMatchIndex)
                 .collect(toList());
-        return getLog().updateCommitIndex(followerMatchIndices).isPresent();
+        return getLog().updateCommitIndex(followerMatchIndices, getCurrentTerm()).isPresent();
     }
 
     private void replicateToEveryone() {

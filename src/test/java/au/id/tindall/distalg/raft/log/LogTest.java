@@ -26,14 +26,13 @@ class LogTest {
 
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
-    private static final Term TERM_2 = new Term(2);
     private static final int CLIENT_ID = 123;
     private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 0, "first".getBytes());
     private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 1, "second".getBytes());
-    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 2, "third".getBytes());
-    private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 3, "fourth".getBytes());
-    private static final LogEntry ENTRY_3B = new StateMachineCommandEntry(TERM_2, CLIENT_ID, 2, "alt_third".getBytes());
-    private static final LogEntry ENTRY_4B = new StateMachineCommandEntry(TERM_2, CLIENT_ID, 3, "alt_fourth".getBytes());
+    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 2, "third".getBytes());
+    private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 3, "fourth".getBytes());
+    private static final LogEntry ENTRY_3B = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 2, "alt_third".getBytes());
+    private static final LogEntry ENTRY_4B = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 3, "alt_fourth".getBytes());
 
     @Mock
     private EntryCommittedEventHandler entryCommittedEventHandler;
@@ -179,7 +178,7 @@ class LogTest {
 
         @Test
         void willReturnTermOfLastEntry() {
-            assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getLastLogTerm()).contains(TERM_1);
+            assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getLastLogTerm()).contains(TERM_0);
         }
 
         @Test
@@ -190,7 +189,7 @@ class LogTest {
 
     @Test
     void getSummary_WillReturnLastLogTermAndIndex() {
-        assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getSummary()).isEqualTo(new LogSummary(Optional.of(TERM_1), 3));
+        assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).getSummary()).isEqualTo(new LogSummary(Optional.of(TERM_0), 3));
     }
 
     @Test
@@ -202,42 +201,50 @@ class LogTest {
     class UpdateCommitIndex {
 
         @Test
-        void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveAdvanced() {
+        void willUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 3, 4));
+            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 3, 4), TERM_0);
             assertThat(newCommitIndex).contains(3);
         }
 
         @Test
-        void updateCommitIndex_WillUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveAdvanced() {
+        void willUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 2, 3));
+            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 2, 3), TERM_0);
             assertThat(newCommitIndex).contains(2);
         }
 
         @Test
-        void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveNotAdvanced() {
+        void willNotUpdateCommitIndex_WhenMajorityOfOddNumberOfServersHaveNotAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 0, 4));
+            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 0, 4), TERM_0);
             assertThat(newCommitIndex).isEmpty();
         }
 
         @Test
-        void updateCommitIndex_WillNotUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveNotAdvanced() {
+        void willNotUpdateCommitIndex_WhenMajorityOfEvenNumberOfServersHaveNotAdvanced() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 4));
+            Optional<Integer> newCommitIndex = log.updateCommitIndex(List.of(0, 0, 4), TERM_0);
             assertThat(newCommitIndex).isEmpty();
         }
 
         @Test
-        void updateCommitIndex_WillNotifyEntryCommittedEventHandlers_WhenCommitIndexAdvances() {
+        void willNotifyEntryCommittedEventHandlers_WhenCommitIndexAdvances() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
             log.addEntryCommittedEventHandler(entryCommittedEventHandler);
-            log.updateCommitIndex(List.of(0, 0, 3, 4));
+            log.updateCommitIndex(List.of(0, 0, 3, 4), TERM_0);
             InOrder sequence = inOrder(entryCommittedEventHandler);
             sequence.verify(entryCommittedEventHandler).entryCommitted(1, ENTRY_1);
             sequence.verify(entryCommittedEventHandler).entryCommitted(2, ENTRY_2);
             sequence.verify(entryCommittedEventHandler).entryCommitted(3, ENTRY_3);
+        }
+
+        @Test
+        public void willNotAdvanceCommitIndexForEntriesFromPreviousTerms() {
+            Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3B, ENTRY_4B);
+            log.addEntryCommittedEventHandler(entryCommittedEventHandler);
+            log.updateCommitIndex(List.of(0, 0, 2, 2), TERM_1);
+            verifyNoInteractions(entryCommittedEventHandler);
         }
     }
 
@@ -245,10 +252,10 @@ class LogTest {
     void removeEntryCommittedEventHandler_WillStopHandlerBeingNotified() {
         Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
         log.addEntryCommittedEventHandler(entryCommittedEventHandler);
-        log.updateCommitIndex(List.of(1, 1, 1));
+        log.updateCommitIndex(List.of(1, 1, 1), TERM_0);
         verify(entryCommittedEventHandler).entryCommitted(1, ENTRY_1);
         log.removeEntryCommittedEventHandler(entryCommittedEventHandler);
-        log.updateCommitIndex(List.of(2, 2, 2));
+        log.updateCommitIndex(List.of(2, 2, 2), TERM_0);
         verifyNoMoreInteractions(entryCommittedEventHandler);
     }
 

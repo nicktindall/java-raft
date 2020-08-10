@@ -15,7 +15,7 @@ The parts of the algorithm I have implemented (according to the thesis chapters)
 | 3.4 | Leader election | :heavy_check_mark: |
 | 3.5 | Log replication | :heavy_check_mark: |
 | 3.6.1 | Election restriction | :heavy_check_mark: |
-| 3.6.2 | Committing entries from previous terms | :x: |
+| 3.6.2 | Committing entries from previous terms | :heavy_check_mark: |
 | 3.7 | Follower and candidate crashes | :heavy_check_mark: |
 | 3.8 | Persisted state and server restarts | :x: |
 | 3.10 | Leadership transfer extension | :x: |

@@ -159,7 +159,7 @@ class LeaderTest {
                 leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                 InOrder inOrder = inOrder(otherServerLogReplicator, log);
                 inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
-                inOrder.verify(log).updateCommitIndex(List.of(OTHER_SERVER_MATCH_INDEX));
+                inOrder.verify(log).updateCommitIndex(List.of(OTHER_SERVER_MATCH_INDEX), TERM_2);
             }
 
             @Nested
@@ -167,7 +167,7 @@ class LeaderTest {
 
                 @BeforeEach
                 void setUp() {
-                    when(log.updateCommitIndex(anyList())).thenReturn(Optional.of(5));
+                    when(log.updateCommitIndex(anyList(), any(Term.class))).thenReturn(Optional.of(5));
                 }
 
                 @Test
@@ -184,7 +184,7 @@ class LeaderTest {
 
                 @BeforeEach
                 void setUp() {
-                    when(log.updateCommitIndex(anyList())).thenReturn(Optional.empty());
+                    when(log.updateCommitIndex(anyList(), any(Term.class))).thenReturn(Optional.empty());
                 }
 
                 @Nested
@@ -230,7 +230,7 @@ class LeaderTest {
             @Test
             void willNotUpdateCommitIndex() {
                 leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
-                verify(log, never()).updateCommitIndex(anyList());
+                verify(log, never()).updateCommitIndex(anyList(), any(Term.class));
             }
 
             @Test

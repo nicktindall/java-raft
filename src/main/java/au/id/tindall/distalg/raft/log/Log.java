@@ -30,17 +30,18 @@ public class Log {
         entryCommittedEventHandlers = new ArrayList<>();
     }
 
-    public Optional<Integer> updateCommitIndex(List<Integer> matchIndices) {
+    public Optional<Integer> updateCommitIndex(List<Integer> matchIndices, Term currentTerm) {
         return doWrite(() -> {
             int clusterSize = matchIndices.size() + 1;
-            List<Integer> matchIndicesHigherThanTheCommitIndexInAscendingOrder = matchIndices.stream()
+            List<Integer> matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder = matchIndices.stream()
                     .filter(index -> index > commitIndex)
+                    .filter(index -> getEntry(index).getTerm().equals(currentTerm))
                     .sorted()
                     .collect(toList());
             int majorityThreshold = clusterSize / 2;
-            if (matchIndicesHigherThanTheCommitIndexInAscendingOrder.size() + 1 > majorityThreshold) {
-                Integer newCommitIndex = matchIndicesHigherThanTheCommitIndexInAscendingOrder
-                        .get(matchIndicesHigherThanTheCommitIndexInAscendingOrder.size() - majorityThreshold);
+            if (matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder.size() + 1 > majorityThreshold) {
+                Integer newCommitIndex = matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder
+                        .get(matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder.size() - majorityThreshold);
                 advanceCommitIndex(newCommitIndex);
                 return Optional.of(newCommitIndex);
             }
