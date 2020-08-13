@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft.log;
 
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.log.storage.ArrayListLogStorage;
+import au.id.tindall.distalg.raft.log.storage.LogStorage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,8 +13,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableList;
-import static java.util.List.copyOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 
@@ -20,12 +20,12 @@ public class Log {
 
     private final ReadWriteLock readWriteLock;
     private final List<EntryCommittedEventHandler> entryCommittedEventHandlers;
-    private List<LogEntry> entries;
+    private final LogStorage storage;
     private int commitIndex;
 
     public Log() {
         readWriteLock = new ReentrantReadWriteLock();
-        entries = new ArrayList<>();
+        storage = new ArrayListLogStorage();
         commitIndex = 0;
         entryCommittedEventHandlers = new ArrayList<>();
     }
@@ -52,7 +52,7 @@ public class Log {
     public void appendEntries(int prevLogIndex, List<LogEntry> newEntries) {
         doWrite(() -> {
             if (prevLogIndex != 0 && !hasEntry(prevLogIndex)) {
-                throw new IllegalArgumentException(format("Attempted to append after index %s when length is %s", prevLogIndex, entries.size()));
+                throw new IllegalArgumentException(format("Attempted to append after index %s when length is %s", prevLogIndex, storage.size()));
             }
             for (int offset = 0; offset < newEntries.size(); offset++) {
                 int appendIndex = prevLogIndex + 1 + offset;
@@ -65,11 +65,14 @@ public class Log {
     private void appendEntry(int appendIndex, LogEntry entry) {
         if (hasEntry(appendIndex)) {
             if (!getEntry(appendIndex).getTerm().equals(entry.getTerm())) {
-                entries = truncate(appendIndex);
-                entries.add(entry);
+                if (appendIndex <= this.commitIndex) {
+                    throw new IllegalStateException("Attempt made to truncate prior to commit index, this is a bug");
+                }
+                storage.truncate(appendIndex);
+                storage.add(entry);
             }
         } else {
-            entries.add(entry);
+            storage.add(entry);
         }
     }
 
@@ -78,21 +81,19 @@ public class Log {
     }
 
     public List<LogEntry> getEntries() {
-        return doRead(() -> unmodifiableList(entries));
+        return doRead(storage::getEntries);
     }
 
     public int getLastLogIndex() {
-        return doRead(() -> entries.size());
+        return doRead(storage::getLastLogIndex);
     }
 
     public int getNextLogIndex() {
-        return doRead(() -> getLastLogIndex() + 1);
+        return doRead(storage::getNextLogIndex);
     }
 
     public Optional<Term> getLastLogTerm() {
-        return doRead(() -> entries.isEmpty() ?
-                Optional.empty()
-                : Optional.of(entries.get(entries.size() - 1).getTerm()));
+        return doRead(storage::getLastLogTerm);
     }
 
     public LogSummary getSummary() {
@@ -102,30 +103,23 @@ public class Log {
     public boolean hasEntry(int index) {
         return doRead(() -> {
             validateIndex(index);
-            return entries.size() >= index;
+            return storage.hasEntry(index);
         });
     }
 
     public LogEntry getEntry(int index) {
         return doRead(() -> {
             validateIndex(index);
-            return entries.get(index - 1);
+            return storage.getEntry(index);
         });
     }
 
     public List<LogEntry> getEntries(int index, int limit) {
         return doRead(() -> {
             validateIndex(index);
-            int toIndex = Math.min(entries.size(), index + limit - 1);
-            return copyOf(entries.subList(index - 1, toIndex));
+            int toIndex = Math.min(storage.getNextLogIndex(), index + limit);
+            return storage.getEntries(index, toIndex);
         });
-    }
-
-    private List<LogEntry> truncate(int fromIndex) {
-        if (fromIndex <= this.commitIndex) {
-            throw new IllegalStateException("Attempt made to truncate prior to commit index, this is a bug");
-        }
-        return new ArrayList<>(entries.subList(0, fromIndex - 1));
     }
 
     public int getCommitIndex() {
