@@ -47,21 +47,6 @@ public class ArrayListLogStorage implements LogStorage {
     }
 
     @Override
-    public int getLastLogIndex() {
-        return entries.size();
-    }
-
-    @Override
-    public int getNextLogIndex() {
-        return getLastLogIndex() + 1;
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return entries.isEmpty();
-    }
-
-    @Override
     public int size() {
         return entries.size();
     }
