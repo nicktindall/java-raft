@@ -11,6 +11,7 @@ import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounterClient;
 import au.id.tindall.distalg.raft.replication.HeartbeatReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
+import au.id.tindall.distalg.raft.state.InMemoryPersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -62,9 +63,9 @@ class LiveServerTest {
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(), MonotonicCounter::new, new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS));
-        server1 = serverFactory.create(1L);
-        server2 = serverFactory.create(2L);
-        server3 = serverFactory.create(3L);
+        server1 = serverFactory.create(new InMemoryPersistentState<>(1L));
+        server2 = serverFactory.create(new InMemoryPersistentState<>(2L));
+        server3 = serverFactory.create(new InMemoryPersistentState<>(3L));
         clusterFactory.setServers(server1, server2, server3);
         startServers();
     }

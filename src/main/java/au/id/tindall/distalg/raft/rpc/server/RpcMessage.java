@@ -1,8 +1,8 @@
 package au.id.tindall.distalg.raft.rpc.server;
 
-import java.io.Serializable;
-
 import au.id.tindall.distalg.raft.log.Term;
+
+import java.io.Serializable;
 
 public abstract class RpcMessage<ID extends Serializable> implements Serializable {
 

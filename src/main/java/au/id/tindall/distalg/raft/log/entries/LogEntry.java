@@ -1,8 +1,8 @@
 package au.id.tindall.distalg.raft.log.entries;
 
-import java.io.Serializable;
-
 import au.id.tindall.distalg.raft.log.Term;
+
+import java.io.Serializable;
 
 public class LogEntry implements Serializable {
 

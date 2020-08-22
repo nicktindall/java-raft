@@ -1,17 +1,8 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import static au.id.tindall.distalg.raft.serverstates.Result.complete;
-import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
-import static java.lang.String.format;
-
-import java.io.Serializable;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogSummary;
-import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
@@ -26,19 +17,25 @@ import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.state.PersistentState;
+
+import java.io.Serializable;
+import java.util.concurrent.CompletableFuture;
+
+import static au.id.tindall.distalg.raft.serverstates.Result.complete;
+import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
+import static java.lang.String.format;
 
 public abstract class ServerState<ID extends Serializable> {
 
-    private final Cluster<ID> cluster;
-    private Term currentTerm;
-    private ID votedFor;
-    private Log log;
+    protected final PersistentState<ID> persistentState;
+    protected final Cluster<ID> cluster;
+    protected final Log log;
     protected final ServerStateFactory<ID> serverStateFactory;
-    private ID currentLeader;
+    protected final ID currentLeader;
 
-    public ServerState(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader) {
-        this.currentTerm = currentTerm;
-        this.votedFor = votedFor;
+    public ServerState(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader) {
+        this.persistentState = persistentState;
         this.log = log;
         this.cluster = cluster;
         this.serverStateFactory = serverStateFactory;
@@ -56,8 +53,9 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     public Result<ID> handle(RpcMessage<ID> message) {
-        if (message.getTerm().isGreaterThan(currentTerm)) {
-            return incomplete(serverStateFactory.createFollower(message.getTerm(), message.getSource()));
+        if (message.getTerm().isGreaterThan(persistentState.getCurrentTerm())) {
+            persistentState.setCurrentTerm(message.getTerm());
+            return incomplete(serverStateFactory.createFollower(message.getSource()));
         }
 
         if (message instanceof RequestVoteRequest) {
@@ -96,15 +94,15 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     protected Result<ID> handle(RequestVoteRequest<ID> requestVote) {
-        if (requestVote.getTerm().isLessThan(currentTerm)) {
-            cluster.sendRequestVoteResponse(currentTerm, requestVote.getCandidateId(), false);
+        if (requestVote.getTerm().isLessThan(persistentState.getCurrentTerm())) {
+            cluster.sendRequestVoteResponse(persistentState.getCurrentTerm(), requestVote.getCandidateId(), false);
         } else {
             boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote)
                     && candidatesLogIsAtLeastUpToDateAsMine(requestVote);
             if (grantVote) {
-                votedFor = requestVote.getCandidateId();
+                persistentState.setVotedFor(requestVote.getCandidateId());
             }
-            cluster.sendRequestVoteResponse(currentTerm, requestVote.getCandidateId(), grantVote);
+            cluster.sendRequestVoteResponse(persistentState.getCurrentTerm(), requestVote.getCandidateId(), grantVote);
         }
         return complete(this);
     }
@@ -114,7 +112,7 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     protected Result<ID> handle(InitiateElectionMessage<ID> initiateElectionMessage) {
-        return incomplete(serverStateFactory.createCandidate(getCurrentTerm()));
+        return incomplete(serverStateFactory.createCandidate());
     }
 
     private boolean candidatesLogIsAtLeastUpToDateAsMine(RequestVoteRequest<ID> requestVote) {
@@ -122,33 +120,21 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     private boolean haveNotVotedOrHaveAlreadyVotedForCandidate(RequestVoteRequest<ID> requestVote) {
-        return votedFor == null || votedFor.equals(requestVote.getCandidateId());
+        return persistentState.getVotedFor().isEmpty() || persistentState.getVotedFor().get().equals(requestVote.getCandidateId());
     }
 
     protected boolean messageIsStale(RpcMessage<ID> message) {
-        return message.getTerm().isLessThan(currentTerm);
+        return message.getTerm().isLessThan(persistentState.getCurrentTerm());
     }
 
     protected boolean messageIsNotStale(RpcMessage<ID> message) {
         return !messageIsStale(message);
     }
 
-    public Term getCurrentTerm() {
-        return currentTerm;
-    }
-
     public abstract ServerStateType getServerStateType();
-
-    public Optional<ID> getVotedFor() {
-        return Optional.ofNullable(votedFor);
-    }
 
     public Log getLog() {
         return log;
-    }
-
-    public Cluster<ID> getCluster() {
-        return cluster;
     }
 
     public void enterState() {

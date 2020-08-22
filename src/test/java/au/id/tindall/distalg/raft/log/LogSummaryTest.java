@@ -1,10 +1,10 @@
 package au.id.tindall.distalg.raft.log;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class LogSummaryTest {
 

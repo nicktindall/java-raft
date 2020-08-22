@@ -1,13 +1,13 @@
 package au.id.tindall.distalg.raft.rpc.server;
 
-import static java.util.List.copyOf;
+import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
-import au.id.tindall.distalg.raft.log.entries.LogEntry;
-import au.id.tindall.distalg.raft.log.Term;
+import static java.util.List.copyOf;
 
 public class AppendEntriesRequest<ID extends Serializable> extends UnicastMessage<ID> {
 

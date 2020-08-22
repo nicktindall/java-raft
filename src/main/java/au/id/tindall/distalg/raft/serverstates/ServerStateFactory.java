@@ -5,15 +5,14 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.driver.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 
 import java.io.Serializable;
 
 public class ServerStateFactory<ID extends Serializable> {
 
-    private final ID id;
     private final Log log;
     private final Cluster<ID> cluster;
     private final PendingResponseRegistryFactory pendingResponseRegistryFactory;
@@ -21,11 +20,12 @@ public class ServerStateFactory<ID extends Serializable> {
     private final ClientSessionStore clientSessionStore;
     private final CommandExecutor commandExecutor;
     private final ElectionScheduler<ID> electionScheduler;
+    private final PersistentState<ID> persistentState;
 
-    public ServerStateFactory(ID id, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
+    public ServerStateFactory(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                               LogReplicatorFactory<ID> logReplicatorFactory, ClientSessionStore clientSessionStore,
                               CommandExecutor commandExecutor, ElectionScheduler<ID> electionScheduler) {
-        this.id = id;
+        this.persistentState = persistentState;
         this.log = log;
         this.cluster = cluster;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
@@ -35,25 +35,21 @@ public class ServerStateFactory<ID extends Serializable> {
         this.electionScheduler = electionScheduler;
     }
 
-    public Leader<ID> createLeader(Term currentTerm) {
-        return new Leader<>(currentTerm, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
-                logReplicatorFactory, this, clientSessionStore, id);
+    public Leader<ID> createLeader() {
+        return new Leader<>(persistentState, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
+                logReplicatorFactory, this, clientSessionStore);
     }
 
     public Follower<ID> createInitialState() {
-        return createFollower(new Term(0), null, null);
+        return createFollower(null);
     }
 
-    public Follower<ID> createFollower(Term currentTerm, ID currentLeader) {
-        return createFollower(currentTerm, currentLeader, null);
+    public Follower<ID> createFollower(ID currentLeader) {
+        return new Follower<>(persistentState, log, cluster, this, currentLeader, electionScheduler);
     }
 
-    public Follower<ID> createFollower(Term currentTerm, ID currentLeader, ID votedFor) {
-        return new Follower<>(currentTerm, votedFor, log, cluster, this, currentLeader, electionScheduler);
-    }
-
-    public Candidate<ID> createCandidate(Term currentTerm) {
-        return new Candidate<>(currentTerm, log, cluster, id, this, electionScheduler);
+    public Candidate<ID> createCandidate() {
+        return new Candidate<>(persistentState, log, cluster, this, electionScheduler);
     }
 
     public ClientSessionStore getClientSessionStore() {

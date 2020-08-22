@@ -7,6 +7,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FollowerTest {
@@ -46,6 +48,8 @@ class FollowerTest {
     private ServerStateFactory<Long> serverStateFactory;
     @Mock
     private ElectionScheduler<Long> electionScheduler;
+    @Mock
+    private PersistentState<Long> persistentState;
 
     @Nested
     class OnEnterState {
@@ -54,7 +58,7 @@ class FollowerTest {
 
         @BeforeEach
         void setUp() {
-            followerState = new Follower<>(TERM_2, null, logContaining(), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            followerState = new Follower<>(persistentState, logContaining(), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             followerState.enterState();
         }
 
@@ -71,7 +75,7 @@ class FollowerTest {
 
         @BeforeEach
         void setUp() {
-            followerState = new Follower<>(TERM_2, null, logContaining(), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            followerState = new Follower<>(persistentState, logContaining(), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             followerState.leaveState();
         }
 
@@ -84,9 +88,14 @@ class FollowerTest {
     @Nested
     class HandleAppendEntriesRequest {
 
+        @BeforeEach
+        void setUp() {
+            when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
+        }
+
         @Test
         void willRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
-            Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_0, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.empty());
             verifyNoInteractions(electionScheduler);
@@ -95,7 +104,7 @@ class FollowerTest {
 
         @Test
         void willRejectRequest_PrevLogEntryHasIncorrectTerm() {
-            Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_1), emptyList(), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.empty());
             verify(electionScheduler).resetTimeout();
@@ -104,7 +113,7 @@ class FollowerTest {
 
         @Test
         void willAcceptRequest_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm() {
-            Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
             verify(electionScheduler).resetTimeout();
@@ -113,7 +122,7 @@ class FollowerTest {
 
         @Test
         void willThrowIllegalStateException_WhenLeaderTermIsGreaterThanLocalTerm() {
-            Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             IllegalStateException ex = assertThrows(IllegalStateException.class,
                     () -> followerState.handle(new AppendEntriesRequest<>(TERM_2, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0)));
             verifyNoInteractions(electionScheduler);
@@ -123,7 +132,7 @@ class FollowerTest {
         @Test
         void willAcceptRequest_AndAdvanceCommitIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLocal() {
             Log log = logContaining(ENTRY_1, ENTRY_2);
-            Follower<Long> followerState = new Follower<>(TERM_1, null, log, cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Follower<Long> followerState = new Follower<>(persistentState, log, cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 2));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
             verify(electionScheduler).resetTimeout();
@@ -134,7 +143,7 @@ class FollowerTest {
         @Test
         void willAcceptRequest_AndAdvanceCommitIndexToLastLocalIndex_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndCommitIndexIsGreaterThanLastLocalIndex() {
             Log log = logContaining(ENTRY_1, ENTRY_2);
-            Follower<Long> followerState = new Follower<>(TERM_1, null, log, cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Follower<Long> followerState = new Follower<>(persistentState, log, cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 10));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
             verify(electionScheduler).resetTimeout();
@@ -144,7 +153,7 @@ class FollowerTest {
 
         @Test
         void willReturnLastAppendedIndex_WhenAppendIsSuccessful() {
-            Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 1, Optional.of(TERM_0), List.of(ENTRY_2), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(2));
             verify(electionScheduler).resetTimeout();
@@ -153,7 +162,7 @@ class FollowerTest {
 
         @Test
         void willRejectRequest_WhenPreviousLogIndexMatches_AndLeaderTermIsEqualToLocalTerm_AndSenderIsNotTheCurrentLeader() {
-            Follower<Long> followerState = new Follower<>(TERM_1, null, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, NON_LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, NON_LEADER_SERVER_ID, false, Optional.empty());
             verifyNoInteractions(electionScheduler);

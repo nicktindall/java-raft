@@ -3,10 +3,10 @@ package au.id.tindall.distalg.raft.serverstates;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.driver.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
@@ -27,8 +27,8 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     private final Set<ID> receivedVotes;
     private final ElectionScheduler<ID> electionScheduler;
 
-    public Candidate(Term currentTerm, Log log, Cluster<ID> cluster, ID ownId, ServerStateFactory<ID> serverStateFactory, ElectionScheduler<ID> electionScheduler) {
-        super(currentTerm, ownId, log, cluster, serverStateFactory, null);
+    public Candidate(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ElectionScheduler<ID> electionScheduler) {
+        super(persistentState, log, cluster, serverStateFactory, null);
         this.electionScheduler = electionScheduler;
         receivedVotes = new HashSet<>();
     }
@@ -36,6 +36,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     @Override
     public void enterState() {
         LOGGER.debug("Server entering Candidate state");
+        persistentState.setVotedFor(persistentState.getId());
         this.electionScheduler.startTimeouts();
     }
 
@@ -47,11 +48,12 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     @Override
     protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
         if (messageIsStale(appendEntriesRequest)) {
-            getCluster().sendAppendEntriesResponse(getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
+            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }
 
-        return incomplete(serverStateFactory.createFollower(appendEntriesRequest.getTerm(), appendEntriesRequest.getLeaderId()));
+        persistentState.setCurrentTerm(appendEntriesRequest.getTerm());
+        return incomplete(serverStateFactory.createFollower(appendEntriesRequest.getLeaderId()));
     }
 
     @Override
@@ -65,7 +67,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     protected Result<ID> handle(InitiateElectionMessage<ID> initiateElectionMessage) {
-        ServerState<ID> nextState = recordVoteAndClaimLeadershipIfEligible(initiateElectionMessage.getSource());
+        ServerState<ID> nextState = recordVoteAndClaimLeadershipIfEligible(persistentState.getId());
         electionScheduler.resetTimeout();
         nextState.requestVotes();
         return complete(nextState);
@@ -78,13 +80,13 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     protected void requestVotes() {
-        getCluster().sendRequestVoteRequest(getCurrentTerm(), getLog().getLastLogIndex(), getLog().getLastLogTerm());
+        cluster.sendRequestVoteRequest(persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm());
     }
 
     public ServerState<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
         this.receivedVotes.add(voter);
-        if (getCluster().isQuorum(getReceivedVotes())) {
-            return serverStateFactory.createLeader(getCurrentTerm());
+        if (cluster.isQuorum(getReceivedVotes())) {
+            return serverStateFactory.createLeader();
         } else {
             return this;
         }

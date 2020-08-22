@@ -3,8 +3,8 @@ package au.id.tindall.distalg.raft.serverstates;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.driver.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
@@ -20,14 +20,10 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     private static final Logger LOGGER = getLogger();
 
-    private final Term followerForTerm;
-    private final ID leaderForTerm;
     private final ElectionScheduler<ID> electionScheduler;
 
-    public Follower(Term currentTerm, ID votedFor, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader, ElectionScheduler<ID> electionScheduler) {
-        super(currentTerm, votedFor, log, cluster, serverStateFactory, currentLeader);
-        this.followerForTerm = currentTerm;
-        this.leaderForTerm = currentLeader;
+    public Follower(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader, ElectionScheduler<ID> electionScheduler) {
+        super(persistentState, log, cluster, serverStateFactory, currentLeader);
         this.electionScheduler = electionScheduler;
     }
 
@@ -44,33 +40,33 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
-        if (appendEntriesRequest.getTerm().isGreaterThan(followerForTerm)) {
+        if (appendEntriesRequest.getTerm().isGreaterThan(persistentState.getCurrentTerm())) {
             throw new IllegalStateException("Received a request from a future term! this should never happen");
         }
 
         if (messageIsStale(appendEntriesRequest)) {
-            getCluster().sendAppendEntriesResponse(getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
+            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }
 
-        if (!appendEntriesRequest.getSource().equals(leaderForTerm)) {
+        if (!appendEntriesRequest.getSource().equals(currentLeader)) {
             LOGGER.warn("Got an append entries request from someone other than the leader?!");
-            getCluster().sendAppendEntriesResponse(getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
+            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }
 
         electionScheduler.resetTimeout();
 
         if (appendEntriesRequest.getPrevLogIndex() > 0 &&
-                !getLog().containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
-            getCluster().sendAppendEntriesResponse(getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
+                !log.containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
+            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }
 
-        getLog().appendEntries(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getEntries());
-        getLog().advanceCommitIndex(min(getLog().getLastLogIndex(), appendEntriesRequest.getLeaderCommit()));
+        log.appendEntries(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getEntries());
+        log.advanceCommitIndex(min(log.getLastLogIndex(), appendEntriesRequest.getLeaderCommit()));
         int indexOfLastEntryAppended = appendEntriesRequest.getPrevLogIndex() + appendEntriesRequest.getEntries().size();
-        getCluster().sendAppendEntriesResponse(appendEntriesRequest.getTerm(), appendEntriesRequest.getLeaderId(), true, Optional.of(indexOfLastEntryAppended));
+        cluster.sendAppendEntriesResponse(appendEntriesRequest.getTerm(), appendEntriesRequest.getLeaderId(), true, Optional.of(indexOfLastEntryAppended));
         return complete(this);
     }
 

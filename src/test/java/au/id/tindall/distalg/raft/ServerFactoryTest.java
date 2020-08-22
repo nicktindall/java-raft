@@ -11,6 +11,7 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
@@ -63,10 +64,13 @@ class ServerFactoryTest {
     private ElectionSchedulerFactory<Long> electionSchedulerFactory;
     @Mock
     private ElectionScheduler<Long> electionScheduler;
+    @Mock
+    private PersistentState<Long> persistentState;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
     void setUp() {
+        when(persistentState.getId()).thenReturn(SERVER_ID);
         when(clientSessionStoreFactory.create(MAX_CLIENT_SESSIONS)).thenReturn(clientSessionStore);
         when(clusterFactory.createForNode(eq(SERVER_ID))).thenReturn(cluster);
         when(logFactory.createLog()).thenReturn(log);
@@ -79,19 +83,19 @@ class ServerFactoryTest {
 
     @Test
     void createsServersAndTheirDependencies() {
-        assertThat(serverFactory.create(SERVER_ID)).usingRecursiveComparison().isEqualTo(new Server<>(SERVER_ID, new ServerStateFactory<>(SERVER_ID,
+        assertThat(serverFactory.create(persistentState)).usingRecursiveComparison().isEqualTo(new Server<>(persistentState, new ServerStateFactory<>(persistentState,
                 log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler), stateMachine));
     }
 
     @Test
     void startsListeningForClientRegistrations() {
-        serverFactory.create(SERVER_ID);
+        serverFactory.create(persistentState);
         verify(clientSessionStore).startListeningForClientRegistrations(log);
     }
 
     @Test
     void startsListeningForCommittedStateMachineCommands() {
-        serverFactory.create(SERVER_ID);
+        serverFactory.create(persistentState);
         verify(commandExecutor).startListeningForCommittedCommands(log);
     }
 }

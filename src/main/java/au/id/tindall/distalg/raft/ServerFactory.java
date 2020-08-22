@@ -10,6 +10,7 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
@@ -45,7 +46,7 @@ public class ServerFactory<ID extends Serializable> {
         this.electionSchedulerFactory = electionSchedulerFactory;
     }
 
-    public Server<ID> create(ID id) {
+    public Server<ID> create(PersistentState<ID> persistentState) {
         Log log = logFactory.createLog();
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(5);
         ClientSessionStore clientSessionStore = clientSessionStoreFactory.create(maxClientSessions);
@@ -54,7 +55,7 @@ public class ServerFactory<ID extends Serializable> {
         CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore);
         commandExecutor.startListeningForCommittedCommands(log);
         ElectionScheduler<ID> electionScheduler = electionSchedulerFactory.createElectionScheduler(scheduledExecutorService);
-        Server<ID> server = new Server<>(id, new ServerStateFactory<>(id, log, clusterFactory.createForNode(id), pendingResponseRegistryFactory,
+        Server<ID> server = new Server<>(persistentState, new ServerStateFactory<>(persistentState, log, clusterFactory.createForNode(persistentState.getId()), pendingResponseRegistryFactory,
                 logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler), stateMachine);
         electionScheduler.setServer(server);
         return server;

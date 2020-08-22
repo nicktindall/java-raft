@@ -1,8 +1,8 @@
 package au.id.tindall.distalg.raft.rpc.server;
 
-import java.io.Serializable;
-
 import au.id.tindall.distalg.raft.log.Term;
+
+import java.io.Serializable;
 
 public class RequestVoteResponse<ID extends Serializable> extends UnicastMessage<ID> {
 

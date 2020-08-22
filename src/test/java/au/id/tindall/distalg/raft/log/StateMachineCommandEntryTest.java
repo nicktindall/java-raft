@@ -1,13 +1,13 @@
 package au.id.tindall.distalg.raft.log;
 
-import static au.id.tindall.distalg.raft.SerializationUtils.roundTripSerializeDeserialize;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
-import org.junit.jupiter.api.Test;
+import static au.id.tindall.distalg.raft.SerializationUtils.roundTripSerializeDeserialize;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class StateMachineCommandEntryTest {
 

@@ -6,7 +6,6 @@ import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.replication.LogReplicator;
@@ -16,6 +15,7 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
@@ -41,10 +41,10 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     private final PendingResponseRegistry pendingResponseRegistry;
     private final ClientSessionStore clientSessionStore;
 
-    public Leader(Term currentTerm, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
+    public Leader(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
                   LogReplicatorFactory<ID> logReplicatorFactory, ServerStateFactory<ID> serverStateFactory,
-                  ClientSessionStore clientSessionStore, ID id) {
-        super(currentTerm, null, log, cluster, serverStateFactory, id);
+                  ClientSessionStore clientSessionStore) {
+        super(persistentState, log, cluster, serverStateFactory, persistentState.getId());
         replicators = createReplicators(logReplicatorFactory);
         this.pendingResponseRegistry = pendingResponseRegistry;
         this.clientSessionStore = clientSessionStore;
@@ -52,9 +52,9 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     protected CompletableFuture<RegisterClientResponse<ID>> handle(RegisterClientRequest<ID> registerClientRequest) {
-        int logEntryIndex = getLog().getNextLogIndex();
-        ClientRegistrationEntry registrationEntry = new ClientRegistrationEntry(getCurrentTerm(), logEntryIndex);
-        getLog().appendEntries(getLog().getLastLogIndex(), singletonList(registrationEntry));
+        int logEntryIndex = log.getNextLogIndex();
+        ClientRegistrationEntry registrationEntry = new ClientRegistrationEntry(persistentState.getCurrentTerm(), logEntryIndex);
+        log.appendEntries(log.getLastLogIndex(), singletonList(registrationEntry));
         replicateToEveryone();
         return pendingResponseRegistry.registerOutstandingResponse(logEntryIndex, new PendingRegisterClientResponse<>());
     }
@@ -64,10 +64,10 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         if (!clientSessionStore.hasSession(clientRequestRequest.getClientId())) {
             return CompletableFuture.completedFuture(new ClientRequestResponse<>(SESSION_EXPIRED, null, null));
         }
-        int logEntryIndex = getLog().getNextLogIndex();
-        StateMachineCommandEntry stateMachineCommandEntry = new StateMachineCommandEntry(getCurrentTerm(), clientRequestRequest.getClientId(),
+        int logEntryIndex = log.getNextLogIndex();
+        StateMachineCommandEntry stateMachineCommandEntry = new StateMachineCommandEntry(persistentState.getCurrentTerm(), clientRequestRequest.getClientId(),
                 clientRequestRequest.getSequenceNumber(), clientRequestRequest.getCommand());
-        getLog().appendEntries(getLog().getLastLogIndex(), singletonList(stateMachineCommandEntry));
+        log.appendEntries(log.getLastLogIndex(), singletonList(stateMachineCommandEntry));
         replicateToEveryone();
         return pendingResponseRegistry.registerOutstandingResponse(logEntryIndex, new PendingClientRequestResponse<>());
     }
@@ -94,7 +94,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
             sourceReplicator.logSuccessResponse(lastAppendedIndex);
             if (updateCommitIndex()) {
                 replicateToEveryone();
-            } else if (sourceReplicator.getNextIndex() <= getLog().getLastLogIndex()) {
+            } else if (sourceReplicator.getNextIndex() <= log.getLastLogIndex()) {
                 sourceReplicator.replicate();
             }
         } else {
@@ -107,7 +107,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         List<Integer> followerMatchIndices = replicators.values().stream()
                 .map(LogReplicator::getMatchIndex)
                 .collect(toList());
-        return getLog().updateCommitIndex(followerMatchIndices, getCurrentTerm()).isPresent();
+        return log.updateCommitIndex(followerMatchIndices, persistentState.getCurrentTerm()).isPresent();
     }
 
     private void replicateToEveryone() {
@@ -115,9 +115,9 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     }
 
     private Map<ID, LogReplicator<ID>> createReplicators(LogReplicatorFactory<ID> logReplicatorFactory) {
-        int defaultNextIndex = getLog().getNextLogIndex();
-        return new HashMap<>(getCluster().getOtherMemberIds().stream()
-                .collect(toMap(identity(), id -> logReplicatorFactory.createLogReplicator(getLog(), getCurrentTerm(), getCluster(), id, defaultNextIndex))));
+        int defaultNextIndex = log.getNextLogIndex();
+        return new HashMap<>(cluster.getOtherMemberIds().stream()
+                .collect(toMap(identity(), id -> logReplicatorFactory.createLogReplicator(log, persistentState.getCurrentTerm(), cluster, id, defaultNextIndex))));
     }
 
     @Override

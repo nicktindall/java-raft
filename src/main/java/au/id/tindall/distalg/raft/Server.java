@@ -12,6 +12,7 @@ import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 
 import java.io.Serializable;
@@ -20,13 +21,13 @@ import java.util.concurrent.CompletableFuture;
 
 public class Server<ID extends Serializable> {
 
-    private final ID id;
+    private final PersistentState<ID> persistentState;
+    private final ServerStateFactory<ID> serverStateFactory;
     private final StateMachine stateMachine;
     private ServerState<ID> state;
-    private ServerStateFactory<ID> serverStateFactory;
 
-    public Server(ID id, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine) {
-        this.id = id;
+    public Server(PersistentState<ID> persistentState, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine) {
+        this.persistentState = persistentState;
         this.serverStateFactory = serverStateFactory;
         this.stateMachine = stateMachine;
     }
@@ -78,11 +79,11 @@ public class Server<ID extends Serializable> {
     }
 
     public synchronized void electionTimeout() {
-        handle(new InitiateElectionMessage<>(state.getCurrentTerm().next(), id));
+        handle(new InitiateElectionMessage<>(persistentState.getCurrentTerm().next(), persistentState.getId()));
     }
 
     public ID getId() {
-        return id;
+        return persistentState.getId();
     }
 
     public Optional<ServerStateType> getState() {

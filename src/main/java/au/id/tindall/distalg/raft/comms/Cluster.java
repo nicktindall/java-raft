@@ -1,12 +1,12 @@
 package au.id.tindall.distalg.raft.comms;
 
+import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-
-import au.id.tindall.distalg.raft.log.Term;
-import au.id.tindall.distalg.raft.log.entries.LogEntry;
 
 public interface Cluster<ID extends Serializable> {
 

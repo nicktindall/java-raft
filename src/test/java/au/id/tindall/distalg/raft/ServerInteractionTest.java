@@ -17,6 +17,7 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.serverstates.TestStateMachine;
+import au.id.tindall.distalg.raft.state.InMemoryPersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,6 @@ import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
-import static java.lang.Integer.MAX_VALUE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -65,9 +65,9 @@ class ServerInteractionTest {
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(), TestStateMachine::new, electionSchedulerFactory);
-        server1 = serverFactory.create(1L);
-        server2 = serverFactory.create(2L);
-        server3 = serverFactory.create(3L);
+        server1 = serverFactory.create(new InMemoryPersistentState<>(1L));
+        server2 = serverFactory.create(new InMemoryPersistentState<>(2L));
+        server3 = serverFactory.create(new InMemoryPersistentState<>(3L));
         server1.start();
         server2.start();
         server3.start();

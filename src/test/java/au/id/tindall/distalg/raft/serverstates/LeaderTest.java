@@ -19,6 +19,7 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -72,15 +73,18 @@ class LeaderTest {
     private ServerStateFactory<Long> serverStateFactory;
     @Mock
     private ClientSessionStore clientSessionStore;
+    @Mock
+    private PersistentState<Long> persistentState;
 
     private Leader<Long> leader;
 
     @BeforeEach
     void setUp() {
+        when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
         when(logReplicatorFactory.createLogReplicator(log, TERM_2, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
-        leader = new Leader<>(TERM_2, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, SERVER_ID);
+        leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore);
     }
 
     @Nested

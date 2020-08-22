@@ -7,6 +7,7 @@ import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.serverstates.Follower;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -44,21 +45,18 @@ class ServerTest {
     private StateMachine stateMachine;
     @Mock
     private Follower<Long> serverState;
+    @Mock
+    private PersistentState<Long> persistentState;
 
     private Server<Long> server;
 
     @BeforeEach
     void setUp() {
-        server = new Server<>(SERVER_ID, serverStateFactory, stateMachine);
+        server = new Server<>(persistentState, serverStateFactory, stateMachine);
     }
 
     @Nested
     class Constructor {
-
-        @Test
-        void willSetId() {
-            assertThat(server.getId()).isEqualTo(SERVER_ID);
-        }
 
         @Test
         void willNotInitializeState() {
@@ -114,8 +112,9 @@ class ServerTest {
 
         @BeforeEach
         void setUp() {
-            when(serverState.getCurrentTerm()).thenReturn(TERM_0);
+            when(persistentState.getCurrentTerm()).thenReturn(TERM_0);
             when(serverStateFactory.createInitialState()).thenReturn(serverState);
+            when(persistentState.getId()).thenReturn(SERVER_ID);
             server.start();
         }
 

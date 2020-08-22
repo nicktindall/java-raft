@@ -1,8 +1,8 @@
 package au.id.tindall.distalg.raft.log.entries;
 
-import java.util.Arrays;
-
 import au.id.tindall.distalg.raft.log.Term;
+
+import java.util.Arrays;
 
 public class StateMachineCommandEntry extends LogEntry {
 
