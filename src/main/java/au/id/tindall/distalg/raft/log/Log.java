@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.log;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.storage.InMemoryLogStorage;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
+import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,8 +16,11 @@ import java.util.function.Supplier;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
+import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Log {
+
+    private static final Logger LOGGER = getLogger();
 
     private final ReadWriteLock readWriteLock;
     private final List<EntryCommittedEventHandler> entryCommittedEventHandlers;
@@ -24,8 +28,13 @@ public class Log {
     private int commitIndex;
 
     public Log() {
+        this(new InMemoryLogStorage());
+        LOGGER.warn("You're using a log with in-memory storage, this better not be production!");
+    }
+
+    public Log(LogStorage logStorage) {
         readWriteLock = new ReentrantReadWriteLock();
-        storage = new InMemoryLogStorage();
+        storage = logStorage;
         commitIndex = 0;
         entryCommittedEventHandlers = new ArrayList<>();
     }

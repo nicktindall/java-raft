@@ -47,7 +47,7 @@ public class ServerFactory<ID extends Serializable> {
     }
 
     public Server<ID> create(PersistentState<ID> persistentState) {
-        Log log = logFactory.createLog();
+        Log log = logFactory.createLog(persistentState.getLogStorage());
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(5);
         ClientSessionStore clientSessionStore = clientSessionStoreFactory.create(maxClientSessions);
         clientSessionStore.startListeningForClientRegistrations(log);

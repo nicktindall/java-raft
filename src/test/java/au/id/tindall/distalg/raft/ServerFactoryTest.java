@@ -9,6 +9,7 @@ import au.id.tindall.distalg.raft.driver.ElectionScheduler;
 import au.id.tindall.distalg.raft.driver.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
+import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
@@ -66,14 +67,17 @@ class ServerFactoryTest {
     private ElectionScheduler<Long> electionScheduler;
     @Mock
     private PersistentState<Long> persistentState;
+    @Mock
+    private LogStorage logStorage;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
     void setUp() {
         when(persistentState.getId()).thenReturn(SERVER_ID);
+        when(persistentState.getLogStorage()).thenReturn(logStorage);
         when(clientSessionStoreFactory.create(MAX_CLIENT_SESSIONS)).thenReturn(clientSessionStore);
         when(clusterFactory.createForNode(eq(SERVER_ID))).thenReturn(cluster);
-        when(logFactory.createLog()).thenReturn(log);
+        when(logFactory.createLog(logStorage)).thenReturn(log);
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
         when(electionSchedulerFactory.createElectionScheduler(any(ScheduledExecutorService.class))).thenReturn(electionScheduler);
         when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore)).thenReturn(commandExecutor);

@@ -1,8 +1,10 @@
 package au.id.tindall.distalg.raft.log;
 
+import au.id.tindall.distalg.raft.log.storage.LogStorage;
+
 public class LogFactory {
 
-    public Log createLog() {
-        return new Log();
+    public Log createLog(LogStorage logStorage) {
+        return new Log(logStorage);
     }
 }
