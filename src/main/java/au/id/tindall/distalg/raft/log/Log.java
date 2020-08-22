@@ -1,7 +1,7 @@
 package au.id.tindall.distalg.raft.log;
 
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
-import au.id.tindall.distalg.raft.log.storage.ArrayListLogStorage;
+import au.id.tindall.distalg.raft.log.storage.InMemoryLogStorage;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 
 import java.util.ArrayList;
@@ -25,7 +25,7 @@ public class Log {
 
     public Log() {
         readWriteLock = new ReentrantReadWriteLock();
-        storage = new ArrayListLogStorage();
+        storage = new InMemoryLogStorage();
         commitIndex = 0;
         entryCommittedEventHandlers = new ArrayList<>();
     }

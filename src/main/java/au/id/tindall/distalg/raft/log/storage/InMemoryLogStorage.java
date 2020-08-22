@@ -8,11 +8,11 @@ import java.util.List;
 import static java.util.Collections.unmodifiableList;
 import static java.util.List.copyOf;
 
-public class ArrayListLogStorage implements LogStorage {
+public class InMemoryLogStorage implements LogStorage {
 
     List<LogEntry> entries;
 
-    public ArrayListLogStorage() {
+    public InMemoryLogStorage() {
         this.entries = new ArrayList<>();
     }
 
