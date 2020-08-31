@@ -47,7 +47,6 @@ class ServerInteractionTest {
     private Server<Long> server1;
     private Server<Long> server2;
     private Server<Long> server3;
-    private TestClusterFactory clusterFactory;
     private QueuedSendingStrategy queuedSendingStrategy;
     @Mock
     private ElectionScheduler<Long> electionScheduler;
@@ -61,7 +60,7 @@ class ServerInteractionTest {
         LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE, SynchronousReplicationScheduler::new);
         LogFactory logFactory = new LogFactory();
         queuedSendingStrategy = new QueuedSendingStrategy();
-        clusterFactory = new TestClusterFactory(queuedSendingStrategy);
+        TestClusterFactory clusterFactory = new TestClusterFactory(queuedSendingStrategy);
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(), TestStateMachine::new, electionSchedulerFactory);

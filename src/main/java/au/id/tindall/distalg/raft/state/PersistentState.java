@@ -10,7 +10,7 @@ public interface PersistentState<ID extends Serializable> {
 
     ID getId();
 
-    void setCurrentTerm(Term currentTerm);
+    void setCurrentTerm(Term term);
 
     Term getCurrentTerm();
 

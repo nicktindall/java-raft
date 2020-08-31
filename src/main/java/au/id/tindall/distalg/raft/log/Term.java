@@ -23,6 +23,10 @@ public class Term implements Serializable, Comparable<Term> {
         return new Term(number + 1);
     }
 
+    public int getNumber() {
+        return number;
+    }
+
     @Override
     public int compareTo(Term otherTerm) {
         return number - otherTerm.number;

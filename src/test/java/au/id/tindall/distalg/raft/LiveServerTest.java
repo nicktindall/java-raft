@@ -11,7 +11,7 @@ import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounterClient;
 import au.id.tindall.distalg.raft.replication.HeartbeatReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
-import au.id.tindall.distalg.raft.state.InMemoryPersistentState;
+import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,6 +19,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -54,7 +57,7 @@ class LiveServerTest {
     private TestClusterFactory clusterFactory;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
         PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
         ReplicationSchedulerFactory replicationSchedulerFactory = new HeartbeatReplicationSchedulerFactory(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS);
         LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE, replicationSchedulerFactory);
@@ -63,9 +66,10 @@ class LiveServerTest {
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(), MonotonicCounter::new, new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS));
-        server1 = serverFactory.create(new InMemoryPersistentState<>(1L));
-        server2 = serverFactory.create(new InMemoryPersistentState<>(2L));
-        server3 = serverFactory.create(new InMemoryPersistentState<>(3L));
+        Path tempDir = Files.createTempDirectory("LiveServerTest");
+        server1 = serverFactory.create(FileBasedPersistentState.create(tempDir.resolve("one"), 1L));
+        server2 = serverFactory.create(FileBasedPersistentState.create(tempDir.resolve("two"), 2L));
+        server3 = serverFactory.create(FileBasedPersistentState.create(tempDir.resolve("three"), 3L));
         clusterFactory.setServers(server1, server2, server3);
         startServers();
     }

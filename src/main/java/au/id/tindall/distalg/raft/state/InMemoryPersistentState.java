@@ -26,13 +26,13 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     }
 
     @Override
-    public void setCurrentTerm(Term newTerm) {
-        if (newTerm.isLessThan(currentTerm)) {
+    public void setCurrentTerm(Term term) {
+        if (term.isLessThan(currentTerm)) {
             throw new IllegalArgumentException("Term increases monotonically");
         }
-        if (newTerm.isGreaterThan(currentTerm)) {
+        if (term.isGreaterThan(currentTerm)) {
             this.votedFor = null;
-            this.currentTerm = newTerm;
+            this.currentTerm = term;
         }
     }
 
