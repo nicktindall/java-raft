@@ -45,6 +45,10 @@ public class LiveDelayedSendingStrategy implements SendingStrategy {
                 TimeUnit.MILLISECONDS);
     }
 
+    public void stop() {
+        this.scheduledExecutorService.shutdownNow();
+    }
+
     private Runnable createDispatch(RpcMessage<Long> message) {
         return () -> {
             try {

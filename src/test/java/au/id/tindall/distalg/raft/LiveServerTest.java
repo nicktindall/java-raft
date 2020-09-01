@@ -10,20 +10,21 @@ import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounter;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounterClient;
 import au.id.tindall.distalg.raft.replication.HeartbeatReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
-import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
+import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -51,31 +52,51 @@ class LiveServerTest {
 
     private static final int MAX_BATCH_SIZE = 20;
 
-    private Server<Long> server1;
-    private Server<Long> server2;
-    private Server<Long> server3;
     private TestClusterFactory clusterFactory;
+    private Map<Long, Server<Long>> allServers;
+    private Map<Long, PersistentState<Long>> allPersistentStates;
+    private ServerFactory<Long> serverFactory;
+    private LiveDelayedSendingStrategy liveDelayedSendingStrategy;
+    @TempDir
+    Path stateFileDirectory;
 
     @BeforeEach
-    void setUp() throws IOException {
-        PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
-        ReplicationSchedulerFactory replicationSchedulerFactory = new HeartbeatReplicationSchedulerFactory(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS);
-        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE, replicationSchedulerFactory);
-        LogFactory logFactory = new LogFactory();
-        clusterFactory = new TestClusterFactory(new LiveDelayedSendingStrategy(MINIMUM_MESSAGE_DELAY, MAXIMUM_MESSAGE_DELAY));
-        ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
-        ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                new CommandExecutorFactory(), MonotonicCounter::new, new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS));
-        Path tempDir = Files.createTempDirectory("LiveServerTest");
-        server1 = serverFactory.create(FileBasedPersistentState.create(tempDir.resolve("one"), 1L));
-        server2 = serverFactory.create(FileBasedPersistentState.create(tempDir.resolve("two"), 2L));
-        server3 = serverFactory.create(FileBasedPersistentState.create(tempDir.resolve("three"), 3L));
-        clusterFactory.setServers(server1, server2, server3);
+    void setUp() {
+        setUpFactories();
+        createServerAndState(1L);
+        createServerAndState(2L);
+        createServerAndState(3L);
         startServers();
+    }
+
+    private void setUpFactories() {
+        allServers = new ConcurrentHashMap<>();
+        allPersistentStates = new HashMap<>();
+        liveDelayedSendingStrategy = new LiveDelayedSendingStrategy(MINIMUM_MESSAGE_DELAY, MAXIMUM_MESSAGE_DELAY);
+        clusterFactory = new TestClusterFactory(liveDelayedSendingStrategy, allServers);
+        serverFactory = new ServerFactory<>(
+                clusterFactory,
+                new LogFactory(),
+                new PendingResponseRegistryFactory(),
+                new LogReplicatorFactory<>(MAX_BATCH_SIZE, new HeartbeatReplicationSchedulerFactory(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS)),
+                new ClientSessionStoreFactory(),
+                MAX_CLIENT_SESSIONS,
+                new CommandExecutorFactory(),
+                MonotonicCounter::new,
+                new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS)
+        );
+    }
+
+    private void createServerAndState(long id) {
+        PersistentState<Long> persistentState = FileBasedPersistentState.create(stateFileDirectory.resolve(String.valueOf(id)), id);
+        Server<Long> server = serverFactory.create(persistentState);
+        allServers.put(id, server);
+        allPersistentStates.put(id, persistentState);
     }
 
     @AfterEach
     void tearDown() {
+        liveDelayedSendingStrategy.stop();
         clusterFactory.logStats();
         stopServers();
     }
@@ -97,9 +118,7 @@ class LiveServerTest {
     @Test
     void willProgressWithNoFailures() throws ExecutionException, InterruptedException {
         countUp();
-        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server1));
-        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server2));
-        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server3));
+        waitForAllServersToCatchUp();
     }
 
     @Test
@@ -116,9 +135,13 @@ class LiveServerTest {
 
         counterClientThread.get();
         periodicLeaderKiller.cancel(false);
-        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server1));
-        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server2));
-        await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server3));
+        waitForAllServersToCatchUp();
+    }
+
+    private void waitForAllServersToCatchUp() {
+        allServers.values().forEach(
+                server -> await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server))
+        );
     }
 
     private boolean serverHasCaughtUp(Server<Long> server) {
@@ -127,16 +150,22 @@ class LiveServerTest {
     }
 
     private void killThenResurrectCurrentLeader() {
-        Server<Long> currentLeader = getLeader().get();
-        LOGGER.warn("Killing server " + currentLeader.getId());
+        Server<Long> currentLeader = getLeader().orElseThrow();
+        Long killedServerId = currentLeader.getId();
+        PersistentState<Long> currentLeaderState = allPersistentStates.get(killedServerId);
+        LOGGER.warn("Killing server " + killedServerId);
         currentLeader.stop();
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
-        LOGGER.warn("Server " + currentLeader.getId() + " restarted");
-        currentLeader.start();
+
+        // Start a new node pointing to the same persistent state
+        Server<Long> newCurrentLeader = serverFactory.create(currentLeaderState);
+        allServers.put(killedServerId, newCurrentLeader);
+        newCurrentLeader.start();
+        LOGGER.warn("Server " + killedServerId + " restarted");
     }
 
     private void countUp() throws ExecutionException, InterruptedException {
-        MonotonicCounterClient counterClient = new MonotonicCounterClient(List.of(server1, server2, server3));
+        MonotonicCounterClient counterClient = new MonotonicCounterClient(allServers);
         counterClient.register();
         for (int i = 0; i < COUNT_UP_TARGET; i++) {
             counterClient.increment();
@@ -148,20 +177,16 @@ class LiveServerTest {
     }
 
     private Optional<Server<Long>> getLeader() {
-        return List.of(server1, server2, server3).stream()
+        return allServers.values().stream()
                 .filter(server -> server.getState().isPresent() && server.getState().get() == LEADER)
                 .findAny();
     }
 
     private void startServers() {
-        server1.start();
-        server2.start();
-        server3.start();
+        allServers.values().forEach(Server::start);
     }
 
     private void stopServers() {
-        server1.stop();
-        server2.stop();
-        server3.stop();
+        allServers.values().forEach(Server::stop);
     }
 }

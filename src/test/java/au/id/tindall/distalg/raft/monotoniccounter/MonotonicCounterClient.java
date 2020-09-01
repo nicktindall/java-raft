@@ -13,7 +13,7 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import org.apache.logging.log4j.Logger;
 
 import java.math.BigInteger;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -25,7 +25,7 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 
 /**
  * "client" for the Monotonic counter state machine
- *
+ * <p>
  * it increments the counter repeatedly checking that the current value is what it expects it to be
  */
 public class MonotonicCounterClient {
@@ -36,9 +36,9 @@ public class MonotonicCounterClient {
     private Integer clientId;
     private int clientSequenceNumber;
     private BigInteger counterValue = BigInteger.ZERO;
-    private final List<Server<Long>> servers;
+    private final Map<Long, Server<Long>> servers;
 
-    public MonotonicCounterClient(List<Server<Long>> servers) {
+    public MonotonicCounterClient(Map<Long, Server<Long>> servers) {
         this.servers = servers;
     }
 
@@ -83,7 +83,7 @@ public class MonotonicCounterClient {
     private Server<Long> findLeader() {
         Optional<Server<Long>> leader = Optional.empty();
         while (leader.isEmpty()) {
-            leader = servers.stream()
+            leader = servers.values().stream()
                     .filter(server -> server.getState().isPresent() && server.getState().get() == LEADER)
                     .findAny();
         }

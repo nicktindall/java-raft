@@ -14,14 +14,12 @@ import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static java.util.function.Function.identity;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class TestClusterFactory implements ClusterFactory<Long> {
@@ -29,18 +27,14 @@ public class TestClusterFactory implements ClusterFactory<Long> {
     private static final Logger LOGGER = getLogger();
 
     private final SendingStrategy sendingStrategy;
-    private Map<Long, Server<Long>> servers;
-    private MessageStats messageStats;
+    private final Map<Long, Server<Long>> servers;
+    private final MessageStats messageStats;
 
-    public TestClusterFactory(SendingStrategy sendingStrategy) {
+    public TestClusterFactory(SendingStrategy sendingStrategy, Map<Long, Server<Long>> servers) {
         this.sendingStrategy = sendingStrategy;
+        this.servers = servers;
         this.sendingStrategy.setDispatchFunction(this::dispatch);
         this.messageStats = new MessageStats();
-    }
-
-    @SafeVarargs
-    public final void setServers(Server<Long>... servers) {
-        this.servers = Arrays.stream(servers).collect(Collectors.toMap(Server::getId, identity()));
     }
 
     public boolean isQuorum(Set<Long> receivedVotes) {
@@ -110,7 +104,7 @@ public class TestClusterFactory implements ClusterFactory<Long> {
     }
 
     private void deliverMessageIfServerIsRunning(RpcMessage<Long> message, Server<Long> server) {
-        try(CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
+        try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
             if (server.getState().isPresent()) {
                 try {
                     server.handle(message);

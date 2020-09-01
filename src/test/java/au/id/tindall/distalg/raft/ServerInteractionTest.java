@@ -25,6 +25,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -47,7 +49,9 @@ class ServerInteractionTest {
     private Server<Long> server1;
     private Server<Long> server2;
     private Server<Long> server3;
+    private Map<Long, Server<Long>> allServers;
     private QueuedSendingStrategy queuedSendingStrategy;
+    private ServerFactory<Long> serverFactory;
     @Mock
     private ElectionScheduler<Long> electionScheduler;
     @Mock
@@ -55,22 +59,35 @@ class ServerInteractionTest {
 
     @BeforeEach
     void setUp() {
-        when(electionSchedulerFactory.createElectionScheduler(any(ScheduledExecutorService.class))).thenReturn(electionScheduler);
-        PendingResponseRegistryFactory pendingResponseRegistryFactory = new PendingResponseRegistryFactory();
-        LogReplicatorFactory<Long> logReplicatorFactory = new LogReplicatorFactory<>(MAX_BATCH_SIZE, SynchronousReplicationScheduler::new);
-        LogFactory logFactory = new LogFactory();
+        setUpFactories();
+        server1 = createAndAddServer(1L);
+        server2 = createAndAddServer(2L);
+        server3 = createAndAddServer(3L);
+    }
+
+    private void setUpFactories() {
+        allServers = new HashMap<>();
         queuedSendingStrategy = new QueuedSendingStrategy();
-        TestClusterFactory clusterFactory = new TestClusterFactory(queuedSendingStrategy);
+        when(electionSchedulerFactory.createElectionScheduler(any(ScheduledExecutorService.class))).thenReturn(electionScheduler);
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
-        ServerFactory<Long> serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                new CommandExecutorFactory(), TestStateMachine::new, electionSchedulerFactory);
-        server1 = serverFactory.create(new InMemoryPersistentState<>(1L));
-        server2 = serverFactory.create(new InMemoryPersistentState<>(2L));
-        server3 = serverFactory.create(new InMemoryPersistentState<>(3L));
-        server1.start();
-        server2.start();
-        server3.start();
-        clusterFactory.setServers(server1, server2, server3);
+        serverFactory = new ServerFactory<>(
+                new TestClusterFactory(queuedSendingStrategy, allServers),
+                new LogFactory(),
+                new PendingResponseRegistryFactory(),
+                new LogReplicatorFactory<>(MAX_BATCH_SIZE, SynchronousReplicationScheduler::new),
+                clientSessionStoreFactory,
+                MAX_CLIENT_SESSIONS,
+                new CommandExecutorFactory(),
+                TestStateMachine::new,
+                electionSchedulerFactory
+        );
+    }
+
+    private Server<Long> createAndAddServer(long id) {
+        Server<Long> server = serverFactory.create(new InMemoryPersistentState<>(id));
+        server.start();
+        allServers.put(id, server);
+        return server;
     }
 
     @Test
