@@ -20,6 +20,7 @@ import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Serializable;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
@@ -120,7 +121,8 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     private boolean haveNotVotedOrHaveAlreadyVotedForCandidate(RequestVoteRequest<ID> requestVote) {
-        return persistentState.getVotedFor().isEmpty() || persistentState.getVotedFor().get().equals(requestVote.getCandidateId());
+        Optional<ID> votedFor = persistentState.getVotedFor();
+        return votedFor.isEmpty() || votedFor.get().equals(requestVote.getCandidateId());
     }
 
     protected boolean messageIsStale(RpcMessage<ID> message) {
