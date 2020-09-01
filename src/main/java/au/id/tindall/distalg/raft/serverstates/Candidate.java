@@ -1,7 +1,7 @@
 package au.id.tindall.distalg.raft.serverstates;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.driver.ElectionScheduler;
+import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;

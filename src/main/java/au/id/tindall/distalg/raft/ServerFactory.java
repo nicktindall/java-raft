@@ -4,8 +4,8 @@ import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactor
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.comms.ClusterFactory;
-import au.id.tindall.distalg.raft.driver.ElectionScheduler;
-import au.id.tindall.distalg.raft.driver.ElectionSchedulerFactory;
+import au.id.tindall.distalg.raft.elections.ElectionScheduler;
+import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;

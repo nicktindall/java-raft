@@ -1,4 +1,4 @@
-package au.id.tindall.distalg.raft.driver;
+package au.id.tindall.distalg.raft.elections;
 
 import java.io.Serializable;
 import java.util.Random;

@@ -1,4 +1,4 @@
-package au.id.tindall.distalg.raft.driver;
+package au.id.tindall.distalg.raft.elections;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
