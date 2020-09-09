@@ -2,8 +2,9 @@ package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
-import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
+import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 import au.id.tindall.distalg.raft.serverstates.Follower;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
@@ -120,11 +121,11 @@ class ServerTest {
 
         @Test
         @SuppressWarnings({"ConstantConditions", "unchecked"})
-        void willDispatchInitiateElectionMessageWithIncrementedTerm() {
-            when(serverState.handle(any(RpcMessage.class))).thenReturn(complete(serverState));
+        void willDispatchInitiateElectionMessageWithCurrentTerm() {
+            when(serverState.handle(any(UnicastMessage.class))).thenReturn(complete(serverState));
             server.electionTimeout();
 
-            verify(serverState).handle(refEq(new InitiateElectionMessage<>(TERM_1, SERVER_ID)));
+            verify(serverState).handle(refEq(new TimeoutNowMessage<>(TERM_0, SERVER_ID)));
         }
     }
 

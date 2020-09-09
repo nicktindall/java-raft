@@ -5,13 +5,14 @@ import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
+import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -85,14 +87,8 @@ class CandidateTest {
 
         @BeforeEach
         void setUp() {
-            when(persistentState.getId()).thenReturn(SERVER_ID);
             candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
             candidateState.enterState();
-        }
-
-        @Test
-        void votedFor_WillBeInitializedToOwnId() {
-            verify(persistentState).setVotedFor(SERVER_ID);
         }
 
         @Test
@@ -212,7 +208,7 @@ class CandidateTest {
     }
 
     @Nested
-    class HandleInitiateElectionMessage {
+    class HandleTimeoutNowMessage {
 
         @Nested
         class WhenOwnVoteIsNotQuorum {
@@ -222,6 +218,7 @@ class CandidateTest {
 
             @BeforeEach
             void setUp() {
+                when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
                 when(persistentState.getId()).thenReturn(SERVER_ID);
                 when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(false);
                 when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
@@ -230,20 +227,23 @@ class CandidateTest {
             }
 
             @Test
-            void willRemainIndCandidateStateAndCompleteProcessing() {
-                assertThat(candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID))).usingRecursiveComparison().isEqualTo(complete(candidate));
+            void willIncrementTermAndSetVotedForSelfThenRequestVotes() {
+                candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID));
+
+                InOrder sequence = inOrder(persistentState, cluster);
+                sequence.verify(persistentState).setCurrentTerm(TERM_2);
+                sequence.verify(persistentState).setVotedFor(SERVER_ID);
+                sequence.verify(cluster).sendRequestVoteRequest(TERM_1, LAST_LOG_INDEX, Optional.of(TERM_0));
             }
 
             @Test
-            void willRequestVotes() {
-                when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
-                candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID));
-                verify(cluster).sendRequestVoteRequest(TERM_1, LAST_LOG_INDEX, Optional.of(TERM_0));
+            void willRemainInCandidateStateAndCompleteProcessing() {
+                assertThat(candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID))).usingRecursiveComparison().isEqualTo(complete(candidate));
             }
 
             @Test
             void willResetElectionTimeout() {
-                candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID));
+                candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID));
                 verify(electionScheduler).resetTimeout();
             }
         }
@@ -255,6 +255,7 @@ class CandidateTest {
 
             @BeforeEach
             void setUp() {
+                when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
                 when(persistentState.getId()).thenReturn(SERVER_ID);
                 when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(true);
                 when(serverStateFactory.createLeader()).thenReturn(leader);
@@ -262,19 +263,28 @@ class CandidateTest {
             }
 
             @Test
+            void willIncrementTermAndSetVotedForSelf() {
+                candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID));
+
+                InOrder sequence = inOrder(persistentState);
+                sequence.verify(persistentState).setCurrentTerm(TERM_2);
+                sequence.verify(persistentState).setVotedFor(SERVER_ID);
+            }
+
+            @Test
             void willTransitionToLeaderAndCompleteProcessing() {
-                assertThat(candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID))).usingRecursiveComparison().isEqualTo(complete(leader));
+                assertThat(candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID))).usingRecursiveComparison().isEqualTo(complete(leader));
             }
 
             @Test
             void willNotRequestVotes() {
-                candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID));
+                candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID));
                 verify(cluster, never()).sendRequestVoteRequest(any(), anyInt(), any());
             }
 
             @Test
             void willResetElectionTimeout() {
-                candidate.handle(new InitiateElectionMessage<>(TERM_1, SERVER_ID));
+                candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID));
                 verify(electionScheduler).resetTimeout();
             }
         }

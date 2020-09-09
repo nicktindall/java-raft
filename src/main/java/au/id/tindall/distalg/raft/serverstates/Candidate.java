@@ -4,8 +4,8 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
-import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
+import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
@@ -36,7 +36,6 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     @Override
     public void enterState() {
         LOGGER.debug("Server entering Candidate state");
-        persistentState.setVotedFor(persistentState.getId());
         this.electionScheduler.startTimeouts();
     }
 
@@ -66,7 +65,9 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     }
 
     @Override
-    protected Result<ID> handle(InitiateElectionMessage<ID> initiateElectionMessage) {
+    protected Result<ID> handle(TimeoutNowMessage<ID> timeoutNowMessage) {
+        persistentState.setCurrentTerm(persistentState.getCurrentTerm().next());
+        persistentState.setVotedFor(persistentState.getId());
         ServerState<ID> nextState = recordVoteAndClaimLeadershipIfEligible(persistentState.getId());
         electionScheduler.resetTimeout();
         nextState.requestVotes();

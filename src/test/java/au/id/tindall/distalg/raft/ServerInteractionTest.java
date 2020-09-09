@@ -201,4 +201,16 @@ class ServerInteractionTest {
         assertThat(((TestStateMachine) server2.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
         assertThat(((TestStateMachine) server3.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
     }
+
+    @Test
+    void transferLeadership_WillTransferLeadershipToAnotherServer() {
+        server1.electionTimeout();
+        queuedSendingStrategy.fullyFlush();
+        assertThat(server1.getState()).contains(LEADER);
+        assertThat(server2.getState()).contains(FOLLOWER);
+        assertThat(server3.getState()).contains(FOLLOWER);
+        server1.transferLeadership();
+        queuedSendingStrategy.fullyFlush();
+        assertThat(server1.getState()).contains(FOLLOWER);
+    }
 }

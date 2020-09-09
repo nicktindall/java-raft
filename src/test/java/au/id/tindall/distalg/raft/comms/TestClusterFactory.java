@@ -10,6 +10,7 @@ import au.id.tindall.distalg.raft.rpc.server.BroadcastMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
@@ -79,6 +80,11 @@ public class TestClusterFactory implements ClusterFactory<Long> {
             @Override
             public void sendRequestVoteResponse(Term currentTerm, Long destinationId, boolean granted) {
                 sendingStrategy.send(new RequestVoteResponse<>(currentTerm, localId, destinationId, granted));
+            }
+
+            @Override
+            public void sendTimeoutNowRequest(Term currentTerm, Long destinationId) {
+                sendingStrategy.send(new TimeoutNowMessage<>(currentTerm, localId, destinationId));
             }
         };
     }

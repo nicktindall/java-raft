@@ -21,4 +21,6 @@ public interface Cluster<ID extends Serializable> {
     void sendRequestVoteRequest(Term currentTerm, int lastLogIndex, Optional<Term> lastLogTerm);
 
     void sendRequestVoteResponse(Term currentTerm, ID destinationId, boolean granted);
+
+    void sendTimeoutNowRequest(Term currentTerm, ID destinationId);
 }

@@ -6,8 +6,9 @@ import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
-import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
+import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
 import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
@@ -79,7 +80,11 @@ public class Server<ID extends Serializable> {
     }
 
     public synchronized void electionTimeout() {
-        handle(new InitiateElectionMessage<>(persistentState.getCurrentTerm().next(), persistentState.getId()));
+        handle(new TimeoutNowMessage<>(persistentState.getCurrentTerm(), persistentState.getId(), persistentState.getId()));
+    }
+
+    public synchronized void transferLeadership() {
+        handle(new TransferLeadershipMessage<>(persistentState.getCurrentTerm(), persistentState.getId()));
     }
 
     public ID getId() {

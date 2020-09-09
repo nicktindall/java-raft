@@ -10,9 +10,10 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
-import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
+import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.NOT_LEADER;
+import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -174,7 +176,7 @@ class ServerStateTest {
     }
 
     @Nested
-    class HandleInitiateElectionMessage {
+    class HandleTimeoutNowMessage {
 
         @Mock
         private Candidate<Long> candidate;
@@ -182,11 +184,22 @@ class ServerStateTest {
         private PersistentState<Long> persistentState;
 
         @Test
-        void willTransitionToCandidateStateInTheCurrentTerm() {
+        void willTransitionToCandidateStateAndContinueHandlingMessage() {
             when(serverStateFactory.createCandidate()).thenReturn(candidate);
             var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
 
-            assertThat(serverState.handle(new InitiateElectionMessage<>(TERM_0, SERVER_ID))).isEqualToComparingFieldByFieldRecursively(incomplete(candidate));
+            assertThat(serverState.handle(new TimeoutNowMessage<>(TERM_0, SERVER_ID))).usingRecursiveComparison().isEqualTo(incomplete(candidate));
+        }
+    }
+
+    @Nested
+    class HandleTransferLeadershipMessage {
+
+        @Test
+        void willDoNothing() {
+            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+
+            assertThat(serverState.handle(new TransferLeadershipMessage<>(TERM_0, SERVER_ID))).usingRecursiveComparison().isEqualTo(complete(serverState));
         }
     }
 

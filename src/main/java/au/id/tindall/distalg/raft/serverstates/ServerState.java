@@ -13,10 +13,11 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
-import au.id.tindall.distalg.raft.rpc.server.InitiateElectionMessage;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
+import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Serializable;
@@ -67,8 +68,10 @@ public abstract class ServerState<ID extends Serializable> {
             return handle((AppendEntriesRequest<ID>) message);
         } else if (message instanceof AppendEntriesResponse) {
             return handle((AppendEntriesResponse<ID>) message);
-        } else if (message instanceof InitiateElectionMessage) {
-            return handle((InitiateElectionMessage<ID>) message);
+        } else if (message instanceof TimeoutNowMessage) {
+            return handle((TimeoutNowMessage<ID>) message);
+        } else if (message instanceof TransferLeadershipMessage) {
+            return handle((TransferLeadershipMessage<ID>) message);
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
@@ -112,8 +115,12 @@ public abstract class ServerState<ID extends Serializable> {
         return complete(this);
     }
 
-    protected Result<ID> handle(InitiateElectionMessage<ID> initiateElectionMessage) {
+    protected Result<ID> handle(TimeoutNowMessage<ID> timeoutNowMessage) {
         return incomplete(serverStateFactory.createCandidate());
+    }
+
+    protected Result<ID> handle(TransferLeadershipMessage<ID> transferLeadershipMessage) {
+        return complete(this);
     }
 
     private boolean candidatesLogIsAtLeastUpToDateAsMine(RequestVoteRequest<ID> requestVote) {

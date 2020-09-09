@@ -18,7 +18,9 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
+import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -35,11 +37,13 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -52,8 +56,8 @@ class LeaderTest {
 
     private static final long SERVER_ID = 111;
     private static final long OTHER_SERVER_ID = 112;
-    private static final Term TERM_1 = new Term(1);
-    private static final Term TERM_2 = new Term(2);
+    private static final Term PREVIOUS_TERM = new Term(1);
+    private static final Term CURRENT_TERM = new Term(2);
     private static final int NEXT_LOG_INDEX = 4;
     private static final int LAST_LOG_INDEX = 3;
     private static final int CLIENT_ID = 55;
@@ -80,10 +84,10 @@ class LeaderTest {
 
     @BeforeEach
     void setUp() {
-        when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
+        when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
-        when(logReplicatorFactory.createLogReplicator(log, TERM_2, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
+        when(logReplicatorFactory.createLogReplicator(log, CURRENT_TERM, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
         leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore);
     }
 
@@ -92,7 +96,7 @@ class LeaderTest {
 
         @Test
         void willCreateLogReplicators() {
-            verify(logReplicatorFactory).createLogReplicator(log, TERM_2, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
+            verify(logReplicatorFactory).createLogReplicator(log, CURRENT_TERM, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
         }
     }
 
@@ -143,7 +147,7 @@ class LeaderTest {
 
             @Test
             void willIgnoreMessage() {
-                leader.handle(new AppendEntriesResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                leader.handle(new AppendEntriesResponse<>(PREVIOUS_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                 verifyNoMoreInteractions(otherServerLogReplicator, log);
             }
         }
@@ -160,10 +164,10 @@ class LeaderTest {
 
             @Test
             void willLogSuccessWithReplicatorThenUpdateCommitIndex() {
-                leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                 InOrder inOrder = inOrder(otherServerLogReplicator, log);
                 inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
-                inOrder.verify(log).updateCommitIndex(List.of(OTHER_SERVER_MATCH_INDEX), TERM_2);
+                inOrder.verify(log).updateCommitIndex(List.of(OTHER_SERVER_MATCH_INDEX), CURRENT_TERM);
             }
 
             @Nested
@@ -176,7 +180,7 @@ class LeaderTest {
 
                 @Test
                 void willLogSuccessWithReplicatorThenReplicate() {
-                    leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                     InOrder inOrder = inOrder(otherServerLogReplicator, log);
                     inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
                     inOrder.verify(otherServerLogReplicator).replicate();
@@ -202,7 +206,7 @@ class LeaderTest {
 
                     @Test
                     void willLogSuccessWithReplicatorThenReplicate() {
-                        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(4)));
+                        leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(4)));
                         InOrder inOrder = inOrder(otherServerLogReplicator, log);
                         inOrder.verify(otherServerLogReplicator).logSuccessResponse(4);
                         inOrder.verify(otherServerLogReplicator).replicate();
@@ -220,7 +224,7 @@ class LeaderTest {
 
                     @Test
                     void willNotReplicate() {
-                        leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                        leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
 
                         verify(otherServerLogReplicator, never()).replicate();
                     }
@@ -233,13 +237,13 @@ class LeaderTest {
 
             @Test
             void willNotUpdateCommitIndex() {
-                leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
                 verify(log, never()).updateCommitIndex(anyList(), any(Term.class));
             }
 
             @Test
             void willLogFailureWithReplicatorThenReplicate() {
-                leader.handle(new AppendEntriesResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
                 InOrder sequence = inOrder(otherServerLogReplicator);
                 sequence.verify(otherServerLogReplicator).logFailedResponse();
                 sequence.verify(otherServerLogReplicator).replicate();
@@ -250,39 +254,59 @@ class LeaderTest {
     @Nested
     class HandleRegisterClientRequest {
 
-        @BeforeEach
-        void setUp() {
-            when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
-            when(pendingResponseRegistry.registerOutstandingResponse(anyInt(), any(PendingResponse.class)))
-                    .thenAnswer(invocation -> ((PendingResponse) invocation.getArgument(1)).getResponseFuture());
+        @Nested
+        class WhenWeAreNotTransferringLeadership {
+
+            @BeforeEach
+            void setUp() {
+                when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
+                when(pendingResponseRegistry.registerOutstandingResponse(anyInt(), any(PendingResponse.class)))
+                        .thenAnswer(invocation -> ((PendingResponse) invocation.getArgument(1)).getResponseFuture());
+            }
+
+            @Test
+            @SuppressWarnings("unchecked")
+            void willAppendClientRegistrationLogEntry() {
+                leader.handle(new RegisterClientRequest<>(SERVER_ID));
+
+                ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
+                verify(log).appendEntries(eq(LAST_LOG_INDEX), captor.capture());
+                assertThat(captor.getValue()).usingFieldByFieldElementComparator().isEqualTo(
+                        singletonList(new ClientRegistrationEntry(CURRENT_TERM, NEXT_LOG_INDEX)));
+            }
+
+            @Test
+            void willTriggerReplication() {
+                leader.handle(new RegisterClientRequest<>(SERVER_ID));
+
+                verify(otherServerLogReplicator).replicate();
+            }
+
+            @Test
+            @SuppressWarnings("unchecked")
+            void willRegisterAnOutstandingResponseAndReturnAssociatedPromise() {
+                CompletableFuture<RegisterClientResponse<Long>> result = leader.handle(new RegisterClientRequest<>(SERVER_ID));
+
+                ArgumentCaptor<PendingRegisterClientResponse<?>> captor = ArgumentCaptor.forClass(PendingRegisterClientResponse.class);
+                verify(pendingResponseRegistry).registerOutstandingResponse(eq(NEXT_LOG_INDEX), captor.capture());
+                assertThat(result).isSameAs(captor.getValue().getResponseFuture());
+            }
         }
 
-        @Test
-        @SuppressWarnings("unchecked")
-        void willAppendClientRegistrationLogEntry() {
-            leader.handle(new RegisterClientRequest<>(SERVER_ID));
+        @Nested
+        class WhenWeAreTransferringLeadership {
 
-            ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
-            verify(log).appendEntries(eq(LAST_LOG_INDEX), captor.capture());
-            assertThat(captor.getValue()).usingFieldByFieldElementComparator().isEqualTo(
-                    singletonList(new ClientRegistrationEntry(TERM_2, NEXT_LOG_INDEX)));
-        }
+            @BeforeEach
+            void setUp() {
+                leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
+            }
 
-        @Test
-        void willTriggerReplication() {
-            leader.handle(new RegisterClientRequest<>(SERVER_ID));
-
-            verify(otherServerLogReplicator).replicate();
-        }
-
-        @Test
-        @SuppressWarnings("unchecked")
-        void willRegisterAnOutstandingResponseAndReturnAssociatedPromise() {
-            CompletableFuture<RegisterClientResponse<Long>> result = leader.handle(new RegisterClientRequest<>(SERVER_ID));
-
-            ArgumentCaptor<PendingRegisterClientResponse<?>> captor = ArgumentCaptor.forClass(PendingRegisterClientResponse.class);
-            verify(pendingResponseRegistry).registerOutstandingResponse(eq(NEXT_LOG_INDEX), captor.capture());
-            assertThat(result).isSameAs(captor.getValue().getResponseFuture());
+            @Test
+            void willRejectWithNotLeaderAndNoLeaderHint() throws ExecutionException, InterruptedException {
+                assertThat(leader.handle(new RegisterClientRequest<>(SERVER_ID)).get())
+                        .usingRecursiveComparison()
+                        .isEqualTo(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, null));
+            }
         }
     }
 
@@ -290,6 +314,22 @@ class LeaderTest {
     class HandleClientRequestRequest {
 
         public static final int SEQUENCE_NUMBER = 0;
+
+        @Nested
+        class WhenWeAreTransferringLeadership {
+
+            @BeforeEach
+            void setUp() {
+                leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
+            }
+
+            @Test
+            void willRejectWithNotLeaderAndNoLeaderHint() throws ExecutionException, InterruptedException {
+                assertThat(leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, COMMAND)).get())
+                        .usingRecursiveComparison()
+                        .isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
+            }
+        }
 
         @Nested
         class WhenClientHasNoActiveSession {
@@ -302,8 +342,8 @@ class LeaderTest {
             @Test
             void willReturnSessionExpiredResponse() throws ExecutionException, InterruptedException {
                 assertThat(leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, COMMAND)).get())
-                        .isEqualToComparingFieldByFieldRecursively(new ClientRequestResponse<>(ClientRequestStatus.SESSION_EXPIRED,
-                                null, null));
+                        .usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.SESSION_EXPIRED,
+                        null, null));
             }
         }
 
@@ -326,7 +366,7 @@ class LeaderTest {
                 ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
                 verify(log).appendEntries(eq(LAST_LOG_INDEX), captor.capture());
                 assertThat(captor.getValue()).usingFieldByFieldElementComparator().isEqualTo(
-                        singletonList(new StateMachineCommandEntry(TERM_2, CLIENT_ID, SEQUENCE_NUMBER, COMMAND)));
+                        singletonList(new StateMachineCommandEntry(CURRENT_TERM, CLIENT_ID, SEQUENCE_NUMBER, COMMAND)));
             }
 
             @Test
@@ -344,6 +384,46 @@ class LeaderTest {
                 ArgumentCaptor<PendingClientRequestResponse<?>> captor = ArgumentCaptor.forClass(PendingClientRequestResponse.class);
                 verify(pendingResponseRegistry).registerOutstandingResponse(eq(NEXT_LOG_INDEX), captor.capture());
                 assertThat(result).isSameAs(captor.getValue().getResponseFuture());
+            }
+        }
+    }
+
+    @Nested
+    class HandleTransferLeadershipMessage {
+
+        @Nested
+        class AndAFollowerIsUpToDate {
+
+            @BeforeEach
+            void setUp() {
+                when(otherServerLogReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
+                when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
+            }
+
+            @Test
+            void willSendTimeoutNowMessageToFollowerAndRemainInLeaderState() {
+                Result<Long> result = leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
+
+                verify(cluster).sendTimeoutNowRequest(CURRENT_TERM, OTHER_SERVER_ID);
+                assertThat(result).usingRecursiveComparison().isEqualTo(complete(leader));
+            }
+        }
+
+        @Nested
+        class AndNoFollowerIsUpToDate {
+
+            @BeforeEach
+            void setUp() {
+                when(otherServerLogReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
+                when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX + 1);
+            }
+
+            @Test
+            void willNotSendTimeoutNowMessageToFollowerAndRemainInLeaderState() {
+                Result<Long> result = leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
+
+                verify(cluster, never()).sendTimeoutNowRequest(any(Term.class), anyLong());
+                assertThat(result).usingRecursiveComparison().isEqualTo(complete(leader));
             }
         }
     }
