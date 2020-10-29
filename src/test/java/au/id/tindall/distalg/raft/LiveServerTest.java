@@ -96,9 +96,9 @@ class LiveServerTest {
 
     @AfterEach
     void tearDown() {
+        stopServers();
         liveDelayedSendingStrategy.stop();
         clusterFactory.logStats();
-        stopServers();
     }
 
     @Test
