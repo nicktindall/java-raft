@@ -17,8 +17,8 @@ public class ElectionScheduler<ID extends Serializable> {
     private Server<ID> server;
     private final ElectionTimeoutGenerator electionTimeoutGenerator;
     private final ScheduledExecutorService scheduledExecutorService;
-    private ScheduledFuture<?> nextElectionTimeout;
-    private boolean timeoutsRunning = false;
+    private volatile ScheduledFuture<?> nextElectionTimeout;
+    private volatile boolean timeoutsRunning = false;
 
     public ElectionScheduler(ElectionTimeoutGenerator electionTimeoutGenerator, ScheduledExecutorService scheduledExecutorService) {
         this.electionTimeoutGenerator = electionTimeoutGenerator;
@@ -77,7 +77,7 @@ public class ElectionScheduler<ID extends Serializable> {
                 MILLISECONDS);
     }
 
-    private synchronized void performElectionTimeout() {
+    private void performElectionTimeout() {
         LOGGER.debug("Election timeout occurred: server {}", server.getId());
         nextElectionTimeout = null;
         server.electionTimeout();
