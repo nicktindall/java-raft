@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
@@ -42,10 +43,30 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private ID votedFor;
 
     public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateFilesPrefix, ID serverId) {
-        Path logFilePath = stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".log");
-        Path stateFilePath = stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".state");
-        PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
-        return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, new JavaIDSerializer<>(), serverId);
+        PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath(stateFilesPrefix));
+        return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath(stateFilesPrefix), new JavaIDSerializer<>(), serverId);
+    }
+
+    public static <ID extends Serializable> FileBasedPersistentState<ID> createOrOpen(Path stateFilesPrefix, ID serverId) throws IOException {
+        Path logFilePath = logFilePath(stateFilesPrefix);
+        Path stateFilePath = stateFilePath(stateFilesPrefix);
+        if (Files.exists(logFilePath) && Files.exists(stateFilePath)) {
+            PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
+            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, new JavaIDSerializer<>());
+        } else {
+            Files.deleteIfExists(logFilePath);
+            Files.deleteIfExists(stateFilePath);
+            PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
+            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, new JavaIDSerializer<>(), serverId);
+        }
+    }
+
+    private static Path stateFilePath(Path stateFilesPrefix) {
+        return stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".state");
+    }
+
+    private static Path logFilePath(Path stateFilesPrefix) {
+        return stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".log");
     }
 
     /**
