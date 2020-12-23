@@ -20,7 +20,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
-import static java.lang.String.format;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 /**
@@ -43,11 +42,19 @@ public class MonotonicCounterClient {
     }
 
     public void register() throws ExecutionException, InterruptedException {
-        RegisterClientResponse<Long> response = (RegisterClientResponse<Long>) send(RegisterClientRequest::new).get();
-        if (response.getStatus() != RegisterClientStatus.OK) {
-            throw new IllegalStateException(format("Couldn't register client: %s", response.getStatus()));
+        int retries = 0;
+        while (retries < MAX_RETRIES) {
+            RegisterClientResponse<Long> response = (RegisterClientResponse<Long>) send(RegisterClientRequest::new).get();
+            if (response.getStatus() == RegisterClientStatus.OK) {
+                this.clientId = response.getClientId().get();
+                return;
+            } else {
+                LOGGER.warn("Server responded with {}, retrying", response.getStatus());
+                retries++;
+                Thread.sleep(100L);
+            }
         }
-        this.clientId = response.getClientId().get();
+        throw new IllegalStateException("Couldn't register client!");
     }
 
     public void increment() throws ExecutionException, InterruptedException {
