@@ -91,9 +91,15 @@ public class MonotonicCounterClient {
         Optional<Server<Long>> leader = Optional.empty();
         while (leader.isEmpty()) {
             leader = servers.values().stream()
-                    .filter(server -> server.getState().isPresent() && server.getState().get() == LEADER)
+                    .filter(this::serverIsLeader)
                     .findAny();
         }
         return leader.get();
+    }
+
+    private boolean serverIsLeader(Server<Long> server) {
+        return server.getState()
+                .filter(state -> state == LEADER)
+                .isPresent();
     }
 }
