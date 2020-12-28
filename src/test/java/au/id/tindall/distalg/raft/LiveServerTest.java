@@ -5,6 +5,7 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.comms.LiveDelayedSendingStrategy;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
+import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounter;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounterClient;
@@ -197,6 +198,12 @@ class LiveServerTest {
     }
 
     private void stopServers() {
-        allServers.values().forEach(Server::stop);
+        allServers.values().forEach(server -> {
+            try {
+                server.stop();
+            } catch (NotRunningException e) {
+                // This is fine, leader killer might have already done the job for us
+            }
+        });
     }
 }
