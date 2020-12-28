@@ -8,13 +8,15 @@ public class ElectionSchedulerFactory<ID extends Serializable> {
 
     private final long minimumElectionTimeoutMilliseconds;
     private final long maximumElectionTimeoutMilliseconds;
+    private ScheduledExecutorService scheduledExecutorService;
 
-    public ElectionSchedulerFactory(long minimumElectionTimeoutMilliseconds, long maximumElectionTimeoutMilliseconds) {
+    public ElectionSchedulerFactory(ScheduledExecutorService scheduledExecutorService, long minimumElectionTimeoutMilliseconds, long maximumElectionTimeoutMilliseconds) {
         this.minimumElectionTimeoutMilliseconds = minimumElectionTimeoutMilliseconds;
         this.maximumElectionTimeoutMilliseconds = maximumElectionTimeoutMilliseconds;
+        this.scheduledExecutorService = scheduledExecutorService;
     }
 
-    public ElectionScheduler<ID> createElectionScheduler(ScheduledExecutorService scheduledExecutorService) {
+    public ElectionScheduler<ID> createElectionScheduler() {
         return new ElectionScheduler<>(new ElectionTimeoutGenerator(new Random(), minimumElectionTimeoutMilliseconds, maximumElectionTimeoutMilliseconds), scheduledExecutorService);
     }
 }

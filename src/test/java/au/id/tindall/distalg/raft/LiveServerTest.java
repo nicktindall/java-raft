@@ -13,6 +13,7 @@ import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
+import au.id.tindall.distalg.raft.threading.NamedThreadFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
@@ -57,11 +58,13 @@ class LiveServerTest {
     private Map<Long, Server<Long>> allServers;
     private ServerFactory<Long> serverFactory;
     private LiveDelayedSendingStrategy liveDelayedSendingStrategy;
+    private ScheduledExecutorService testExecutorService;
     @TempDir
     Path stateFileDirectory;
 
     @BeforeEach
     void setUp() {
+        testExecutorService = Executors.newScheduledThreadPool(10, new NamedThreadFactory("test-threads"));
         setUpFactories();
         createServerAndState(1L);
         createServerAndState(2L);
@@ -82,7 +85,7 @@ class LiveServerTest {
                 MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(),
                 MonotonicCounter::new,
-                new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS)
+                new ElectionSchedulerFactory<>(testExecutorService, MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS)
         );
     }
 
@@ -102,6 +105,7 @@ class LiveServerTest {
         stopServers();
         liveDelayedSendingStrategy.stop();
         clusterFactory.logStats();
+        testExecutorService.shutdown();
     }
 
     @Test
@@ -126,15 +130,14 @@ class LiveServerTest {
 
     @Test
     void willProgressWithFailures() throws InterruptedException, ExecutionException {
-        ScheduledExecutorService executorService = Executors.newScheduledThreadPool(10);
-        Future<?> counterClientThread = executorService.submit(() -> {
+        Future<?> counterClientThread = testExecutorService.submit(() -> {
             try {
                 countUp();
             } catch (ExecutionException | InterruptedException ex) {
                 fail(ex);
             }
         });
-        ScheduledFuture<?> periodicLeaderKiller = executorService.scheduleAtFixedRate(this::killThenResurrectCurrentLeader, 5, 5, SECONDS);
+        ScheduledFuture<?> periodicLeaderKiller = testExecutorService.scheduleAtFixedRate(this::killThenResurrectCurrentLeader, 5, 5, SECONDS);
 
         counterClientThread.get();
         periodicLeaderKiller.cancel(false);

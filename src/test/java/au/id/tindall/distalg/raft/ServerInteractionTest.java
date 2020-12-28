@@ -29,14 +29,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
 
 import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,7 +66,7 @@ class ServerInteractionTest {
     private void setUpFactories() {
         allServers = new HashMap<>();
         queuedSendingStrategy = new QueuedSendingStrategy();
-        when(electionSchedulerFactory.createElectionScheduler(any(ScheduledExecutorService.class))).thenReturn(electionScheduler);
+        when(electionSchedulerFactory.createElectionScheduler()).thenReturn(electionScheduler);
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         serverFactory = new ServerFactory<>(
                 new TestClusterFactory(queuedSendingStrategy, allServers),
