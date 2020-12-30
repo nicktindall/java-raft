@@ -11,8 +11,8 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
 
     private final ID id;
     private final LogStorage logStorage;
-    private Term currentTerm;
-    private ID votedFor;
+    private volatile Term currentTerm;
+    private volatile ID votedFor;
 
     public InMemoryPersistentState(ID id) {
         this.id = id;

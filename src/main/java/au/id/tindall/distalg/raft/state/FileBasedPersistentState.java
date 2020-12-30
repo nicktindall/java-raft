@@ -39,8 +39,8 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private final IDSerializer<ID> idSerializer;
 
     private ID id;
-    private Term currentTerm;
-    private ID votedFor;
+    private volatile Term currentTerm;
+    private volatile ID votedFor;
 
     public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateFilesPrefix, ID serverId) {
         PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath(stateFilesPrefix));
