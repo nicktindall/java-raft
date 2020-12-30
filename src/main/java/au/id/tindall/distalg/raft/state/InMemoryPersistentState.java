@@ -6,18 +6,20 @@ import au.id.tindall.distalg.raft.log.storage.LogStorage;
 
 import java.io.Serializable;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class InMemoryPersistentState<ID extends Serializable> implements PersistentState<ID> {
 
     private final ID id;
     private final LogStorage logStorage;
-    private volatile Term currentTerm;
-    private volatile ID votedFor;
+    private final AtomicReference<Term> currentTerm;
+    private final AtomicReference<ID> votedFor;
 
     public InMemoryPersistentState(ID id) {
         this.id = id;
         this.logStorage = new InMemoryLogStorage();
-        this.currentTerm = new Term(0);
+        this.currentTerm = new AtomicReference<>(new Term(0));
+        this.votedFor = new AtomicReference<>();
     }
 
     @Override
@@ -27,28 +29,29 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
 
     @Override
     public void setCurrentTerm(Term term) {
+        Term currentTerm = this.currentTerm.get();
         if (term.isLessThan(currentTerm)) {
             throw new IllegalArgumentException("Term increases monotonically");
         }
         if (term.isGreaterThan(currentTerm)) {
-            this.votedFor = null;
-            this.currentTerm = term;
+            this.votedFor.set(null);
+            this.currentTerm.set(term);
         }
     }
 
     @Override
     public Term getCurrentTerm() {
-        return currentTerm;
+        return currentTerm.get();
     }
 
     @Override
     public void setVotedFor(ID votedFor) {
-        this.votedFor = votedFor;
+        this.votedFor.set(votedFor);
     }
 
     @Override
     public Optional<ID> getVotedFor() {
-        return Optional.ofNullable(votedFor);
+        return Optional.ofNullable(votedFor.get());
     }
 
     @Override
