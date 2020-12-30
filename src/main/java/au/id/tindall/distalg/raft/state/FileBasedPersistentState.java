@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.READ;
@@ -39,8 +40,8 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private final IDSerializer<ID> idSerializer;
 
     private ID id;
-    private volatile Term currentTerm;
-    private volatile ID votedFor;
+    private final AtomicReference<Term> currentTerm;
+    private final AtomicReference<ID> votedFor;
 
     public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateFilesPrefix, ID serverId) {
         PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath(stateFilesPrefix));
@@ -73,12 +74,14 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
      * Create a new file-based persistent state
      */
     public FileBasedPersistentState(LogStorage logStorage, Path path, IDSerializer<ID> idSerializer, ID id) {
+        this.currentTerm = new AtomicReference<>();
+        this.votedFor = new AtomicReference<>();
         try {
             this.logStorage = logStorage;
             this.fileChannel = FileChannel.open(path, CREATE_NEW, READ, WRITE, SYNC);
             this.idSerializer = idSerializer;
             this.id = id;
-            this.currentTerm = new Term(0);
+            this.currentTerm.set(new Term(0));
             writeToStateFile();
         } catch (IOException e) {
             throw new RuntimeException("Unable to create new state file", e);
@@ -89,6 +92,8 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
      * Load an existing file-based persistent state
      */
     public FileBasedPersistentState(LogStorage logStorage, Path path, IDSerializer<ID> idSerializer) {
+        this.currentTerm = new AtomicReference<>();
+        this.votedFor = new AtomicReference<>();
         try {
             this.logStorage = logStorage;
             this.fileChannel = FileChannel.open(path, READ, WRITE, SYNC);
@@ -102,10 +107,10 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private void readFromStateFile() {
         try {
             int idLength = readIntFrom(START_OF_ID_LENGTH);
-            currentTerm = new Term(readIntFrom(START_OF_CURRENT_TERM));
+            currentTerm.set(new Term(readIntFrom(START_OF_CURRENT_TERM)));
             int votedForLength = readIntFrom(START_OF_VOTED_FOR_LENGTH);
             id = readIdFrom(START_OF_ID, idLength);
-            votedFor = readIdFrom(START_OF_ID + idLength, votedForLength);
+            votedFor.set(readIdFrom(START_OF_ID + idLength, votedForLength));
         } catch (IOException e) {
             throw new RuntimeException("Error reading from state file", e);
         }
@@ -131,9 +136,10 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private void writeToStateFile() {
         try {
             ByteBuffer idBytes = idSerializer.serialize(id);
-            ByteBuffer votedForBytes = votedFor != null ? idSerializer.serialize(votedFor) : ByteBuffer.allocate(0);
+            ID votedForId = votedFor.get();
+            ByteBuffer votedForBytes = votedForId != null ? idSerializer.serialize(votedForId) : ByteBuffer.allocate(0);
             writeIntTo(START_OF_ID_LENGTH, idBytes.capacity());
-            writeIntTo(START_OF_CURRENT_TERM, currentTerm.getNumber());
+            writeIntTo(START_OF_CURRENT_TERM, currentTerm.get().getNumber());
             writeIntTo(START_OF_VOTED_FOR_LENGTH, votedForBytes.capacity());
             fileChannel.write(idBytes, START_OF_ID);
             fileChannel.write(votedForBytes, START_OF_ID + idBytes.capacity());
@@ -157,31 +163,32 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
 
     @Override
     public void setCurrentTerm(Term term) {
-        if (term.isGreaterThan(this.currentTerm)) {
-            this.currentTerm = term;
-            this.votedFor = null;
+        Term currentTerm = this.currentTerm.get();
+        if (term.isGreaterThan(currentTerm)) {
+            this.currentTerm.set(term);
+            this.votedFor.set(null);
             writeToStateFile();
-        } else if (term.isLessThan(this.currentTerm)) {
+        } else if (term.isLessThan(currentTerm)) {
             throw new IllegalArgumentException("Attempted to reduce current term!");
         }
     }
 
     @Override
     public Term getCurrentTerm() {
-        return this.currentTerm;
+        return this.currentTerm.get();
     }
 
     @Override
     public void setVotedFor(ID votedFor) {
         if (!Objects.equals(this.votedFor, votedFor)) {
-            this.votedFor = votedFor;
+            this.votedFor.set(votedFor);
             writeToStateFile();
         }
     }
 
     @Override
     public Optional<ID> getVotedFor() {
-        return Optional.ofNullable(this.votedFor);
+        return Optional.ofNullable(this.votedFor.get());
     }
 
     @Override
