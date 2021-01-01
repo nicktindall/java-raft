@@ -19,8 +19,8 @@ public class LogReplicator<ID extends Serializable> {
     private final Cluster<ID> cluster;
     private final ID followerId;
     private final int maxBatchSize;
-    private int matchIndex;
-    private int nextIndex;
+    private volatile int matchIndex;
+    private volatile int nextIndex;
     private final ReplicationScheduler replicationScheduler;
 
     public LogReplicator(Log log, Term term, Cluster<ID> cluster, ID followerId, int maxBatchSize, int nextIndex, ReplicationScheduler replicationScheduler) {
@@ -48,9 +48,10 @@ public class LogReplicator<ID extends Serializable> {
     }
 
     private void sendAppendEntriesRequest() {
-        int prevLogIndex = nextIndex - 1;
+        int nextIndexToSend = nextIndex;    // This can change, take a copy
+        int prevLogIndex = nextIndexToSend - 1;
         Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
-        List<LogEntry> entriesToReplicate = getEntriesToReplicate(log, nextIndex);
+        List<LogEntry> entriesToReplicate = getEntriesToReplicate(log, nextIndexToSend);
         cluster.sendAppendEntriesRequest(term, followerId,
                 prevLogIndex, prevLogTerm, entriesToReplicate,
                 log.getCommitIndex());
@@ -62,12 +63,12 @@ public class LogReplicator<ID extends Serializable> {
                 : Optional.empty();
     }
 
-    public void logSuccessResponse(int lastAppendedIndex) {
+    public synchronized void logSuccessResponse(int lastAppendedIndex) {
         nextIndex = Math.max(lastAppendedIndex + 1, nextIndex);
         matchIndex = Math.max(lastAppendedIndex, matchIndex);
     }
 
-    public void logFailedResponse() {
+    public synchronized void logFailedResponse() {
         nextIndex = max(nextIndex - 1, 1);
     }
 

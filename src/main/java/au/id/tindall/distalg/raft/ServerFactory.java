@@ -17,8 +17,6 @@ import au.id.tindall.distalg.raft.statemachine.StateMachine;
 import au.id.tindall.distalg.raft.statemachine.StateMachineFactory;
 
 import java.io.Serializable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 public class ServerFactory<ID extends Serializable> {
 
@@ -48,13 +46,12 @@ public class ServerFactory<ID extends Serializable> {
 
     public Server<ID> create(PersistentState<ID> persistentState) {
         Log log = logFactory.createLog(persistentState.getLogStorage());
-        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(5);
         ClientSessionStore clientSessionStore = clientSessionStoreFactory.create(maxClientSessions);
         clientSessionStore.startListeningForClientRegistrations(log);
         StateMachine stateMachine = stateMachineFactory.createStateMachine();
         CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore);
         commandExecutor.startListeningForCommittedCommands(log);
-        ElectionScheduler<ID> electionScheduler = electionSchedulerFactory.createElectionScheduler(scheduledExecutorService);
+        ElectionScheduler<ID> electionScheduler = electionSchedulerFactory.createElectionScheduler();
         Server<ID> server = new Server<>(persistentState, new ServerStateFactory<>(persistentState, log, clusterFactory.createForNode(persistentState.getId()), pendingResponseRegistryFactory,
                 logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler), stateMachine);
         electionScheduler.setServer(server);

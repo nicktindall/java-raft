@@ -5,6 +5,7 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.comms.LiveDelayedSendingStrategy;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
+import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounter;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounterClient;
@@ -13,6 +14,7 @@ import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
+import au.id.tindall.distalg.raft.threading.NamedThreadFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
@@ -20,10 +22,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -54,14 +57,15 @@ class LiveServerTest {
 
     private TestClusterFactory clusterFactory;
     private Map<Long, Server<Long>> allServers;
-    private Map<Long, PersistentState<Long>> allPersistentStates;
     private ServerFactory<Long> serverFactory;
     private LiveDelayedSendingStrategy liveDelayedSendingStrategy;
+    private ScheduledExecutorService testExecutorService;
     @TempDir
     Path stateFileDirectory;
 
     @BeforeEach
     void setUp() {
+        testExecutorService = Executors.newScheduledThreadPool(10, new NamedThreadFactory("test-threads"));
         setUpFactories();
         createServerAndState(1L);
         createServerAndState(2L);
@@ -71,7 +75,6 @@ class LiveServerTest {
 
     private void setUpFactories() {
         allServers = new ConcurrentHashMap<>();
-        allPersistentStates = new HashMap<>();
         liveDelayedSendingStrategy = new LiveDelayedSendingStrategy(MINIMUM_MESSAGE_DELAY, MAXIMUM_MESSAGE_DELAY);
         clusterFactory = new TestClusterFactory(liveDelayedSendingStrategy, allServers);
         serverFactory = new ServerFactory<>(
@@ -83,15 +86,19 @@ class LiveServerTest {
                 MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(),
                 MonotonicCounter::new,
-                new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS)
+                new ElectionSchedulerFactory<>(testExecutorService, MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS)
         );
     }
 
-    private void createServerAndState(long id) {
-        PersistentState<Long> persistentState = FileBasedPersistentState.create(stateFileDirectory.resolve(String.valueOf(id)), id);
-        Server<Long> server = serverFactory.create(persistentState);
-        allServers.put(id, server);
-        allPersistentStates.put(id, persistentState);
+    private Server<Long> createServerAndState(long id) {
+        try {
+            PersistentState<Long> persistentState = FileBasedPersistentState.createOrOpen(stateFileDirectory.resolve(String.valueOf(id)), id);
+            Server<Long> server = serverFactory.create(persistentState);
+            allServers.put(id, server);
+            return server;
+        } catch (IOException e) {
+            throw new RuntimeException("Error creating persistent state");
+        }
     }
 
     @AfterEach
@@ -99,6 +106,7 @@ class LiveServerTest {
         stopServers();
         liveDelayedSendingStrategy.stop();
         clusterFactory.logStats();
+        testExecutorService.shutdown();
     }
 
     @Test
@@ -123,24 +131,28 @@ class LiveServerTest {
 
     @Test
     void willProgressWithFailures() throws InterruptedException, ExecutionException {
-        ScheduledExecutorService executorService = Executors.newScheduledThreadPool(10);
-        Future<?> counterClientThread = executorService.submit(() -> {
+        Future<?> counterClientThread = testExecutorService.submit(() -> {
             try {
                 countUp();
             } catch (ExecutionException | InterruptedException ex) {
                 fail(ex);
             }
         });
-        ScheduledFuture<?> periodicLeaderKiller = executorService.scheduleAtFixedRate(this::killThenResurrectCurrentLeader, 5, 5, SECONDS);
+        ScheduledFuture<?> periodicLeaderKiller = testExecutorService.scheduleAtFixedRate(this::killThenResurrectCurrentLeader, 5, 5, SECONDS);
 
         counterClientThread.get();
         periodicLeaderKiller.cancel(false);
+        try {
+            periodicLeaderKiller.get();
+        } catch (CancellationException ex) {
+            // This is fine
+        }
         waitForAllServersToCatchUp();
     }
 
     private void waitForAllServersToCatchUp() {
-        allServers.values().forEach(
-                server -> await().atMost(1, MINUTES).until(() -> serverHasCaughtUp(server))
+        await().atMost(1, MINUTES).until(
+                () -> allServers.values().stream().map(this::serverHasCaughtUp).reduce(true, (a, b) -> a && b)
         );
     }
 
@@ -152,13 +164,12 @@ class LiveServerTest {
     private void killThenResurrectCurrentLeader() {
         Server<Long> currentLeader = getLeader().orElseThrow();
         Long killedServerId = currentLeader.getId();
-        PersistentState<Long> currentLeaderState = allPersistentStates.get(killedServerId);
         LOGGER.warn("Killing server " + killedServerId);
         currentLeader.stop();
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
 
-        // Start a new node pointing to the same persistent state
-        Server<Long> newCurrentLeader = serverFactory.create(currentLeaderState);
+        // Start a new node pointing to the same persistent state files
+        Server<Long> newCurrentLeader = createServerAndState(killedServerId);
         allServers.put(killedServerId, newCurrentLeader);
         newCurrentLeader.start();
         LOGGER.warn("Server " + killedServerId + " restarted");
@@ -187,6 +198,12 @@ class LiveServerTest {
     }
 
     private void stopServers() {
-        allServers.values().forEach(Server::stop);
+        allServers.values().forEach(server -> {
+            try {
+                server.stop();
+            } catch (NotRunningException e) {
+                // This is fine, leader killer might have already done the job for us
+            }
+        });
     }
 }

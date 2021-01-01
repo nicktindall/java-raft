@@ -4,7 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HeartbeatReplicationScheduler implements ReplicationScheduler {
@@ -14,8 +13,7 @@ public class HeartbeatReplicationScheduler implements ReplicationScheduler {
     private final long maxDelayBetweenMessagesInMilliseconds;
     private final ExecutorService executorService;
     private final AtomicBoolean replicationScheduled;
-    private boolean running;
-    private Future<?> future;
+    private volatile boolean running;
     private Runnable sendAppendEntriesRequest;
 
     public HeartbeatReplicationScheduler(long maxDelayBetweenMessagesInMilliseconds, ExecutorService executorService) {
@@ -31,15 +29,23 @@ public class HeartbeatReplicationScheduler implements ReplicationScheduler {
     }
 
     @Override
-    public void start() {
+    public synchronized void start() {
+        if (running) {
+            throw new IllegalStateException("Attempted to start replication scheduler twice");
+        }
         running = true;
-        future = executorService.submit(this::run);
+        executorService.submit(this::run);
     }
 
     @Override
-    public void stop() {
+    public synchronized void stop() {
+        if (!running) {
+            throw new IllegalStateException("Attempted to stop non-running replication scheduler");
+        }
         running = false;
-        future.cancel(true);
+        synchronized (replicationScheduled) {
+            replicationScheduled.notifyAll();
+        }
     }
 
     private Void run() throws InterruptedException {
