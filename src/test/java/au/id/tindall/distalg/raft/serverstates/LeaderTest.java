@@ -47,6 +47,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -168,6 +170,41 @@ class LeaderTest {
                 InOrder inOrder = inOrder(otherServerLogReplicator, log);
                 inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
                 inOrder.verify(log).updateCommitIndex(List.of(OTHER_SERVER_MATCH_INDEX), CURRENT_TERM);
+            }
+
+            @Nested
+            class AndOurLeadershipTransferTargetBecomesUpToDate {
+
+                @BeforeEach
+                void setUp() {
+                    leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
+                    reset(cluster);
+
+                    when(otherServerLogReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
+                    when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
+                }
+
+                @Test
+                void willSendTimeoutNowMessageToFollowerAndRemainInLeaderState() {
+                    Result<Long> result = leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
+                    verify(cluster).sendTimeoutNowRequest(CURRENT_TERM, OTHER_SERVER_ID);
+                    assertThat(result).usingRecursiveComparison().isEqualTo(complete(leader));
+                }
+
+                @Test
+                void willNotRepeatTimeoutNowMessagesToFollowerInsideMinimumInterval() {
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
+                    verify(cluster, times(1)).sendTimeoutNowRequest(CURRENT_TERM, OTHER_SERVER_ID);
+                }
+
+                @Test
+                void willRepeatTimeoutNowMessageToFollowerAfterMinimumInterval() throws InterruptedException {
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
+                    Thread.sleep(200);
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
+                    verify(cluster, times(2)).sendTimeoutNowRequest(CURRENT_TERM, OTHER_SERVER_ID);
+                }
             }
 
             @Nested

@@ -22,6 +22,8 @@ import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,11 +42,13 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     private static final Logger LOGGER = getLogger();
+    private static final Duration MINIMUM_INTERVAL_BETWEEN_TIMEOUT_NOW_MESSAGES = Duration.ofMillis(100);
 
     private final Map<ID, LogReplicator<ID>> replicators;
     private final PendingResponseRegistry pendingResponseRegistry;
     private final ClientSessionStore clientSessionStore;
     private ID transferringLeadershipTo;
+    private Instant lastTimeoutNowMessageSent;
 
     public Leader(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
                   LogReplicatorFactory<ID> logReplicatorFactory, ServerStateFactory<ID> serverStateFactory,
@@ -111,9 +115,16 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     }
 
     private void sendTimeoutNowRequestIfReadyToTransfer() {
-        if (transferringLeadershipTo != null && replicators.get(transferringLeadershipTo).getMatchIndex() == getLog().getLastLogIndex()) {
+        if (transferringLeadershipTo != null
+                && replicators.get(transferringLeadershipTo).getMatchIndex() == getLog().getLastLogIndex()
+                && minimumIntervalBetweenTimeoutNowMessagesHasPassed()) {
             cluster.sendTimeoutNowRequest(persistentState.getCurrentTerm(), transferringLeadershipTo);
+            lastTimeoutNowMessageSent = Instant.now();
         }
+    }
+
+    private boolean minimumIntervalBetweenTimeoutNowMessagesHasPassed() {
+        return lastTimeoutNowMessageSent == null || lastTimeoutNowMessageSent.plus(MINIMUM_INTERVAL_BETWEEN_TIMEOUT_NOW_MESSAGES).isBefore(Instant.now());
     }
 
     private void handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {
