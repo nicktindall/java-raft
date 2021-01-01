@@ -150,6 +150,27 @@ class LiveServerTest {
         waitForAllServersToCatchUp();
     }
 
+    @Test
+    void willProgressWithLeadershipTransfers() throws ExecutionException, InterruptedException {
+        Future<?> counterClientThread = testExecutorService.submit(() -> {
+            try {
+                countUp();
+            } catch (ExecutionException | InterruptedException ex) {
+                fail(ex);
+            }
+        });
+        ScheduledFuture<?> periodicTransferTrigger = testExecutorService.scheduleAtFixedRate(this::triggerLeadershipTransfer, 5, 5, SECONDS);
+
+        counterClientThread.get();
+        periodicTransferTrigger.cancel(false);
+        try {
+            periodicTransferTrigger.get();
+        } catch (CancellationException ex) {
+            // This is fine
+        }
+        waitForAllServersToCatchUp();
+    }
+
     private void waitForAllServersToCatchUp() {
         await().atMost(1, MINUTES).until(
                 () -> allServers.values().stream().map(this::serverHasCaughtUp).reduce(true, (a, b) -> a && b)
@@ -173,6 +194,20 @@ class LiveServerTest {
         allServers.put(killedServerId, newCurrentLeader);
         newCurrentLeader.start();
         LOGGER.warn("Server " + killedServerId + " restarted");
+    }
+
+    private void triggerLeadershipTransfer() {
+        Server<Long> currentLeader = getLeader().orElseThrow();
+        long currentLeaderId = currentLeader.getId();
+        LOGGER.warn("Telling server {} to transfer leadership", currentLeaderId);
+        currentLeader.transferLeadership();
+        await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
+    }
+
+    private boolean serverIsNoLongerLeader(long serverId) {
+        return getLeader()
+                .filter(server -> server.getId() != serverId)
+                .isPresent();
     }
 
     private void countUp() throws ExecutionException, InterruptedException {

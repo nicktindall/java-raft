@@ -68,6 +68,7 @@ public class MonotonicCounterClient {
             } else {
                 LOGGER.warn("Server responded with status {}, retrying", commandResponse.getStatus());
                 retries++;
+                Thread.sleep(100L);
             }
         }
         throw new RuntimeException("Maximum retries exceeded!");
