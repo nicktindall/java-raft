@@ -18,7 +18,7 @@ The parts of the algorithm I have implemented (according to the thesis chapters)
 | 3.6.2 | Committing entries from previous terms | :heavy_check_mark: |
 | 3.7 | Follower and candidate crashes | :heavy_check_mark: |
 | 3.8 | Persisted state and server restarts | :heavy_check_mark: |
-| 3.10 | Leadership transfer extension | :x: |
+| 3.10 | Leadership transfer extension | :heavy_check_mark: |
 | 4 | Cluster membership changes | :x: |
 | 5 | Log compaction | :x: |
 | 6.1 | Finding the cluster | :x: |
