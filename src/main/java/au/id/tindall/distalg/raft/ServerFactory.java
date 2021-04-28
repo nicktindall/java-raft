@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
+import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.comms.ClusterFactory;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
@@ -10,6 +11,7 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
+import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
@@ -52,8 +54,10 @@ public class ServerFactory<ID extends Serializable> {
         CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore);
         commandExecutor.startListeningForCommittedCommands(log);
         ElectionScheduler<ID> electionScheduler = electionSchedulerFactory.createElectionScheduler();
-        Server<ID> server = new Server<>(persistentState, new ServerStateFactory<>(persistentState, log, clusterFactory.createForNode(persistentState.getId()), pendingResponseRegistryFactory,
-                logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler), stateMachine);
+        Cluster<ID> cluster = clusterFactory.createForNode(persistentState.getId());
+        LeadershipTransferFactory<ID> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState);
+        Server<ID> server = new Server<>(persistentState, new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
+                logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory), stateMachine);
         electionScheduler.setServer(server);
         return server;
     }

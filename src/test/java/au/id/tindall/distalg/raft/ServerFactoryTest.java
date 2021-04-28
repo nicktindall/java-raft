@@ -12,6 +12,7 @@ import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
+import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
@@ -32,7 +33,7 @@ import static org.mockito.Mockito.when;
 class ServerFactoryTest {
 
     private static final Long SERVER_ID = 12345L;
-    public static final int MAX_CLIENT_SESSIONS = 999;
+    private static final int MAX_CLIENT_SESSIONS = 999;
 
     @Mock
     private ClusterFactory<Long> clusterFactory;
@@ -85,7 +86,7 @@ class ServerFactoryTest {
     @Test
     void createsServersAndTheirDependencies() {
         assertThat(serverFactory.create(persistentState)).usingRecursiveComparison().isEqualTo(new Server<>(persistentState, new ServerStateFactory<>(persistentState,
-                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler), stateMachine));
+                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, new LeadershipTransferFactory<>(cluster, persistentState)), stateMachine));
     }
 
     @Test

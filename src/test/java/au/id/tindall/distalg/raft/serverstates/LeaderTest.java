@@ -21,6 +21,8 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
+import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
+import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -37,18 +39,14 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -81,16 +79,21 @@ class LeaderTest {
     private ClientSessionStore clientSessionStore;
     @Mock
     private PersistentState<Long> persistentState;
+    @Mock
+    private LeadershipTransferFactory<Long> leadershipTransferFactory;
+    @Mock
+    private LeadershipTransfer<Long> leadershipTransfer;
 
     private Leader<Long> leader;
 
     @BeforeEach
     void setUp() {
+        when(leadershipTransferFactory.create(any())).thenReturn(leadershipTransfer);
         when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
         when(logReplicatorFactory.createLogReplicator(log, CURRENT_TERM, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
-        leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore);
+        leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, leadershipTransferFactory);
     }
 
     @Nested
@@ -133,12 +136,11 @@ class LeaderTest {
         void willStopReplicators() {
             verify(otherServerLogReplicator).stop();
         }
-    }
 
-    @Test
-    void leaveState_WillDisposeOfPendingResponseRegistry() {
-        leader.leaveState();
-        verify(pendingResponseRegistry).dispose();
+        @Test
+        void willDisposeOfPendingResponseRegistry() {
+            verify(pendingResponseRegistry).dispose();
+        }
     }
 
     @Nested
@@ -173,37 +175,18 @@ class LeaderTest {
             }
 
             @Nested
-            class AndOurLeadershipTransferTargetBecomesUpToDate {
+            class AndALeadershipTransferIsInProgress {
 
                 @BeforeEach
                 void setUp() {
-                    leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
-                    reset(cluster);
-
-                    when(otherServerLogReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
-                    when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
+                    when(leadershipTransfer.isInProgress()).thenReturn(true);
                 }
 
                 @Test
-                void willSendTimeoutNowMessageToFollowerAndRemainInLeaderState() {
-                    Result<Long> result = leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
-                    verify(cluster).sendTimeoutNowRequest(CURRENT_TERM, OTHER_SERVER_ID);
-                    assertThat(result).usingRecursiveComparison().isEqualTo(complete(leader));
-                }
+                void willSendTimeoutNowMessageIfReadyToTransfer() {
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
 
-                @Test
-                void willNotRepeatTimeoutNowMessagesToFollowerInsideMinimumInterval() {
-                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
-                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
-                    verify(cluster, times(1)).sendTimeoutNowRequest(CURRENT_TERM, OTHER_SERVER_ID);
-                }
-
-                @Test
-                void willRepeatTimeoutNowMessageToFollowerAfterMinimumInterval() throws InterruptedException {
-                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
-                    Thread.sleep(200);
-                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
-                    verify(cluster, times(2)).sendTimeoutNowRequest(CURRENT_TERM, OTHER_SERVER_ID);
+                    verify(leadershipTransfer).sendTimeoutNowRequestIfReadyToTransfer();
                 }
             }
 
@@ -335,7 +318,7 @@ class LeaderTest {
 
             @BeforeEach
             void setUp() {
-                leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
+                when(leadershipTransfer.isInProgress()).thenReturn(true);
             }
 
             @Test
@@ -357,7 +340,7 @@ class LeaderTest {
 
             @BeforeEach
             void setUp() {
-                leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
+                when(leadershipTransfer.isInProgress()).thenReturn(true);
             }
 
             @Test
@@ -428,40 +411,11 @@ class LeaderTest {
     @Nested
     class HandleTransferLeadershipMessage {
 
-        @Nested
-        class AndAFollowerIsUpToDate {
+        @Test
+        void willStartLeadershipTransfer() {
+            leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
 
-            @BeforeEach
-            void setUp() {
-                when(otherServerLogReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
-                when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
-            }
-
-            @Test
-            void willSendTimeoutNowMessageToFollowerAndRemainInLeaderState() {
-                Result<Long> result = leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
-
-                verify(cluster).sendTimeoutNowRequest(CURRENT_TERM, OTHER_SERVER_ID);
-                assertThat(result).usingRecursiveComparison().isEqualTo(complete(leader));
-            }
-        }
-
-        @Nested
-        class AndNoFollowerIsUpToDate {
-
-            @BeforeEach
-            void setUp() {
-                when(otherServerLogReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
-                when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX + 1);
-            }
-
-            @Test
-            void willNotSendTimeoutNowMessageToFollowerAndRemainInLeaderState() {
-                Result<Long> result = leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
-
-                verify(cluster, never()).sendTimeoutNowRequest(any(Term.class), anyLong());
-                assertThat(result).usingRecursiveComparison().isEqualTo(complete(leader));
-            }
+            verify(leadershipTransfer).start();
         }
     }
 }

@@ -18,12 +18,12 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
+import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
+import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,27 +42,25 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     private static final Logger LOGGER = getLogger();
-    private static final Duration MINIMUM_INTERVAL_BETWEEN_TIMEOUT_NOW_MESSAGES = Duration.ofMillis(100);
 
     private final Map<ID, LogReplicator<ID>> replicators;
     private final PendingResponseRegistry pendingResponseRegistry;
     private final ClientSessionStore clientSessionStore;
-    private ID transferringLeadershipTo;
-    private Instant lastTimeoutNowMessageSent;
+    private final LeadershipTransfer<ID> leadershipTransfer;
 
     public Leader(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
                   LogReplicatorFactory<ID> logReplicatorFactory, ServerStateFactory<ID> serverStateFactory,
-                  ClientSessionStore clientSessionStore) {
+                  ClientSessionStore clientSessionStore, LeadershipTransferFactory<ID> leadershipTransferFactory) {
         super(persistentState, log, cluster, serverStateFactory, persistentState.getId());
         replicators = createReplicators(logReplicatorFactory);
         this.pendingResponseRegistry = pendingResponseRegistry;
         this.clientSessionStore = clientSessionStore;
-        this.transferringLeadershipTo = null;
+        this.leadershipTransfer = leadershipTransferFactory.create(replicators);
     }
 
     @Override
     protected CompletableFuture<RegisterClientResponse<ID>> handle(RegisterClientRequest<ID> registerClientRequest) {
-        if (transferringLeadershipTo != null) {
+        if (leadershipTransfer.isInProgress()) {
             return completedFuture(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, null));
         }
         int logEntryIndex = log.getNextLogIndex();
@@ -74,7 +72,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     protected CompletableFuture<ClientRequestResponse<ID>> handle(ClientRequestRequest<ID> clientRequestRequest) {
-        if (transferringLeadershipTo != null) {
+        if (leadershipTransfer.isInProgress()) {
             return completedFuture(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
         }
         if (!clientSessionStore.hasSession(clientRequestRequest.getClientId())) {
@@ -92,8 +90,8 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     protected Result<ID> handle(AppendEntriesResponse<ID> appendEntriesResponse) {
         if (messageIsNotStale(appendEntriesResponse)) {
             handleCurrentAppendResponse(appendEntriesResponse);
-            if (appendEntriesResponse.isSuccess()) {
-                sendTimeoutNowRequestIfReadyToTransfer();
+            if (appendEntriesResponse.isSuccess() && leadershipTransfer.isInProgress()) {
+                leadershipTransfer.sendTimeoutNowRequestIfReadyToTransfer();
             }
         }
         return complete(this);
@@ -101,30 +99,13 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     protected Result<ID> handle(TransferLeadershipMessage<ID> transferLeadershipMessage) {
-        transferringLeadershipTo = replicators.entrySet().stream()
-                .min((replicator1, replicator2) -> replicator2.getValue().getMatchIndex() - replicator1.getValue().getMatchIndex())
-                .orElseThrow(() -> new IllegalStateException("No followers to transfer to!"))
-                .getKey();
-        sendTimeoutNowRequestIfReadyToTransfer();
+        leadershipTransfer.start();
         return complete(this);
     }
 
     @Override
     public ServerStateType getServerStateType() {
         return LEADER;
-    }
-
-    private void sendTimeoutNowRequestIfReadyToTransfer() {
-        if (transferringLeadershipTo != null
-                && replicators.get(transferringLeadershipTo).getMatchIndex() == getLog().getLastLogIndex()
-                && minimumIntervalBetweenTimeoutNowMessagesHasPassed()) {
-            cluster.sendTimeoutNowRequest(persistentState.getCurrentTerm(), transferringLeadershipTo);
-            lastTimeoutNowMessageSent = Instant.now();
-        }
-    }
-
-    private boolean minimumIntervalBetweenTimeoutNowMessagesHasPassed() {
-        return lastTimeoutNowMessageSent == null || lastTimeoutNowMessageSent.plus(MINIMUM_INTERVAL_BETWEEN_TIMEOUT_NOW_MESSAGES).isBefore(Instant.now());
     }
 
     private void handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {
