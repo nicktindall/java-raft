@@ -100,6 +100,29 @@ public class LeadershipTransferTest {
     }
 
     @Nested
+    class IsInProgress {
+
+        @Test
+        void shouldReturnFalseWhenATransferIsInProgress() {
+            assertThat(leadershipTransfer.isInProgress()).isFalse();
+        }
+
+        @Test
+        void shouldReturnTrueWhenATransferIsInProgress() {
+            leadershipTransfer.start();
+            assertThat(leadershipTransfer.isInProgress()).isTrue();
+        }
+
+        @Test
+        void shouldReturnFalseAfterTransferHasTimedOut() {
+            leadershipTransfer.start();
+            assertThat(leadershipTransfer.isInProgress()).isTrue();
+            currentTimeMillis += 5100;
+            assertThat(leadershipTransfer.isInProgress()).isFalse();
+        }
+    }
+
+    @Nested
     class SendTimeoutNowRequestIfReadyToTransfer {
 
         @Test

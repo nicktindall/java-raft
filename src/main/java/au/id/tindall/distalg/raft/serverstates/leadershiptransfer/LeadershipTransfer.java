@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.serverstates.leadershiptransfer;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.replication.LogReplicator;
 import au.id.tindall.distalg.raft.state.PersistentState;
+import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
 import java.time.Duration;
@@ -13,8 +14,10 @@ import java.util.function.Supplier;
 
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
+import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class LeadershipTransfer<ID extends Serializable> {
+    private static final Logger LOGGER = getLogger();
 
     private static final Duration MINIMUM_INTERVAL_BETWEEN_TIMEOUT_NOW_MESSAGES = Duration.ofMillis(100);
     private static final Duration INDIVIDUAL_TARGET_TIMEOUT = Duration.ofMillis(1000);
@@ -40,6 +43,7 @@ public class LeadershipTransfer<ID extends Serializable> {
     }
 
     public boolean isInProgress() {
+        abortTransferIfTimeoutHasBeenExceeded();
         return transferTarget != null;
     }
 
@@ -53,15 +57,10 @@ public class LeadershipTransfer<ID extends Serializable> {
     }
 
     public void sendTimeoutNowRequestIfReadyToTransfer() {
-        abortTransferIfTimeoutHasBeenExceeded();
         if (!isInProgress()) {
             return;
         }
-        if (transferTarget.hasTimedOut()) {
-            if (replicators.size() > 1) {
-                selectLeadershipTransferTarget(singleton(transferTarget.id));
-            }
-        }
+        selectNewTargetIfTimeoutHasBeenExceededAndThereAreOthersAvailable();
         if (transferTarget.isUpToDate()
                 && transferTarget.minimumIntervalBetweenTimeoutNowMessagesHasPassed()) {
             cluster.sendTimeoutNowRequest(persistentState.getCurrentTerm(), transferTarget.id);
@@ -69,8 +68,17 @@ public class LeadershipTransfer<ID extends Serializable> {
         }
     }
 
+    private void selectNewTargetIfTimeoutHasBeenExceededAndThereAreOthersAvailable() {
+        if (transferTarget.hasTimedOut()) {
+            if (replicators.size() > 1) {
+                selectLeadershipTransferTarget(singleton(transferTarget.id));
+            }
+        }
+    }
+
     private void abortTransferIfTimeoutHasBeenExceeded() {
         if (transferStartTime != null && transferStartTime.plus(LEADERSHIP_TRANSFER_TIMEOUT).isBefore(currentInstant())) {
+            LOGGER.debug("Leadership transfer timeout exceeded, aborting");
             transferTarget = null;
             transferStartTime = null;
         }
