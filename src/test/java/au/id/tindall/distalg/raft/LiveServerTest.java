@@ -10,7 +10,6 @@ import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounter;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounterClient;
 import au.id.tindall.distalg.raft.replication.HeartbeatReplicationSchedulerFactory;
-import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
@@ -81,12 +80,13 @@ class LiveServerTest {
                 clusterFactory,
                 new LogFactory(),
                 new PendingResponseRegistryFactory(),
-                new LogReplicatorFactory<>(MAX_BATCH_SIZE, new HeartbeatReplicationSchedulerFactory(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS)),
                 new ClientSessionStoreFactory(),
                 MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(),
                 MonotonicCounter::new,
-                new ElectionSchedulerFactory<>(testExecutorService, MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS)
+                new ElectionSchedulerFactory<>(testExecutorService, MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
+                MAX_BATCH_SIZE,
+                new HeartbeatReplicationSchedulerFactory(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS)
         );
     }
 

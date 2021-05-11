@@ -11,6 +11,7 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
@@ -34,6 +35,7 @@ class ServerFactoryTest {
 
     private static final Long SERVER_ID = 12345L;
     private static final int MAX_CLIENT_SESSIONS = 999;
+    private static final int MAX_BATCH_SIZE = 998;
 
     @Mock
     private ClusterFactory<Long> clusterFactory;
@@ -45,8 +47,6 @@ class ServerFactoryTest {
     private Log log;
     @Mock
     private PendingResponseRegistryFactory pendingResponseRegistryFactory;
-    @Mock
-    private LogReplicatorFactory<Long> logReplicatorFactory;
     @Mock
     private ClientSessionStoreFactory clientSessionStoreFactory;
     @Mock
@@ -67,6 +67,8 @@ class ServerFactoryTest {
     private PersistentState<Long> persistentState;
     @Mock
     private LogStorage logStorage;
+    @Mock
+    private ReplicationSchedulerFactory replicationSchedulerFactory;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
@@ -79,14 +81,15 @@ class ServerFactoryTest {
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
         when(electionSchedulerFactory.createElectionScheduler()).thenReturn(electionScheduler);
         when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore)).thenReturn(commandExecutor);
-        serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory);
+        serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
+                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory);
     }
 
     @Test
     void createsServersAndTheirDependencies() {
         assertThat(serverFactory.create(persistentState)).usingRecursiveComparison().isEqualTo(new Server<>(persistentState, new ServerStateFactory<>(persistentState,
-                log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, new LeadershipTransferFactory<>(cluster, persistentState)), stateMachine));
+                log, cluster, pendingResponseRegistryFactory, new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE, replicationSchedulerFactory),
+                clientSessionStore, commandExecutor, electionScheduler, new LeadershipTransferFactory<>(cluster, persistentState)), stateMachine));
     }
 
     @Test

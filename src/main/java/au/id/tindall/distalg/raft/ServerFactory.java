@@ -10,6 +10,7 @@ import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
@@ -25,25 +26,28 @@ public class ServerFactory<ID extends Serializable> {
     private final ClusterFactory<ID> clusterFactory;
     private final LogFactory logFactory;
     private final PendingResponseRegistryFactory pendingResponseRegistryFactory;
-    private final LogReplicatorFactory<ID> logReplicatorFactory;
     private final ClientSessionStoreFactory clientSessionStoreFactory;
     private final int maxClientSessions;
     private final CommandExecutorFactory commandExecutorFactory;
     private final StateMachineFactory stateMachineFactory;
     private final ElectionSchedulerFactory<ID> electionSchedulerFactory;
+    private final int maxBatchSize;
+    private final ReplicationSchedulerFactory replicationSchedulerFactory;
 
     public ServerFactory(ClusterFactory<ID> clusterFactory, LogFactory logFactory, PendingResponseRegistryFactory pendingResponseRegistryFactory,
-                         LogReplicatorFactory<ID> logReplicatorFactory, ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
-                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory<ID> electionSchedulerFactory) {
+                         ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
+                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory<ID> electionSchedulerFactory,
+                         int maxBatchSize, ReplicationSchedulerFactory replicationSchedulerFactory) {
         this.clusterFactory = clusterFactory;
         this.logFactory = logFactory;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
-        this.logReplicatorFactory = logReplicatorFactory;
         this.clientSessionStoreFactory = clientSessionStoreFactory;
         this.maxClientSessions = maxClientSessions;
         this.commandExecutorFactory = commandExecutorFactory;
         this.stateMachineFactory = stateMachineFactory;
         this.electionSchedulerFactory = electionSchedulerFactory;
+        this.maxBatchSize = maxBatchSize;
+        this.replicationSchedulerFactory = replicationSchedulerFactory;
     }
 
     public Server<ID> create(PersistentState<ID> persistentState) {
@@ -56,6 +60,7 @@ public class ServerFactory<ID extends Serializable> {
         ElectionScheduler<ID> electionScheduler = electionSchedulerFactory.createElectionScheduler();
         Cluster<ID> cluster = clusterFactory.createForNode(persistentState.getId());
         LeadershipTransferFactory<ID> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState);
+        LogReplicatorFactory<ID> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize, replicationSchedulerFactory);
         Server<ID> server = new Server<>(persistentState, new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
                 logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory), stateMachine);
         electionScheduler.setServer(server);

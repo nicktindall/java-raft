@@ -138,9 +138,8 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     }
 
     private Map<ID, LogReplicator<ID>> createReplicators(LogReplicatorFactory<ID> logReplicatorFactory) {
-        int defaultNextIndex = log.getNextLogIndex();
         return new HashMap<>(cluster.getOtherMemberIds().stream()
-                .collect(toMap(identity(), id -> logReplicatorFactory.createLogReplicator(log, persistentState.getCurrentTerm(), cluster, id, defaultNextIndex))));
+                .collect(toMap(identity(), logReplicatorFactory::createLogReplicator)));
     }
 
     @Override

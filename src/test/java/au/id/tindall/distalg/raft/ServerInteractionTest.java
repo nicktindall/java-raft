@@ -7,7 +7,6 @@ import au.id.tindall.distalg.raft.comms.TestClusterFactory;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.log.LogFactory;
-import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.SynchronousReplicationScheduler;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
@@ -72,12 +71,13 @@ class ServerInteractionTest {
                 new TestClusterFactory(queuedSendingStrategy, allServers),
                 new LogFactory(),
                 new PendingResponseRegistryFactory(),
-                new LogReplicatorFactory<>(MAX_BATCH_SIZE, SynchronousReplicationScheduler::new),
                 clientSessionStoreFactory,
                 MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(),
                 TestStateMachine::new,
-                electionSchedulerFactory
+                electionSchedulerFactory,
+                MAX_BATCH_SIZE,
+                SynchronousReplicationScheduler::new
         );
     }
 

@@ -46,6 +46,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -89,10 +90,10 @@ class LeaderTest {
     @BeforeEach
     void setUp() {
         when(leadershipTransferFactory.create(any())).thenReturn(leadershipTransfer);
-        when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
-        when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
+        lenient().when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
+        lenient().when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
-        when(logReplicatorFactory.createLogReplicator(log, CURRENT_TERM, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX)).thenReturn(otherServerLogReplicator);
+        when(logReplicatorFactory.createLogReplicator(OTHER_SERVER_ID)).thenReturn(otherServerLogReplicator);
         leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, leadershipTransferFactory);
     }
 
@@ -101,7 +102,7 @@ class LeaderTest {
 
         @Test
         void willCreateLogReplicators() {
-            verify(logReplicatorFactory).createLogReplicator(log, CURRENT_TERM, cluster, OTHER_SERVER_ID, NEXT_LOG_INDEX);
+            verify(logReplicatorFactory).createLogReplicator(OTHER_SERVER_ID);
         }
     }
 
