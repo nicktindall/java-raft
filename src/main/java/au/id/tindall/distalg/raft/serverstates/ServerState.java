@@ -11,6 +11,12 @@ import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
@@ -150,5 +156,23 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     public void leaveState() {
+    }
+
+    public CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest<ID> message) {
+        if (message instanceof AddServerRequest) {
+            return this.handle((AddServerRequest<ID>) message);
+        } else if (message instanceof RemoveServerRequest) {
+            return this.handle((RemoveServerRequest<ID>) message);
+        } else {
+            throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
+        }
+    }
+
+    public CompletableFuture<AddServerResponse> handle(AddServerRequest<ID> addServerRequest) {
+        return CompletableFuture.completedFuture(new AddServerResponse(AddServerResponse.Status.NOT_LEADER));
+    }
+
+    public CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<ID> removeServerRequest) {
+        return CompletableFuture.completedFuture(new RemoveServerResponse(RemoveServerResponse.Status.NOT_LEADER));
     }
 }

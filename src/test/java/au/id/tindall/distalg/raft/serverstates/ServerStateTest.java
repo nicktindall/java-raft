@@ -10,6 +10,10 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
@@ -200,6 +204,34 @@ class ServerStateTest {
             var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
 
             assertThat(serverState.handle(new TransferLeadershipMessage<>(TERM_0, SERVER_ID))).usingRecursiveComparison().isEqualTo(complete(serverState));
+        }
+    }
+
+    @Nested
+    class HandleAddServerRequest {
+
+        @Test
+        void willReturnNotLeader() throws ExecutionException, InterruptedException {
+            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+
+            var response = serverState.handle(new AddServerRequest<>(1234L));
+            assertThat(response).isCompleted();
+            assertThat(response.get()).usingRecursiveComparison()
+                    .isEqualTo(new AddServerResponse(AddServerResponse.Status.NOT_LEADER));
+        }
+    }
+
+    @Nested
+    class HandleRemoveServerRequest {
+
+        @Test
+        void willReturnNotLeader() throws ExecutionException, InterruptedException {
+            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+
+            var response = serverState.handle(new RemoveServerRequest<>(1234L));
+            assertThat(response).isCompleted();
+            assertThat(response.get()).usingRecursiveComparison()
+                    .isEqualTo(new RemoveServerResponse(RemoveServerResponse.Status.NOT_LEADER));
         }
     }
 

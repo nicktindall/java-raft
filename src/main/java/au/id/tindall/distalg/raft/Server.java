@@ -6,6 +6,8 @@ import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
@@ -50,6 +52,11 @@ public class Server<ID extends Serializable> {
     public synchronized CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
         assertThatNodeIsRunning();
         return state.handle(clientRequestMessage);
+    }
+
+    public synchronized CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest clusterMembershipRequest) {
+        assertThatNodeIsRunning();
+        return state.handle(clusterMembershipRequest);
     }
 
     public synchronized void handle(RpcMessage<ID> message) {
