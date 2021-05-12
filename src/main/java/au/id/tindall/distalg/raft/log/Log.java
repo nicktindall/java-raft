@@ -24,6 +24,7 @@ public class Log {
 
     private final ReadWriteLock readWriteLock;
     private final List<EntryCommittedEventHandler> entryCommittedEventHandlers;
+    private final List<EntryAppendedEventHandler> entryAppendedEventHandlers;
     private final LogStorage storage;
     private int commitIndex;
 
@@ -37,6 +38,7 @@ public class Log {
         storage = logStorage;
         commitIndex = 0;
         entryCommittedEventHandlers = new ArrayList<>();
+        entryAppendedEventHandlers = new ArrayList<>();
     }
 
     public Optional<Integer> updateCommitIndex(List<Integer> matchIndices, Term currentTerm) {
@@ -79,9 +81,11 @@ public class Log {
                 }
                 storage.truncate(appendIndex);
                 storage.add(entry);
+                notifyAppendedListeners(appendIndex);
             }
         } else {
             storage.add(entry);
+            notifyAppendedListeners(appendIndex);
         }
     }
 
@@ -140,7 +144,7 @@ public class Log {
             if (newCommitIndex > this.commitIndex) {
                 range(this.commitIndex, newCommitIndex)
                         .map(i -> i + 1)
-                        .forEach(this::notifyListeners);
+                        .forEach(this::notifyCommittedListeners);
                 this.commitIndex = newCommitIndex;
             }
             return null;
@@ -155,9 +159,22 @@ public class Log {
         entryCommittedEventHandlers.remove(eventHandler);
     }
 
-    private void notifyListeners(int committedIndex) {
+    public void addEntryAppendedEventHandler(EntryAppendedEventHandler eventHandler) {
+        entryAppendedEventHandlers.add(eventHandler);
+    }
+
+    public void removeEntryAppendedEventHandler(EntryAppendedEventHandler eventHandler) {
+        entryAppendedEventHandlers.remove(eventHandler);
+    }
+
+    private void notifyCommittedListeners(int committedIndex) {
         entryCommittedEventHandlers
                 .forEach(handler -> handler.entryCommitted(committedIndex, getEntry(committedIndex)));
+    }
+
+    private void notifyAppendedListeners(int appendedIndex) {
+        entryAppendedEventHandlers
+                .forEach(handler -> handler.entryAppended(appendedIndex, getEntry(appendedIndex)));
     }
 
     private void validateIndex(int index) {

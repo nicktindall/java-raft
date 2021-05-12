@@ -2,6 +2,7 @@ package au.id.tindall.distalg.raft.log;
 
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,25 +41,92 @@ class LogTest {
     @Nested
     class AppendEntries {
 
-        @Test
-        void willAddNewEntriesToTheEndOfTheLog() {
-            Log log = new Log();
-            log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
-            assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3);
+        @Mock
+        private EntryAppendedEventHandler entryAppendedEventHandler;
+
+        private Log log;
+
+        @Nested
+        class AtTheEndOfTheLog {
+
+            @BeforeEach
+            void setUp() {
+                log = new Log();
+                log.addEntryAppendedEventHandler(entryAppendedEventHandler);
+                log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
+            }
+
+            @Test
+            void willAddNewEntries() {
+                assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3);
+            }
+
+            @Test
+            void willEmitEntryAppendedEvents() {
+                final InOrder sequence = inOrder(entryAppendedEventHandler);
+                sequence.verify(entryAppendedEventHandler).entryAppended(1, ENTRY_1);
+                sequence.verify(entryAppendedEventHandler).entryAppended(2, ENTRY_2);
+                sequence.verify(entryAppendedEventHandler).entryAppended(3, ENTRY_3);
+                sequence.verifyNoMoreInteractions();
+            }
+        }
+
+        @Nested
+        class WhenTailDiffers {
+
+            @BeforeEach
+            void setUp() {
+                log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+                log.addEntryAppendedEventHandler(entryAppendedEventHandler);
+                log.appendEntries(2, List.of(ENTRY_3B, ENTRY_4B));
+            }
+
+            @Test
+            void willOverwriteTail() {
+                assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3B, ENTRY_4B);
+            }
+
+            @Test
+            void willEmitEntryAppendedEvents() {
+                final InOrder sequence = inOrder(entryAppendedEventHandler);
+                sequence.verify(entryAppendedEventHandler).entryAppended(3, ENTRY_3B);
+                sequence.verify(entryAppendedEventHandler).entryAppended(4, ENTRY_4B);
+                sequence.verifyNoMoreInteractions();
+            }
+        }
+
+        @Nested
+        class WhenTailPartiallyDiffers {
+
+            @BeforeEach
+            void setUp() {
+                log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+                log.addEntryAppendedEventHandler(entryAppendedEventHandler);
+                log.appendEntries(2, List.of(ENTRY_3, ENTRY_4B));
+            }
+
+            @Test
+            void willOverwriteFromFirstDifference() {
+                assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4B);
+            }
+
+            @Test
+            void willEmitEntryAppendedEventsFromFirstDifference() {
+                verify(entryAppendedEventHandler).entryAppended(4, ENTRY_4B);
+                verifyNoMoreInteractions(entryAppendedEventHandler);
+            }
         }
 
         @Test
-        void willOverwriteTail_WhenItDiffers() {
-            Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            log.appendEntries(2, List.of(ENTRY_3B, ENTRY_4B));
-            assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3B, ENTRY_4B);
-        }
-
-        @Test
-        void willOverwriteTail_WhenItPartiallyDiffers() {
-            Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
-            log.appendEntries(2, List.of(ENTRY_3, ENTRY_4B));
-            assertThat(log.getEntries()).containsExactly(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4B);
+        void willStopNotifyingAppendedEventHandlerAfterItIsRemoved() {
+            log = new Log();
+            log.addEntryAppendedEventHandler(entryAppendedEventHandler);
+            log.appendEntries(0, List.of(ENTRY_1, ENTRY_2));
+            log.removeEntryAppendedEventHandler(entryAppendedEventHandler);
+            log.appendEntries(2, List.of(ENTRY_3, ENTRY_4));
+            verify(entryAppendedEventHandler).entryAppended(1, ENTRY_1);
+            verify(entryAppendedEventHandler).entryAppended(2, ENTRY_2);
+            verifyNoMoreInteractions(entryAppendedEventHandler);
         }
 
         @Test
