@@ -8,7 +8,11 @@ public class AddServerResponse extends ClusterMembershipResponse {
         TIMEOUT
     }
 
-    public AddServerResponse(Status status) {
+    public static final AddServerResponse OK = new AddServerResponse(Status.OK);
+    public static final AddServerResponse TIMEOUT = new AddServerResponse(Status.TIMEOUT);
+    public static final AddServerResponse NOT_LEADER = new AddServerResponse(Status.NOT_LEADER);
+
+    private AddServerResponse(Status status) {
         this.status = status;
     }
 

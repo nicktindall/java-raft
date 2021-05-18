@@ -217,7 +217,7 @@ class ServerStateTest {
             var response = serverState.handle(new AddServerRequest<>(1234L));
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
-                    .isEqualTo(new AddServerResponse(AddServerResponse.Status.NOT_LEADER));
+                    .isEqualTo(AddServerResponse.NOT_LEADER);
         }
     }
 
@@ -231,7 +231,7 @@ class ServerStateTest {
             var response = serverState.handle(new RemoveServerRequest<>(1234L));
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
-                    .isEqualTo(new RemoveServerResponse(RemoveServerResponse.Status.NOT_LEADER));
+                    .isEqualTo(RemoveServerResponse.NOT_LEADER);
         }
     }
 

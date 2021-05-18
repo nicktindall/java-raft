@@ -23,6 +23,8 @@ class ReplicationManagerTest {
     @Mock
     private LogReplicator<Integer> logReplicatorTwo;
     @Mock
+    private LogReplicator<Integer> logReplicatorThree;
+    @Mock
     private Cluster<Integer> cluster;
     @Mock
     private LogReplicatorFactory<Integer> logReplicatorFactory;
@@ -65,6 +67,41 @@ class ReplicationManagerTest {
             verify(logReplicatorTwo).stop();
         }
     }
+
+    @Nested
+    class StartReplicatingTo {
+
+        @BeforeEach
+        void setUp() {
+            replicationManager.start();
+            when(logReplicatorFactory.createLogReplicator(3)).thenReturn(logReplicatorThree);
+        }
+
+        @Test
+        void willCreateANewReplicatorAndStartReplicatingToIt() {
+            replicationManager.startReplicatingTo(3);
+
+            verify(logReplicatorFactory).createLogReplicator(3);
+            verify(logReplicatorThree).start();
+        }
+    }
+
+    @Nested
+    class StopReplicatingTo {
+
+        @BeforeEach
+        void setUp() {
+            replicationManager.start();
+        }
+
+        @Test
+        void willStopAndRemoveReplicatorForPeer() {
+            replicationManager.stopReplicatingTo(2);
+
+            logReplicatorTwo.stop();
+        }
+    }
+
 
     @Nested
     class Replicate {
@@ -139,10 +176,22 @@ class ReplicationManagerTest {
         }
 
         @Test
+        void willNotFailWhenLoggingSuccessResponseForMissingFollower() {
+            replicationManager.stopReplicatingTo(1);
+            replicationManager.logSuccessResponse(1, 123);
+        }
+
+        @Test
         void willLogFailedResponse() {
             replicationManager.logFailedResponse(1);
 
             verify(logReplicatorOne).logFailedResponse();
+        }
+
+        @Test
+        void willNotFailWhenLoggingFailedResponseForMissingFollower() {
+            replicationManager.stopReplicatingTo(1);
+            replicationManager.logFailedResponse(1);
         }
     }
 }

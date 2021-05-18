@@ -8,9 +8,12 @@ public class RemoveServerResponse extends ClusterMembershipResponse {
         TIMEOUT
     }
 
+    public static RemoveServerResponse OK = new RemoveServerResponse(Status.OK);
+    public static RemoveServerResponse NOT_LEADER = new RemoveServerResponse(Status.NOT_LEADER);
+
     private final Status status;
 
-    public RemoveServerResponse(Status status) {
+    private RemoveServerResponse(Status status) {
         this.status = status;
     }
 }

@@ -168,11 +168,11 @@ public abstract class ServerState<ID extends Serializable> {
         }
     }
 
-    public CompletableFuture<AddServerResponse> handle(AddServerRequest<ID> addServerRequest) {
-        return CompletableFuture.completedFuture(new AddServerResponse(AddServerResponse.Status.NOT_LEADER));
+    protected CompletableFuture<AddServerResponse> handle(AddServerRequest<ID> addServerRequest) {
+        return CompletableFuture.completedFuture(AddServerResponse.NOT_LEADER);
     }
 
-    public CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<ID> removeServerRequest) {
-        return CompletableFuture.completedFuture(new RemoveServerResponse(RemoveServerResponse.Status.NOT_LEADER));
+    protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<ID> removeServerRequest) {
+        return CompletableFuture.completedFuture(RemoveServerResponse.NOT_LEADER);
     }
 }
