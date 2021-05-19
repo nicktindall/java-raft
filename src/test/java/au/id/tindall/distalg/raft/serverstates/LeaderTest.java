@@ -11,8 +11,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
-import au.id.tindall.distalg.raft.replication.LogReplicator;
-import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
@@ -22,7 +21,6 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
-import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -35,7 +33,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -67,13 +64,9 @@ class LeaderTest {
     @Mock
     private Cluster<Long> cluster;
     @Mock
-    private LogReplicatorFactory<Long> logReplicatorFactory;
-    @Mock
     private PendingResponseRegistry pendingResponseRegistry;
     @Mock
     private Log log;
-    @Mock
-    private LogReplicator<Long> otherServerLogReplicator;
     @Mock
     private ServerStateFactory<Long> serverStateFactory;
     @Mock
@@ -81,29 +74,17 @@ class LeaderTest {
     @Mock
     private PersistentState<Long> persistentState;
     @Mock
-    private LeadershipTransferFactory<Long> leadershipTransferFactory;
-    @Mock
     private LeadershipTransfer<Long> leadershipTransfer;
+    @Mock
+    private ReplicationManager<Long> replicationManager;
 
     private Leader<Long> leader;
 
     @BeforeEach
     void setUp() {
-        when(leadershipTransferFactory.create(any())).thenReturn(leadershipTransfer);
         lenient().when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
         lenient().when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
-        when(cluster.getOtherMemberIds()).thenReturn(Set.of(OTHER_SERVER_ID));
-        when(logReplicatorFactory.createLogReplicator(OTHER_SERVER_ID)).thenReturn(otherServerLogReplicator);
-        leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, leadershipTransferFactory);
-    }
-
-    @Nested
-    class Constructor {
-
-        @Test
-        void willCreateLogReplicators() {
-            verify(logReplicatorFactory).createLogReplicator(OTHER_SERVER_ID);
-        }
+        leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager, clientSessionStore, leadershipTransfer);
     }
 
     @Nested
@@ -116,12 +97,12 @@ class LeaderTest {
 
         @Test
         void willStartReplicators() {
-            verify(otherServerLogReplicator).start();
+            verify(replicationManager).start();
         }
 
         @Test
         void willReplicateToEveryoneToClaimLeadership() {
-            verify(otherServerLogReplicator).replicate();
+            verify(replicationManager).replicate();
         }
     }
 
@@ -135,7 +116,7 @@ class LeaderTest {
 
         @Test
         void willStopReplicators() {
-            verify(otherServerLogReplicator).stop();
+            verify(replicationManager).stop();
         }
 
         @Test
@@ -153,7 +134,7 @@ class LeaderTest {
             @Test
             void willIgnoreMessage() {
                 leader.handle(new AppendEntriesResponse<>(PREVIOUS_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-                verifyNoMoreInteractions(otherServerLogReplicator, log);
+                verifyNoMoreInteractions(replicationManager, log);
             }
         }
 
@@ -164,14 +145,14 @@ class LeaderTest {
 
             @BeforeEach
             void setUp() {
-                when(otherServerLogReplicator.getMatchIndex()).thenReturn(OTHER_SERVER_MATCH_INDEX);
+                when(replicationManager.getFollowerMatchIndices()).thenReturn(List.of(OTHER_SERVER_MATCH_INDEX));
             }
 
             @Test
             void willLogSuccessWithReplicatorThenUpdateCommitIndex() {
                 leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-                InOrder inOrder = inOrder(otherServerLogReplicator, log);
-                inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
+                InOrder inOrder = inOrder(replicationManager, log);
+                inOrder.verify(replicationManager).logSuccessResponse(OTHER_SERVER_ID, 5);
                 inOrder.verify(log).updateCommitIndex(List.of(OTHER_SERVER_MATCH_INDEX), CURRENT_TERM);
             }
 
@@ -200,11 +181,11 @@ class LeaderTest {
                 }
 
                 @Test
-                void willLogSuccessWithReplicatorThenReplicate() {
+                void willLogSuccessWithReplicatorThenReplicateToAll() {
                     leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-                    InOrder inOrder = inOrder(otherServerLogReplicator, log);
-                    inOrder.verify(otherServerLogReplicator).logSuccessResponse(5);
-                    inOrder.verify(otherServerLogReplicator).replicate();
+                    InOrder inOrder = inOrder(replicationManager, log);
+                    inOrder.verify(replicationManager).logSuccessResponse(OTHER_SERVER_ID, 5);
+                    inOrder.verify(replicationManager).replicate();
                 }
             }
 
@@ -222,15 +203,15 @@ class LeaderTest {
                     @BeforeEach
                     void setUp() {
                         when(log.getLastLogIndex()).thenReturn(6);
-                        when(otherServerLogReplicator.getNextIndex()).thenReturn(5);
+                        when(replicationManager.getNextIndex(OTHER_SERVER_ID)).thenReturn(5);
                     }
 
                     @Test
                     void willLogSuccessWithReplicatorThenReplicate() {
                         leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(4)));
-                        InOrder inOrder = inOrder(otherServerLogReplicator, log);
-                        inOrder.verify(otherServerLogReplicator).logSuccessResponse(4);
-                        inOrder.verify(otherServerLogReplicator).replicate();
+                        InOrder inOrder = inOrder(replicationManager, log);
+                        inOrder.verify(replicationManager).logSuccessResponse(OTHER_SERVER_ID, 4);
+                        inOrder.verify(replicationManager).replicate(OTHER_SERVER_ID);
                     }
                 }
 
@@ -240,14 +221,14 @@ class LeaderTest {
                     @BeforeEach
                     void setUp() {
                         when(log.getLastLogIndex()).thenReturn(5);
-                        when(otherServerLogReplicator.getNextIndex()).thenReturn(6);
+                        when(replicationManager.getNextIndex(OTHER_SERVER_ID)).thenReturn(6);
                     }
 
                     @Test
                     void willNotReplicate() {
                         leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
 
-                        verify(otherServerLogReplicator, never()).replicate();
+                        verify(replicationManager, never()).replicate(OTHER_SERVER_ID);
                     }
                 }
             }
@@ -265,9 +246,9 @@ class LeaderTest {
             @Test
             void willLogFailureWithReplicatorThenReplicate() {
                 leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
-                InOrder sequence = inOrder(otherServerLogReplicator);
-                sequence.verify(otherServerLogReplicator).logFailedResponse();
-                sequence.verify(otherServerLogReplicator).replicate();
+                InOrder sequence = inOrder(replicationManager);
+                sequence.verify(replicationManager).logFailedResponse(OTHER_SERVER_ID);
+                sequence.verify(replicationManager).replicate(OTHER_SERVER_ID);
             }
         }
     }
@@ -300,7 +281,7 @@ class LeaderTest {
             void willTriggerReplication() {
                 leader.handle(new RegisterClientRequest<>(SERVER_ID));
 
-                verify(otherServerLogReplicator).replicate();
+                verify(replicationManager).replicate();
             }
 
             @Test
@@ -394,7 +375,7 @@ class LeaderTest {
             void willTriggerReplication() {
                 leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, COMMAND));
 
-                verify(otherServerLogReplicator).replicate();
+                verify(replicationManager).replicate();
             }
 
             @Test

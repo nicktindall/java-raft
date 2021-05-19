@@ -1,14 +1,13 @@
 package au.id.tindall.distalg.raft.serverstates.leadershiptransfer;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.replication.LogReplicator;
+import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -23,7 +22,7 @@ public class LeadershipTransfer<ID extends Serializable> {
     private static final Duration INDIVIDUAL_TARGET_TIMEOUT = Duration.ofMillis(1000);
     private static final Duration LEADERSHIP_TRANSFER_TIMEOUT = Duration.ofMillis(5000);
 
-    private final Map<ID, LogReplicator<ID>> replicators;
+    private final ReplicationManager<ID> replicationManager;
     private final Cluster<ID> cluster;
     private final PersistentState<ID> persistentState;
     private final Supplier<Long> currentTimeProvider;
@@ -31,13 +30,13 @@ public class LeadershipTransfer<ID extends Serializable> {
 
     private TransferTarget transferTarget;
 
-    public LeadershipTransfer(Cluster<ID> cluster, PersistentState<ID> persistentState, Map<ID, LogReplicator<ID>> replicators) {
-        this(cluster, persistentState, replicators, System::currentTimeMillis);
+    public LeadershipTransfer(Cluster<ID> cluster, PersistentState<ID> persistentState, ReplicationManager<ID> replicationManager) {
+        this(cluster, persistentState, replicationManager, System::currentTimeMillis);
     }
 
-    public LeadershipTransfer(Cluster<ID> cluster, PersistentState<ID> persistentState, Map<ID, LogReplicator<ID>> replicators, Supplier<Long> currentTimeProvider) {
+    public LeadershipTransfer(Cluster<ID> cluster, PersistentState<ID> persistentState, ReplicationManager<ID> replicationManager, Supplier<Long> currentTimeProvider) {
         this.cluster = cluster;
-        this.replicators = replicators;
+        this.replicationManager = replicationManager;
         this.persistentState = persistentState;
         this.currentTimeProvider = currentTimeProvider;
     }
@@ -70,7 +69,7 @@ public class LeadershipTransfer<ID extends Serializable> {
 
     private void selectNewTargetIfTimeoutHasBeenExceededAndThereAreOthersAvailable() {
         if (transferTarget.hasTimedOut()) {
-            if (replicators.size() > 1) {
+            if (cluster.getOtherMemberIds().size() > 1) {
                 selectLeadershipTransferTarget(singleton(transferTarget.id));
             }
         }
@@ -85,11 +84,10 @@ public class LeadershipTransfer<ID extends Serializable> {
     }
 
     private void selectLeadershipTransferTarget(Set<ID> excludedIds) {
-        ID targetId = replicators.entrySet().stream()
-                .filter(replicator -> !excludedIds.contains(replicator.getKey()))
-                .min((replicator1, replicator2) -> replicator2.getValue().getMatchIndex() - replicator1.getValue().getMatchIndex())
-                .orElseThrow(() -> new IllegalStateException("No followers to transfer to!"))
-                .getKey();
+        ID targetId = cluster.getOtherMemberIds().stream()
+                .filter(serverId -> !excludedIds.contains(serverId))
+                .min((replicator1, replicator2) -> replicationManager.getMatchIndex(replicator2) - replicationManager.getMatchIndex(replicator1))
+                .orElseThrow(() -> new IllegalStateException("No followers to transfer to!"));
         transferTarget = new TransferTarget(targetId);
     }
 
@@ -116,7 +114,7 @@ public class LeadershipTransfer<ID extends Serializable> {
         }
 
         public boolean isUpToDate() {
-            return replicators.get(id).getMatchIndex() == persistentState.getLogStorage().getLastLogIndex();
+            return replicationManager.getMatchIndex(id) == persistentState.getLogStorage().getLastLogIndex();
         }
     }
 }

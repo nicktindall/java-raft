@@ -6,7 +6,8 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationManager;
+import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
@@ -18,7 +19,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,8 +34,6 @@ class ServerStateFactoryTest {
     @Mock
     private PendingResponseRegistryFactory pendingResponseRegistryFactory;
     @Mock
-    private LogReplicatorFactory<Long> logReplicatorFactory;
-    @Mock
     private PendingResponseRegistry pendingResponseRegistry;
     @Mock
     private ClientSessionStore clientSessionStore;
@@ -49,19 +47,25 @@ class ServerStateFactoryTest {
     private LeadershipTransferFactory<Long> leadershipTransferFactory;
     @Mock
     private LeadershipTransfer<Long> leadershipTransfer;
+    @Mock
+    private ReplicationManagerFactory<Long> replicationManagerFactory;
+    @Mock
+    private ReplicationManager<Long> replicationManager;
 
     @BeforeEach
     void setUp() {
-        serverStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory, logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory);
+        serverStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory,
+                replicationManagerFactory);
     }
 
     @Test
     void willCreateLeaderState() {
         when(pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor)).thenReturn(pendingResponseRegistry);
-        when(leadershipTransferFactory.create(anyMap())).thenReturn(leadershipTransfer);
+        when(leadershipTransferFactory.create(replicationManager)).thenReturn(leadershipTransfer);
+        when(replicationManagerFactory.createReplicationManager()).thenReturn(replicationManager);
 
         assertThat(serverStateFactory.createLeader())
-                .usingRecursiveComparison().isEqualTo(new Leader<>(persistentState, log, cluster, pendingResponseRegistry, logReplicatorFactory, serverStateFactory, clientSessionStore, leadershipTransferFactory));
+                .usingRecursiveComparison().isEqualTo(new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager, clientSessionStore, leadershipTransfer));
     }
 
     @Test

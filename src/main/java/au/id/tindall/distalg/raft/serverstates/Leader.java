@@ -8,8 +8,7 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
-import au.id.tindall.distalg.raft.replication.LogReplicator;
-import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
@@ -19,14 +18,10 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
-import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus.SESSION_EXPIRED;
@@ -34,28 +29,25 @@ import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     private static final Logger LOGGER = getLogger();
 
-    private final Map<ID, LogReplicator<ID>> replicators;
     private final PendingResponseRegistry pendingResponseRegistry;
+    private final ReplicationManager<ID> replicationManager;
     private final ClientSessionStore clientSessionStore;
     private final LeadershipTransfer<ID> leadershipTransfer;
 
     public Leader(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
-                  LogReplicatorFactory<ID> logReplicatorFactory, ServerStateFactory<ID> serverStateFactory,
-                  ClientSessionStore clientSessionStore, LeadershipTransferFactory<ID> leadershipTransferFactory) {
+                  ServerStateFactory<ID> serverStateFactory, ReplicationManager<ID> replicationManager, ClientSessionStore clientSessionStore,
+                  LeadershipTransfer<ID> leadershipTransfer) {
         super(persistentState, log, cluster, serverStateFactory, persistentState.getId());
-        replicators = createReplicators(logReplicatorFactory);
         this.pendingResponseRegistry = pendingResponseRegistry;
+        this.replicationManager = replicationManager;
         this.clientSessionStore = clientSessionStore;
-        this.leadershipTransfer = leadershipTransferFactory.create(replicators);
+        this.leadershipTransfer = leadershipTransfer;
     }
 
     @Override
@@ -66,7 +58,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         int logEntryIndex = log.getNextLogIndex();
         ClientRegistrationEntry registrationEntry = new ClientRegistrationEntry(persistentState.getCurrentTerm(), logEntryIndex);
         log.appendEntries(log.getLastLogIndex(), singletonList(registrationEntry));
-        replicateToEveryone();
+        replicationManager.replicate();
         return pendingResponseRegistry.registerOutstandingResponse(logEntryIndex, new PendingRegisterClientResponse<>());
     }
 
@@ -82,7 +74,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         StateMachineCommandEntry stateMachineCommandEntry = new StateMachineCommandEntry(persistentState.getCurrentTerm(), clientRequestRequest.getClientId(),
                 clientRequestRequest.getSequenceNumber(), clientRequestRequest.getCommand());
         log.appendEntries(log.getLastLogIndex(), singletonList(stateMachineCommandEntry));
-        replicateToEveryone();
+        replicationManager.replicate();
         return pendingResponseRegistry.registerOutstandingResponse(logEntryIndex, new PendingClientRequestResponse<>());
     }
 
@@ -110,48 +102,35 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     private void handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {
         ID remoteServerId = appendEntriesResponse.getSource();
-        LogReplicator<ID> sourceReplicator = replicators.get(remoteServerId);
         if (appendEntriesResponse.isSuccess()) {
             int lastAppendedIndex = appendEntriesResponse.getAppendedIndex()
                     .orElseThrow(() -> new IllegalStateException("Append entries response was success with no appendedIndex"));
-            sourceReplicator.logSuccessResponse(lastAppendedIndex);
+            replicationManager.logSuccessResponse(remoteServerId, lastAppendedIndex);
             if (updateCommitIndex()) {
-                replicateToEveryone();
-            } else if (sourceReplicator.getNextIndex() <= log.getLastLogIndex()) {
-                sourceReplicator.replicate();
+                replicationManager.replicate();
+            } else if (replicationManager.getNextIndex(remoteServerId) <= log.getLastLogIndex()) {
+                replicationManager.replicate(remoteServerId);
             }
         } else {
-            sourceReplicator.logFailedResponse();
-            sourceReplicator.replicate();
+            replicationManager.logFailedResponse(remoteServerId);
+            replicationManager.replicate(remoteServerId);
         }
     }
 
     private boolean updateCommitIndex() {
-        List<Integer> followerMatchIndices = replicators.values().stream()
-                .map(LogReplicator::getMatchIndex)
-                .collect(toList());
-        return log.updateCommitIndex(followerMatchIndices, persistentState.getCurrentTerm()).isPresent();
-    }
-
-    private void replicateToEveryone() {
-        replicators.values().forEach(LogReplicator::replicate);
-    }
-
-    private Map<ID, LogReplicator<ID>> createReplicators(LogReplicatorFactory<ID> logReplicatorFactory) {
-        return new HashMap<>(cluster.getOtherMemberIds().stream()
-                .collect(toMap(identity(), logReplicatorFactory::createLogReplicator)));
+        return log.updateCommitIndex(replicationManager.getFollowerMatchIndices(), persistentState.getCurrentTerm()).isPresent();
     }
 
     @Override
     public void enterState() {
         LOGGER.debug("Server entering Leader state");
-        replicateToEveryone();
-        replicators.values().forEach(LogReplicator::start);
+        replicationManager.start();
+        replicationManager.replicate();
     }
 
     @Override
     public void leaveState() {
         pendingResponseRegistry.dispose();
-        replicators.values().forEach(LogReplicator::stop);
+        replicationManager.stop();
     }
 }

@@ -10,6 +10,7 @@ import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
@@ -61,8 +62,9 @@ public class ServerFactory<ID extends Serializable> {
         Cluster<ID> cluster = clusterFactory.createForNode(persistentState.getId());
         LeadershipTransferFactory<ID> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState);
         LogReplicatorFactory<ID> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize, replicationSchedulerFactory);
+        ReplicationManagerFactory<ID> replicationManagerFactory = new ReplicationManagerFactory<>(cluster, logReplicatorFactory);
         Server<ID> server = new Server<>(persistentState, new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
-                logReplicatorFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory), stateMachine);
+                clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory), stateMachine);
         electionScheduler.setServer(server);
         return server;
     }

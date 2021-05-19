@@ -5,7 +5,8 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
-import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationManager;
+import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
@@ -17,30 +18,31 @@ public class ServerStateFactory<ID extends Serializable> {
     private final Log log;
     private final Cluster<ID> cluster;
     private final PendingResponseRegistryFactory pendingResponseRegistryFactory;
-    private final LogReplicatorFactory<ID> logReplicatorFactory;
     private final ClientSessionStore clientSessionStore;
     private final CommandExecutor commandExecutor;
     private final ElectionScheduler<ID> electionScheduler;
     private final PersistentState<ID> persistentState;
     private final LeadershipTransferFactory<ID> leadershipTransferFactory;
+    private final ReplicationManagerFactory<ID> replicationManagerFactory;
 
     public ServerStateFactory(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
-                              LogReplicatorFactory<ID> logReplicatorFactory, ClientSessionStore clientSessionStore,
-                              CommandExecutor commandExecutor, ElectionScheduler<ID> electionScheduler, LeadershipTransferFactory<ID> leadershipTransferFactory) {
+                              ClientSessionStore clientSessionStore, CommandExecutor commandExecutor, ElectionScheduler<ID> electionScheduler,
+                              LeadershipTransferFactory<ID> leadershipTransferFactory, ReplicationManagerFactory<ID> replicationManagerFactory) {
         this.persistentState = persistentState;
         this.log = log;
         this.cluster = cluster;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
-        this.logReplicatorFactory = logReplicatorFactory;
         this.clientSessionStore = clientSessionStore;
         this.commandExecutor = commandExecutor;
         this.electionScheduler = electionScheduler;
         this.leadershipTransferFactory = leadershipTransferFactory;
+        this.replicationManagerFactory = replicationManagerFactory;
     }
 
     public Leader<ID> createLeader() {
+        final ReplicationManager<ID> replicationManager = replicationManagerFactory.createReplicationManager();
         return new Leader<>(persistentState, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
-                logReplicatorFactory, this, clientSessionStore, leadershipTransferFactory);
+                this, replicationManager, clientSessionStore, leadershipTransferFactory.create(replicationManager));
     }
 
     public Follower<ID> createInitialState() {

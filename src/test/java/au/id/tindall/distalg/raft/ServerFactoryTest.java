@@ -11,6 +11,7 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
@@ -87,9 +88,24 @@ class ServerFactoryTest {
 
     @Test
     void createsServersAndTheirDependencies() {
-        assertThat(serverFactory.create(persistentState)).usingRecursiveComparison().isEqualTo(new Server<>(persistentState, new ServerStateFactory<>(persistentState,
-                log, cluster, pendingResponseRegistryFactory, new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE, replicationSchedulerFactory),
-                clientSessionStore, commandExecutor, electionScheduler, new LeadershipTransferFactory<>(cluster, persistentState)), stateMachine));
+        assertThat(serverFactory.create(persistentState)).usingRecursiveComparison().isEqualTo(
+                new Server<>(
+                        persistentState,
+                        new ServerStateFactory<>(
+                                persistentState,
+                                log,
+                                cluster,
+                                pendingResponseRegistryFactory,
+                                clientSessionStore,
+                                commandExecutor,
+                                electionScheduler,
+                                new LeadershipTransferFactory<>(cluster, persistentState),
+                                new ReplicationManagerFactory<>(cluster,
+                                        new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE, replicationSchedulerFactory)
+                                )
+                        ),
+                        stateMachine)
+        );
     }
 
     @Test

@@ -3,7 +3,7 @@ package au.id.tindall.distalg.raft.serverstates.leadershiptransfer;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
-import au.id.tindall.distalg.raft.replication.LogReplicator;
+import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -12,7 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,25 +36,20 @@ public class LeadershipTransferTest {
     @Mock
     private PersistentState<Long> persistentState;
     @Mock
-    private LogReplicator<Long> leadingReplicator;
-    @Mock
-    private LogReplicator<Long> laggingReplicator;
-    @Mock
     private LogStorage logStorage;
+    @Mock
+    private ReplicationManager<Long> replicationManager;
 
     private LeadershipTransfer<Long> leadershipTransfer;
     private long currentTimeMillis;
 
     @BeforeEach
     void setUp() {
-        Map<Long, LogReplicator<Long>> replicators = Map.of(
-                LEADING_REPLICATOR_ID, leadingReplicator,
-                LAGGING_REPLICATOR_ID, laggingReplicator
-        );
-        leadershipTransfer = new LeadershipTransfer<>(cluster, persistentState, replicators, this::currentTimeMillis);
+        leadershipTransfer = new LeadershipTransfer<>(cluster, persistentState, replicationManager, this::currentTimeMillis);
 
-        lenient().when(leadingReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX - 1);
-        lenient().when(laggingReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX - 2);
+        lenient().when(cluster.getOtherMemberIds()).thenReturn(Set.of(LEADING_REPLICATOR_ID, LAGGING_REPLICATOR_ID));
+        lenient().when(replicationManager.getMatchIndex(LEADING_REPLICATOR_ID)).thenReturn(LAST_LOG_INDEX - 1);
+        lenient().when(replicationManager.getMatchIndex(LAGGING_REPLICATOR_ID)).thenReturn(LAST_LOG_INDEX - 2);
 
         lenient().when(logStorage.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
         lenient().when(persistentState.getLogStorage()).thenReturn(logStorage);
@@ -80,7 +75,7 @@ public class LeadershipTransferTest {
 
         @Test
         void shouldSelectMostUpToDatePeerToTransferTo() {
-            when(leadingReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
+            when(replicationManager.getMatchIndex(LEADING_REPLICATOR_ID)).thenReturn(LAST_LOG_INDEX);
 
             leadershipTransfer.start();
 
@@ -90,7 +85,7 @@ public class LeadershipTransferTest {
 
         @Test
         void shouldBeIdempotent() {
-            when(leadingReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
+            when(replicationManager.getMatchIndex(LEADING_REPLICATOR_ID)).thenReturn(LAST_LOG_INDEX);
 
             leadershipTransfer.start();
             leadershipTransfer.start();
@@ -137,20 +132,20 @@ public class LeadershipTransferTest {
         void shouldSendTimeoutNowRequestIfTargetIsUpToDate() {
             leadershipTransfer.start();
 
-            verifyNoInteractions(cluster);
-
-            when(leadingReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
+            verify(cluster, never()).sendTimeoutNowRequest(any(), any());
+            when(replicationManager.getMatchIndex(LEADING_REPLICATOR_ID)).thenReturn(LAST_LOG_INDEX);
 
             leadershipTransfer.sendTimeoutNowRequestIfReadyToTransfer();
+            verify(cluster).sendTimeoutNowRequest(CURRENT_TERM, LEADING_REPLICATOR_ID);
         }
 
         @Test
         void shouldNotSendTimeoutNowRequestIfTargetIsNotUpToDate() {
             leadershipTransfer.start();
-            verifyNoInteractions(cluster);
+            verify(cluster, never()).sendTimeoutNowRequest(any(), any());
 
             leadershipTransfer.sendTimeoutNowRequestIfReadyToTransfer();
-            verifyNoInteractions(cluster);
+            verify(cluster, never()).sendTimeoutNowRequest(any(), any());
         }
 
         @Test
@@ -161,7 +156,8 @@ public class LeadershipTransferTest {
             currentTimeMillis += 5100;
 
             leadershipTransfer.sendTimeoutNowRequestIfReadyToTransfer();
-            verifyNoInteractions(cluster);
+
+            verify(cluster, never()).sendTimeoutNowRequest(any(), any());
             assertThat(leadershipTransfer.isInProgress()).isFalse();
         }
 
@@ -173,10 +169,10 @@ public class LeadershipTransferTest {
             currentTimeMillis += 1100;
 
             leadershipTransfer.sendTimeoutNowRequestIfReadyToTransfer();
-            verifyNoInteractions(cluster);
+            verify(cluster, never()).sendTimeoutNowRequest(any(), any());
             assertThat(leadershipTransfer.isInProgress()).isTrue();
 
-            when(laggingReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
+            when(replicationManager.getMatchIndex(LAGGING_REPLICATOR_ID)).thenReturn(LAST_LOG_INDEX);
             leadershipTransfer.sendTimeoutNowRequestIfReadyToTransfer();
             verify(cluster).sendTimeoutNowRequest(CURRENT_TERM, LAGGING_REPLICATOR_ID);
         }
@@ -184,9 +180,9 @@ public class LeadershipTransferTest {
         @Test
         void shouldNotSendMultipleTimeoutNowRequestsInsideTheMinimalInterval() {
             leadershipTransfer.start();
-            verifyNoInteractions(cluster);
+            verify(cluster, never()).sendTimeoutNowRequest(any(), any());
 
-            when(leadingReplicator.getMatchIndex()).thenReturn(LAST_LOG_INDEX);
+            when(replicationManager.getMatchIndex(LEADING_REPLICATOR_ID)).thenReturn(LAST_LOG_INDEX);
 
             leadershipTransfer.sendTimeoutNowRequestIfReadyToTransfer();
             verify(cluster).sendTimeoutNowRequest(CURRENT_TERM, LEADING_REPLICATOR_ID);
