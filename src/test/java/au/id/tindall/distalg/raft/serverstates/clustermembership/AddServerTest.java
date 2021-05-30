@@ -61,11 +61,11 @@ public class AddServerTest {
     @BeforeEach
     void setUp() {
         when(timeSource.get()).thenReturn(NOW);
+        lenient().when(configuration.getElectionTimeout()).thenReturn(ELECTION_TIMEOUT);
         lenient().when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
         when(log.getLastLogIndex()).thenReturn(FIRST_ROUND_END, SECOND_ROUND_END, APPEND_INDEX);
         addServer = new AddServer<>(log, configuration, persistentState,
-                replicationManager, SERVER_ID, ELECTION_TIMEOUT,
-                NUMBER_OF_CATCHUP_ROUNDS, timeSource);
+                replicationManager, SERVER_ID, NUMBER_OF_CATCHUP_ROUNDS, timeSource);
     }
 
     @Nested
@@ -128,6 +128,39 @@ public class AddServerTest {
                             new ConfigurationEntry(CURRENT_TERM, Set.of(SERVER_ID, OTHER_SERVER_ID1, OTHER_SERVER_ID2)));
                     assertThat(addServer.getResponseFuture()).isNotCompleted();
                 }
+            }
+        }
+    }
+
+    @Nested
+    class LogFailureResponse {
+
+        @BeforeEach
+        void setUp() {
+            addServer.start();
+        }
+
+        @Nested
+        class WhenServerIdMatches {
+
+            @Test
+            void willResetInactivityTimeout() {
+                when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(2)));
+                addServer.logFailureResponse(SERVER_ID);
+                when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(4)));
+                assertThat(addServer.isFinished()).isFalse();
+            }
+        }
+
+        @Nested
+        class WhenServerIdDoesNotMatch {
+
+            @Test
+            void willNotResetInactivityTimeout() {
+                when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(2)));
+                addServer.logFailureResponse(OTHER_SERVER_ID1);
+                when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(4)));
+                assertThat(addServer.isFinished()).isTrue();
             }
         }
     }

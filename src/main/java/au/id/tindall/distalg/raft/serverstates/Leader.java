@@ -15,8 +15,13 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
+import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManager;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
@@ -39,15 +44,17 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     private final ReplicationManager<ID> replicationManager;
     private final ClientSessionStore clientSessionStore;
     private final LeadershipTransfer<ID> leadershipTransfer;
+    private final ClusterMembershipChangeManager<ID> clusterMembershipChangeManager;
 
     public Leader(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
                   ServerStateFactory<ID> serverStateFactory, ReplicationManager<ID> replicationManager, ClientSessionStore clientSessionStore,
-                  LeadershipTransfer<ID> leadershipTransfer) {
+                  LeadershipTransfer<ID> leadershipTransfer, ClusterMembershipChangeManager<ID> clusterMembershipChangeManager) {
         super(persistentState, log, cluster, serverStateFactory, persistentState.getId());
         this.pendingResponseRegistry = pendingResponseRegistry;
         this.replicationManager = replicationManager;
         this.clientSessionStore = clientSessionStore;
         this.leadershipTransfer = leadershipTransfer;
+        this.clusterMembershipChangeManager = clusterMembershipChangeManager;
     }
 
     @Override
@@ -100,18 +107,30 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         return LEADER;
     }
 
+    @Override
+    protected CompletableFuture<AddServerResponse> handle(AddServerRequest<ID> addServerRequest) {
+        return clusterMembershipChangeManager.addServer(addServerRequest.getNewServer());
+    }
+
+    @Override
+    protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<ID> removeServerRequest) {
+        return clusterMembershipChangeManager.removeServer(removeServerRequest.getOldServer());
+    }
+
     private void handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {
         ID remoteServerId = appendEntriesResponse.getSource();
         if (appendEntriesResponse.isSuccess()) {
             int lastAppendedIndex = appendEntriesResponse.getAppendedIndex()
                     .orElseThrow(() -> new IllegalStateException("Append entries response was success with no appendedIndex"));
             replicationManager.logSuccessResponse(remoteServerId, lastAppendedIndex);
+            clusterMembershipChangeManager.logSuccessResponse(remoteServerId, lastAppendedIndex);
             if (updateCommitIndex()) {
                 replicationManager.replicate();
-            } else if (replicationManager.getNextIndex(remoteServerId) <= log.getLastLogIndex()) {
-                replicationManager.replicate(remoteServerId);
+            } else {
+                replicationManager.replicateIfTrailingIndex(remoteServerId, log.getLastLogIndex());
             }
         } else {
+            clusterMembershipChangeManager.logFailureResponse(remoteServerId);
             replicationManager.logFailedResponse(remoteServerId);
             replicationManager.replicate(remoteServerId);
         }
@@ -126,10 +145,12 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         LOGGER.debug("Server entering Leader state");
         replicationManager.start();
         replicationManager.replicate();
+        log.addEntryCommittedEventHandler(clusterMembershipChangeManager);
     }
 
     @Override
     public void leaveState() {
+        log.removeEntryCommittedEventHandler(clusterMembershipChangeManager);
         pendingResponseRegistry.dispose();
         replicationManager.stop();
     }

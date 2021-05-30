@@ -101,8 +101,14 @@ public class TestClusterFactory implements ClusterFactory<Long> {
                 messageStats.recordMessageSent(message);
             });
         } else if (message instanceof UnicastMessage) {
-            LOGGER.info("Sending {} from Server {} to Server {}", message.getClass().getSimpleName(), message.getSource(), ((UnicastMessage<Long>) message).getDestination());
-            deliverMessageIfServerIsRunning(message, servers.get(((UnicastMessage<Long>) message).getDestination()));
+            final Long destinationId = ((UnicastMessage<Long>) message).getDestination();
+            LOGGER.info("Sending {} from Server {} to Server {}", message.getClass().getSimpleName(), message.getSource(), destinationId);
+            final Server<Long> server = servers.get(destinationId);
+            if (server == null) {
+                LOGGER.warn("Dropped {} message to dead server {}", message.getClass().getSimpleName(), destinationId);
+                return;
+            }
+            deliverMessageIfServerIsRunning(message, server);
             messageStats.recordMessageSent(message);
         } else {
             throw new IllegalStateException("Unknown message type: " + message.getClass().getName());

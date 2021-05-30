@@ -14,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 
 abstract public class MembershipChange<ID extends Serializable, R extends ClusterMembershipResponse> {
     private final Log log;
-    private final Configuration<ID> configuration;
+    protected final Configuration<ID> configuration;
     private final PersistentState<ID> persistentState;
     protected final ID serverId;
     protected final CompletableFuture<R> responseFuture;
@@ -31,7 +31,10 @@ abstract public class MembershipChange<ID extends Serializable, R extends Cluste
 
     abstract void start();
 
-    final void logSuccessResponse(ID serverId, int lastAppendedIndex) {
+    void logSuccessResponse(ID serverId, int lastAppendedIndex) {
+        if (finishedAtIndex >= 0) {
+            return;
+        }
         final R result = logSuccessResponseInternal(serverId, lastAppendedIndex);
         if (result != null) {
             responseFuture.complete(result);
@@ -40,6 +43,22 @@ abstract public class MembershipChange<ID extends Serializable, R extends Cluste
     }
 
     R logSuccessResponseInternal(ID serverId, int lastAppendedIndex) {
+        // Do nothing by default
+        return null;
+    }
+
+    void logFailureResponse(ID serverId) {
+        if (finishedAtIndex >= 0) {
+            return;
+        }
+        final R result = logFailureResponseInternal(serverId);
+        if (result != null) {
+            responseFuture.complete(result);
+            finished = true;
+        }
+    }
+
+    R logFailureResponseInternal(ID serverId) {
         // Do nothing by default
         return null;
     }

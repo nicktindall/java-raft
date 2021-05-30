@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
+import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.comms.ClusterFactory;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
@@ -13,6 +14,7 @@ import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
+import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManagerFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
@@ -21,6 +23,8 @@ import au.id.tindall.distalg.raft.statemachine.StateMachine;
 import au.id.tindall.distalg.raft.statemachine.StateMachineFactory;
 
 import java.io.Serializable;
+import java.time.Duration;
+import java.util.Set;
 
 public class ServerFactory<ID extends Serializable> {
 
@@ -34,11 +38,12 @@ public class ServerFactory<ID extends Serializable> {
     private final ElectionSchedulerFactory<ID> electionSchedulerFactory;
     private final int maxBatchSize;
     private final ReplicationSchedulerFactory replicationSchedulerFactory;
+    private final Duration electionTimeout;
 
     public ServerFactory(ClusterFactory<ID> clusterFactory, LogFactory logFactory, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                          ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
                          CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory<ID> electionSchedulerFactory,
-                         int maxBatchSize, ReplicationSchedulerFactory replicationSchedulerFactory) {
+                         int maxBatchSize, ReplicationSchedulerFactory replicationSchedulerFactory, Duration electionTimeout) {
         this.clusterFactory = clusterFactory;
         this.logFactory = logFactory;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
@@ -49,9 +54,10 @@ public class ServerFactory<ID extends Serializable> {
         this.electionSchedulerFactory = electionSchedulerFactory;
         this.maxBatchSize = maxBatchSize;
         this.replicationSchedulerFactory = replicationSchedulerFactory;
+        this.electionTimeout = electionTimeout;
     }
 
-    public Server<ID> create(PersistentState<ID> persistentState) {
+    public Server<ID> create(PersistentState<ID> persistentState, Set<ID> initialPeers) {
         Log log = logFactory.createLog(persistentState.getLogStorage());
         ClientSessionStore clientSessionStore = clientSessionStoreFactory.create(maxClientSessions);
         clientSessionStore.startListeningForClientRegistrations(log);
@@ -62,9 +68,14 @@ public class ServerFactory<ID extends Serializable> {
         Cluster<ID> cluster = clusterFactory.createForNode(persistentState.getId());
         LeadershipTransferFactory<ID> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState);
         LogReplicatorFactory<ID> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize, replicationSchedulerFactory);
-        ReplicationManagerFactory<ID> replicationManagerFactory = new ReplicationManagerFactory<>(cluster, logReplicatorFactory);
-        Server<ID> server = new Server<>(persistentState, new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
-                clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory), stateMachine);
+        final Configuration<ID> configuration = new Configuration<>(persistentState.getId(), initialPeers, electionTimeout);
+        log.addEntryAppendedEventHandler(configuration);
+        ReplicationManagerFactory<ID> replicationManagerFactory = new ReplicationManagerFactory<>(configuration, logReplicatorFactory);
+        ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory = new ClusterMembershipChangeManagerFactory<>(log,
+                persistentState, configuration);
+        final ServerStateFactory<ID> idServerStateFactory = new ServerStateFactory<>(persistentState, log, cluster, configuration, pendingResponseRegistryFactory,
+                clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory);
+        Server<ID> server = new Server<>(persistentState, idServerStateFactory, stateMachine);
         electionScheduler.setServer(server);
         return server;
     }

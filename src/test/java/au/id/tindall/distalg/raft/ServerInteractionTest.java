@@ -24,8 +24,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -42,6 +44,7 @@ class ServerInteractionTest {
     private static final byte[] COMMAND = "TheCommand".getBytes();
     private static final int MAX_CLIENT_SESSIONS = 10;
     private static final int MAX_BATCH_SIZE = 10;
+    private static final Set<Long> ALL_SERVER_IDS = Set.of(1L, 2L, 3L);
 
     private Server<Long> server1;
     private Server<Long> server2;
@@ -77,12 +80,13 @@ class ServerInteractionTest {
                 TestStateMachine::new,
                 electionSchedulerFactory,
                 MAX_BATCH_SIZE,
-                SynchronousReplicationScheduler::new
+                SynchronousReplicationScheduler::new,
+                Duration.ZERO
         );
     }
 
     private Server<Long> createAndAddServer(long id) {
-        Server<Long> server = serverFactory.create(new InMemoryPersistentState<>(id));
+        Server<Long> server = serverFactory.create(new InMemoryPersistentState<>(id), ALL_SERVER_IDS);
         server.start();
         allServers.put(id, server);
         return server;

@@ -3,11 +3,14 @@ package au.id.tindall.distalg.raft.serverstates;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
+import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
+import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManager;
+import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManagerFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
@@ -51,11 +54,18 @@ class ServerStateFactoryTest {
     private ReplicationManagerFactory<Long> replicationManagerFactory;
     @Mock
     private ReplicationManager<Long> replicationManager;
+    @Mock
+    private Configuration<Long> configuration;
+    @Mock
+    private ClusterMembershipChangeManagerFactory<Long> clusterMembershipChangeManagerFactory;
+
+    @Mock
+    private ClusterMembershipChangeManager<Long> clusterMembershipChangeManager;
 
     @BeforeEach
     void setUp() {
-        serverStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory,
-                replicationManagerFactory);
+        serverStateFactory = new ServerStateFactory<>(persistentState, log, cluster, configuration, pendingResponseRegistryFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory,
+                replicationManagerFactory, clusterMembershipChangeManagerFactory);
     }
 
     @Test
@@ -63,9 +73,10 @@ class ServerStateFactoryTest {
         when(pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor)).thenReturn(pendingResponseRegistry);
         when(leadershipTransferFactory.create(replicationManager)).thenReturn(leadershipTransfer);
         when(replicationManagerFactory.createReplicationManager()).thenReturn(replicationManager);
+        when(clusterMembershipChangeManagerFactory.createChangeManager(replicationManager)).thenReturn(clusterMembershipChangeManager);
 
         assertThat(serverStateFactory.createLeader())
-                .usingRecursiveComparison().isEqualTo(new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager, clientSessionStore, leadershipTransfer));
+                .usingRecursiveComparison().isEqualTo(new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager, clientSessionStore, leadershipTransfer, clusterMembershipChangeManager));
     }
 
     @Test

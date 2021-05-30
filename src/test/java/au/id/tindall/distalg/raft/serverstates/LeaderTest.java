@@ -18,8 +18,13 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
+import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManager;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,6 +82,8 @@ class LeaderTest {
     private LeadershipTransfer<Long> leadershipTransfer;
     @Mock
     private ReplicationManager<Long> replicationManager;
+    @Mock
+    private ClusterMembershipChangeManager<Long> clusterMembershipChangeManager;
 
     private Leader<Long> leader;
 
@@ -84,7 +91,8 @@ class LeaderTest {
     void setUp() {
         lenient().when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
         lenient().when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
-        leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager, clientSessionStore, leadershipTransfer);
+        leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager,
+                clientSessionStore, leadershipTransfer, clusterMembershipChangeManager);
     }
 
     @Nested
@@ -104,6 +112,11 @@ class LeaderTest {
         void willReplicateToEveryoneToClaimLeadership() {
             verify(replicationManager).replicate();
         }
+
+        @Test
+        void willStartClusterMembershipChangeManagerListeningToCommittedEntries() {
+            verify(log).addEntryCommittedEventHandler(clusterMembershipChangeManager);
+        }
     }
 
     @Nested
@@ -122,6 +135,11 @@ class LeaderTest {
         @Test
         void willDisposeOfPendingResponseRegistry() {
             verify(pendingResponseRegistry).dispose();
+        }
+
+        @Test
+        void willStopClusterMembershipChangeManagerListeningToCommittedEntries() {
+            verify(log).removeEntryCommittedEventHandler(clusterMembershipChangeManager);
         }
     }
 
@@ -154,6 +172,12 @@ class LeaderTest {
                 InOrder inOrder = inOrder(replicationManager, log);
                 inOrder.verify(replicationManager).logSuccessResponse(OTHER_SERVER_ID, 5);
                 inOrder.verify(log).updateCommitIndex(List.of(OTHER_SERVER_MATCH_INDEX), CURRENT_TERM);
+            }
+
+            @Test
+            void willLogSuccessResponseWithClusterMembershipChangeManager() {
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                verify(clusterMembershipChangeManager).logSuccessResponse(OTHER_SERVER_ID, 5);
             }
 
             @Nested
@@ -195,41 +219,15 @@ class LeaderTest {
                 @BeforeEach
                 void setUp() {
                     when(log.updateCommitIndex(anyList(), any(Term.class))).thenReturn(Optional.empty());
+                    when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
                 }
 
-                @Nested
-                class AndSourceNextIndexIsBeforeEndOfLog {
-
-                    @BeforeEach
-                    void setUp() {
-                        when(log.getLastLogIndex()).thenReturn(6);
-                        when(replicationManager.getNextIndex(OTHER_SERVER_ID)).thenReturn(5);
-                    }
-
-                    @Test
-                    void willLogSuccessWithReplicatorThenReplicate() {
-                        leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(4)));
-                        InOrder inOrder = inOrder(replicationManager, log);
-                        inOrder.verify(replicationManager).logSuccessResponse(OTHER_SERVER_ID, 4);
-                        inOrder.verify(replicationManager).replicate(OTHER_SERVER_ID);
-                    }
-                }
-
-                @Nested
-                class AndSourceNextIndexIsAtEndOfLog {
-
-                    @BeforeEach
-                    void setUp() {
-                        when(log.getLastLogIndex()).thenReturn(5);
-                        when(replicationManager.getNextIndex(OTHER_SERVER_ID)).thenReturn(6);
-                    }
-
-                    @Test
-                    void willNotReplicate() {
-                        leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-
-                        verify(replicationManager, never()).replicate(OTHER_SERVER_ID);
-                    }
+                @Test
+                void willLogSuccessWithReplicatorThenReplicateIfTrailing() {
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(4)));
+                    InOrder inOrder = inOrder(replicationManager, log);
+                    inOrder.verify(replicationManager).logSuccessResponse(OTHER_SERVER_ID, 4);
+                    inOrder.verify(replicationManager).replicateIfTrailingIndex(OTHER_SERVER_ID, LAST_LOG_INDEX);
                 }
             }
         }
@@ -249,6 +247,12 @@ class LeaderTest {
                 InOrder sequence = inOrder(replicationManager);
                 sequence.verify(replicationManager).logFailedResponse(OTHER_SERVER_ID);
                 sequence.verify(replicationManager).replicate(OTHER_SERVER_ID);
+            }
+
+            @Test
+            void willLogFailureResponseWithClusterMembershipChangeManager() {
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+                verify(clusterMembershipChangeManager).logFailureResponse(OTHER_SERVER_ID);
             }
         }
     }
@@ -398,6 +402,34 @@ class LeaderTest {
             leader.handle(new TransferLeadershipMessage<>(CURRENT_TERM, SERVER_ID));
 
             verify(leadershipTransfer).start();
+        }
+    }
+
+    @Nested
+    class HandleAddServerRequest {
+
+        @Mock
+        private CompletableFuture<AddServerResponse> responseFuture;
+
+        @Test
+        void willDelegateToClusterMembershipManager() {
+            when(clusterMembershipChangeManager.addServer(OTHER_SERVER_ID)).thenReturn(responseFuture);
+
+            assertThat(leader.handle(new AddServerRequest<>(OTHER_SERVER_ID))).isSameAs(responseFuture);
+        }
+    }
+
+    @Nested
+    class HandleRemoveServerRequest {
+
+        @Mock
+        private CompletableFuture<RemoveServerResponse> responseFuture;
+
+        @Test
+        void willDelegateToClusterMembershipManager() {
+            when(clusterMembershipChangeManager.removeServer(OTHER_SERVER_ID)).thenReturn(responseFuture);
+
+            assertThat(leader.handle(new RemoveServerRequest<>(OTHER_SERVER_ID))).isSameAs(responseFuture);
         }
     }
 }

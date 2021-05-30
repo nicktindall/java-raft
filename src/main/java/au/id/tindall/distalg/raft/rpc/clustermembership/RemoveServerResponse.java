@@ -16,4 +16,8 @@ public class RemoveServerResponse extends ClusterMembershipResponse {
     private RemoveServerResponse(Status status) {
         this.status = status;
     }
+
+    public Status getStatus() {
+        return status;
+    }
 }

@@ -54,7 +54,7 @@ public class Server<ID extends Serializable> {
         return state.handle(clientRequestMessage);
     }
 
-    public synchronized CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest clusterMembershipRequest) {
+    public synchronized CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest<ID> clusterMembershipRequest) {
         assertThatNodeIsRunning();
         return state.handle(clusterMembershipRequest);
     }

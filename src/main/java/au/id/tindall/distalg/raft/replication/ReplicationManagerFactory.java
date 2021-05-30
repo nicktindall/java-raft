@@ -1,20 +1,20 @@
 package au.id.tindall.distalg.raft.replication;
 
-import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.cluster.Configuration;
 
 import java.io.Serializable;
 
 public class ReplicationManagerFactory<ID extends Serializable> {
 
-    private final Cluster<ID> cluster;
+    private final Configuration<ID> configuration;
     private final LogReplicatorFactory<ID> logReplicatorFactory;
 
-    public ReplicationManagerFactory(Cluster<ID> cluster, LogReplicatorFactory<ID> logReplicatorFactory) {
-        this.cluster = cluster;
+    public ReplicationManagerFactory(Configuration<ID> configuration, LogReplicatorFactory<ID> logReplicatorFactory) {
+        this.configuration = configuration;
         this.logReplicatorFactory = logReplicatorFactory;
     }
 
     public ReplicationManager<ID> createReplicationManager() {
-        return new ReplicationManager<>(cluster, logReplicatorFactory);
+        return new ReplicationManager<>(configuration, logReplicatorFactory);
     }
 }

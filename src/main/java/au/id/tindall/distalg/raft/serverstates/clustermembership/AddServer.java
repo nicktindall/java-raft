@@ -7,7 +7,6 @@ import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Serializable;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Supplier;
 
@@ -17,7 +16,6 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
 
     private final Log log;
     private final ReplicationManager<ID> replicationManager;
-    private final Duration electionTimeout;
     private final int numberOfCatchUpRounds;
     private final Supplier<Instant> timeSource;
     private Instant lastProgressTime;
@@ -25,19 +23,18 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
     private ReplicationCatchUpRound round;
 
     AddServer(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState,
-              ReplicationManager<ID> replicationManager, ID serverId, Duration electionTimeout,
+              ReplicationManager<ID> replicationManager, ID serverId,
               Supplier<Instant> timeSource) {
         this(log, configuration, persistentState, replicationManager, serverId,
-                electionTimeout, DEFAULT_NUMBER_OF_CATCHUP_ROUNDS, timeSource);
+                DEFAULT_NUMBER_OF_CATCHUP_ROUNDS, timeSource);
     }
 
     AddServer(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState,
-              ReplicationManager<ID> replicationManager, ID serverId, Duration electionTimeout,
+              ReplicationManager<ID> replicationManager, ID serverId,
               int numberOfCatchupRounds, Supplier<Instant> timeSource) {
         super(log, configuration, persistentState, serverId);
         this.log = log;
         this.replicationManager = replicationManager;
-        this.electionTimeout = electionTimeout;
         this.numberOfCatchUpRounds = numberOfCatchupRounds;
         this.timeSource = timeSource;
         round = new ReplicationCatchUpRound(
@@ -74,9 +71,18 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
     }
 
     @Override
+    AddServerResponse logFailureResponseInternal(ID serverId) {
+        if (this.serverId.equals(serverId)) {
+            lastProgressTime = timeSource.get();
+        }
+        return null;
+    }
+
+    @Override
     protected AddServerResponse timeoutIfSlow() {
-        if (lastProgressTime != null
-                && lastProgressTime.plus(electionTimeout.multipliedBy(3)).isBefore(timeSource.get())) {
+        if (finishedAtIndex == -1
+                && lastProgressTime != null
+                && lastProgressTime.plus(configuration.getElectionTimeout().multipliedBy(3)).isBefore(timeSource.get())) {
             replicationManager.stopReplicatingTo(serverId);
             return AddServerResponse.TIMEOUT;
         }
@@ -103,7 +109,7 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
         }
 
         public boolean finishedInTime() {
-            return startTime.plus(electionTimeout).isAfter(timeSource.get());
+            return startTime.plus(configuration.getElectionTimeout()).isAfter(timeSource.get());
         }
 
         public boolean isFinishedAtIndex(int index) {

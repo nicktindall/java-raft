@@ -5,9 +5,11 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -20,6 +22,7 @@ import java.util.Set;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +41,8 @@ public class RemoveServerTest {
     private Configuration<Integer> configuration;
     @Mock
     private PersistentState<Integer> persistentState;
+    @Mock
+    private ReplicationManager<Integer> replicationManager;
 
     private RemoveServer<Integer> removeServer;
 
@@ -46,7 +51,7 @@ public class RemoveServerTest {
         when(configuration.getServers()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID1, OTHER_SERVER_ID2));
         when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX, APPENDED_LOG_INDEX);
         when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
-        removeServer = new RemoveServer<>(log, configuration, persistentState, SERVER_ID);
+        removeServer = new RemoveServer<>(log, configuration, persistentState, replicationManager, SERVER_ID);
     }
 
     @SuppressWarnings("unchecked")
@@ -59,13 +64,31 @@ public class RemoveServerTest {
                 .isEqualTo(List.of(new ConfigurationEntry(CURRENT_TERM, Set.of(OTHER_SERVER_ID1, OTHER_SERVER_ID2))));
     }
 
-    @Test
-    void willResolveResponseFutureWithOKOnlyWhenEntryIsCommitted() {
-        removeServer.start();
-        assertThat(removeServer.getResponseFuture()).isNotCompleted();
-        removeServer.entryCommitted(LAST_LOG_INDEX);
-        assertThat(removeServer.getResponseFuture()).isNotCompleted();
-        removeServer.entryCommitted(APPENDED_LOG_INDEX);
-        assertThat(removeServer.getResponseFuture()).isCompletedWithValue(RemoveServerResponse.OK);
+    @Nested
+    class EntryCommitted {
+
+        @BeforeEach
+        void setUp() {
+            removeServer.start();
+        }
+
+        @Test
+        void willStopReplicatingToServer() {
+            verifyNoInteractions(replicationManager);
+            removeServer.entryCommitted(LAST_LOG_INDEX);
+            verifyNoInteractions(replicationManager);
+            removeServer.entryCommitted(APPENDED_LOG_INDEX);
+            verify(replicationManager).stopReplicatingTo(SERVER_ID);
+        }
+
+        @Test
+        void willResolveResponseFutureWithOK() {
+            assertThat(removeServer.getResponseFuture()).isNotCompleted();
+            removeServer.entryCommitted(LAST_LOG_INDEX);
+            assertThat(removeServer.getResponseFuture()).isNotCompleted();
+            removeServer.entryCommitted(APPENDED_LOG_INDEX);
+            assertThat(removeServer.getResponseFuture()).isCompletedWithValue(RemoveServerResponse.OK);
+        }
     }
+
 }
