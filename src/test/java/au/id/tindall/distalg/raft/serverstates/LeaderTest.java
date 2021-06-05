@@ -89,6 +89,7 @@ class LeaderTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(persistentState.getId()).thenReturn(SERVER_ID);
         lenient().when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
         lenient().when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager,
@@ -435,6 +436,12 @@ class LeaderTest {
             when(clusterMembershipChangeManager.removeServer(OTHER_SERVER_ID)).thenReturn(responseFuture);
 
             assertThat(leader.handle(new RemoveServerRequest<>(OTHER_SERVER_ID))).isSameAs(responseFuture);
+        }
+
+        @Test
+        void willRejectRequestIfServerIdIsLeaderId() {
+            assertThat(leader.handle(new RemoveServerRequest<>(SERVER_ID))).hasFailedWithThrowableThat()
+                    .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 }

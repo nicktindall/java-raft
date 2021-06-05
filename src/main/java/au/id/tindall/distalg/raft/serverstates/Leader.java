@@ -115,6 +115,9 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<ID> removeServerRequest) {
+        if (persistentState.getId().equals(removeServerRequest.getOldServer())) {
+            return CompletableFuture.failedFuture(new UnsupportedOperationException("Can't remove current leader"));
+        }
         return clusterMembershipChangeManager.removeServer(removeServerRequest.getOldServer());
     }
 
