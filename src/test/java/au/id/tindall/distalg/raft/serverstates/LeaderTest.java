@@ -141,6 +141,11 @@ class LeaderTest {
         void willStopClusterMembershipChangeManagerListeningToCommittedEntries() {
             verify(log).removeEntryCommittedEventHandler(clusterMembershipChangeManager);
         }
+
+        @Test
+        void willCloseClusterMembershipChangeManager() {
+            verify(clusterMembershipChangeManager).close();
+        }
     }
 
     @Nested

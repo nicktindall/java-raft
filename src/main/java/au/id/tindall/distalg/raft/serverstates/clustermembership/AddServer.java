@@ -97,6 +97,11 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
         return null;
     }
 
+    @Override
+    public void close() {
+        responseFuture.complete(AddServerResponse.NOT_LEADER);
+    }
+
     class ReplicationCatchUpRound {
         private final int number;
         private final Instant startTime;

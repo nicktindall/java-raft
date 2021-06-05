@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import static au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus.SESSION_EXPIRED;
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
+import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.logging.log4j.LogManager.getLogger;
@@ -151,6 +152,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     @Override
     public void leaveState() {
         log.removeEntryCommittedEventHandler(clusterMembershipChangeManager);
+        closeQuietly(clusterMembershipChangeManager);
         pendingResponseRegistry.dispose();
         replicationManager.stop();
     }

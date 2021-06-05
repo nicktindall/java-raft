@@ -203,4 +203,17 @@ class ClusterMembershipChangeManagerTest {
             verify(removeServer).start();
         }
     }
+
+    @Nested
+    class Close {
+
+        @Test
+        void willCancelAllOutstandingChanges() {
+            changeManager.addServer(NEW_SERVER_ID);
+            changeManager.removeServer(OLD_SERVER_ID);
+            changeManager.close();
+            verify(addServer).close();
+            verify(removeServer).close();
+        }
+    }
 }

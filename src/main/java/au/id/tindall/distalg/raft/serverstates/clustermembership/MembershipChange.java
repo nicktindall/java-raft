@@ -6,13 +6,14 @@ import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
+import java.io.Closeable;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-abstract public class MembershipChange<ID extends Serializable, R extends ClusterMembershipResponse> {
+abstract public class MembershipChange<ID extends Serializable, R extends ClusterMembershipResponse> implements Closeable {
     private final Log log;
     protected final Configuration<ID> configuration;
     private final PersistentState<ID> persistentState;

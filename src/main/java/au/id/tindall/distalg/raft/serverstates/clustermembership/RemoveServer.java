@@ -30,4 +30,9 @@ public class RemoveServer<ID extends Serializable> extends MembershipChange<ID, 
         }
         return null;
     }
+
+    @Override
+    public void close() {
+        responseFuture.complete(RemoveServerResponse.NOT_LEADER);
+    }
 }
