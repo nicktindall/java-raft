@@ -19,7 +19,11 @@ The parts of the algorithm I have implemented (according to the thesis chapters)
 | 3.7 | Follower and candidate crashes | :heavy_check_mark: |
 | 3.8 | Persisted state and server restarts | :heavy_check_mark: |
 | 3.10 | Leadership transfer extension | :heavy_check_mark: |
-| 4 | Cluster membership changes | :x: |
+| 4 | Cluster membership changes | :heavy_check_mark: |
+| 4.2.1 | Catching up new servers | :heavy_check_mark: |
+| 4.2.2 | Removing the current leader | :x: |
+| 4.2.3 | Disruptive servers | :x: |
+| 4.3 | Arbitrary configuration changes using joint consensus | :x: |
 | 5 | Log compaction | :x: |
 | 6.1 | Finding the cluster | :x: |
 | 6.2 | Routing requests to the leader | :heavy_check_mark: |
