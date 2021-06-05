@@ -106,7 +106,7 @@ class FollowerTest {
         void willRejectRequest_PrevLogEntryHasIncorrectTerm() {
             Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_1), emptyList(), 0));
-            verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.empty());
+            verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.of(2));
             verify(electionScheduler).resetTimeout();
             assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
         }

@@ -133,14 +133,32 @@ class LogReplicatorTest {
     class LogFailedResponse {
 
         @Test
-        void willDecrementNextIndex() {
-            logReplicator.logFailedResponse();
+        void willDecrementNextIndexWhenFollowerLastLogIndexNotProvided() {
+            logReplicator.logFailedResponse(null);
             assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX - 1);
         }
 
         @Test
+        void willReduceNextIndexToFollowerLastIndexPlusOneWhenFollowerLastIndexProvided() {
+            logReplicator.logFailedResponse(2);
+            assertThat(logReplicator.getNextIndex()).isEqualTo(3);
+        }
+
+        @Test
+        void willDecrementNextIndexWhenFollowerLastLogIndexIsAfterNextIndex() {
+            logReplicator.logFailedResponse(20);
+            assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX -1);
+        }
+
+        @Test
+        void willSetNextIndexToOneIfFollowerLastLogIndexIsZero() {
+            logReplicator.logFailedResponse(0);
+            assertThat(logReplicator.getNextIndex()).isEqualTo(1);
+        }
+
+        @Test
         void willNotModifyMatchIndex() {
-            logReplicator.logFailedResponse();
+            logReplicator.logFailedResponse(null);
             assertThat(logReplicator.getMatchIndex()).isZero();
         }
     }

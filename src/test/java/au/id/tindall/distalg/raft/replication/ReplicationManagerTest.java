@@ -193,15 +193,15 @@ class ReplicationManagerTest {
 
         @Test
         void willLogFailedResponse() {
-            replicationManager.logFailedResponse(1);
+            replicationManager.logFailedResponse(1, 123);
 
-            verify(logReplicatorOne).logFailedResponse();
+            verify(logReplicatorOne).logFailedResponse(123);
         }
 
         @Test
         void willNotFailWhenLoggingFailedResponseForMissingFollower() {
             replicationManager.stopReplicatingTo(1);
-            replicationManager.logFailedResponse(1);
+            replicationManager.logFailedResponse(1, 123);
         }
     }
 

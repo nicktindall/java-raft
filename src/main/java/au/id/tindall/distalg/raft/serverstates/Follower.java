@@ -59,7 +59,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
         if (appendEntriesRequest.getPrevLogIndex() > 0 &&
                 !log.containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
-            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
+            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(log.getLastLogIndex()));
             return complete(this);
         }
 

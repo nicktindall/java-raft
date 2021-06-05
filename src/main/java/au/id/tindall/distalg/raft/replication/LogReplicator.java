@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Collections.emptyList;
 
 public class LogReplicator<ID extends Serializable> {
@@ -19,9 +20,9 @@ public class LogReplicator<ID extends Serializable> {
     private final Cluster<ID> cluster;
     private final ID followerId;
     private final int maxBatchSize;
+    private final ReplicationScheduler replicationScheduler;
     private volatile int matchIndex;
     private volatile int nextIndex;
-    private final ReplicationScheduler replicationScheduler;
 
     public LogReplicator(Log log, Term term, Cluster<ID> cluster, ID followerId, int maxBatchSize, int nextIndex, ReplicationScheduler replicationScheduler) {
         this.log = log;
@@ -68,8 +69,12 @@ public class LogReplicator<ID extends Serializable> {
         matchIndex = Math.max(lastAppendedIndex, matchIndex);
     }
 
-    public synchronized void logFailedResponse() {
-        nextIndex = max(nextIndex - 1, 1);
+    public synchronized void logFailedResponse(Integer followerLastLogIndex) {
+        int highestPossibleIndex = nextIndex - 1;
+        if (followerLastLogIndex != null) {
+            highestPossibleIndex = min(highestPossibleIndex, followerLastLogIndex + 1);
+        }
+        nextIndex = max(highestPossibleIndex, 1);
     }
 
     public int getMatchIndex() {

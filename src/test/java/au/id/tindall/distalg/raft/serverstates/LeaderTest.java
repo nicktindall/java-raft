@@ -245,7 +245,7 @@ class LeaderTest {
             void willLogFailureWithReplicatorThenReplicate() {
                 leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
                 InOrder sequence = inOrder(replicationManager);
-                sequence.verify(replicationManager).logFailedResponse(OTHER_SERVER_ID);
+                sequence.verify(replicationManager).logFailedResponse(OTHER_SERVER_ID, null);
                 sequence.verify(replicationManager).replicate(OTHER_SERVER_ID);
             }
 

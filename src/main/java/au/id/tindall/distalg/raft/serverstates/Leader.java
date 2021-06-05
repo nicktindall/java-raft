@@ -131,7 +131,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
             }
         } else {
             clusterMembershipChangeManager.logFailureResponse(remoteServerId);
-            replicationManager.logFailedResponse(remoteServerId);
+            replicationManager.logFailedResponse(remoteServerId, appendEntriesResponse.getAppendedIndex().orElse(null));
             replicationManager.replicate(remoteServerId);
         }
     }

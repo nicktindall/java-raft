@@ -74,10 +74,10 @@ public class ReplicationManager<ID extends Serializable> {
         replicators.values().forEach(LogReplicator::replicate);
     }
 
-    public void logFailedResponse(ID serverId) {
+    public void logFailedResponse(ID serverId, Integer followerLastLogIndex) {
         final LogReplicator<ID> replicator = replicators.get(serverId);
         if (replicator != null) {
-            replicator.logFailedResponse();
+            replicator.logFailedResponse(followerLastLogIndex);
         } else {
             LOGGER.warn("Tried to log failed response for missing peer: {}", serverId);
         }
