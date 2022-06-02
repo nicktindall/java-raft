@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.log.storage;
 
+import au.id.tindall.distalg.raft.log.EntryStatus;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 
 import java.util.ArrayList;
@@ -37,8 +38,8 @@ public class InMemoryLogStorage implements LogStorage {
     }
 
     @Override
-    public boolean hasEntry(int index) {
-        return entries.size() >= index;
+    public EntryStatus hasEntry(int index) {
+        return entries.size() >= index ? EntryStatus.Present : EntryStatus.AfterEnd;
     }
 
     @Override

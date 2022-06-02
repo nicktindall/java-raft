@@ -62,7 +62,7 @@ public class Log {
 
     public void appendEntries(int prevLogIndex, List<LogEntry> newEntries) {
         doWrite(() -> {
-            if (prevLogIndex != 0 && !hasEntry(prevLogIndex)) {
+            if (prevLogIndex != 0 && hasEntry(prevLogIndex) == EntryStatus.AfterEnd) {
                 throw new IllegalArgumentException(format("Attempted to append after index %s when length is %s", prevLogIndex, storage.size()));
             }
             for (int offset = 0; offset < newEntries.size(); offset++) {
@@ -74,23 +74,32 @@ public class Log {
     }
 
     private void appendEntry(int appendIndex, LogEntry entry) {
-        if (hasEntry(appendIndex)) {
-            if (!getEntry(appendIndex).getTerm().equals(entry.getTerm())) {
-                if (appendIndex <= this.commitIndex) {
-                    throw new IllegalStateException("Attempt made to truncate prior to commit index, this is a bug");
+        final EntryStatus entryStatus = hasEntry(appendIndex);
+        switch (entryStatus) {
+            case BeforeStart:
+                throw new IllegalStateException("Attempt made to truncate prior to the commit index, this is a bug");
+            case Present:
+                if (getEntry(appendIndex).getTerm().equals(entry.getTerm())) {
+                    // We already have this entry
+                    break;
+                } else {
+                    // The entry we have at that index was from a different term
+                    if (appendIndex <= this.commitIndex) {
+                        throw new IllegalStateException("Attempt made to truncate prior to commit index, this is a bug");
+                    }
+                    storage.truncate(appendIndex);
                 }
-                storage.truncate(appendIndex);
+            case AfterEnd:
                 storage.add(entry);
                 notifyAppendedListeners(appendIndex);
-            }
-        } else {
-            storage.add(entry);
-            notifyAppendedListeners(appendIndex);
+                break;
+            default:
+                throw new IllegalStateException("Unknown entry status: " + entryStatus);
         }
     }
 
     public boolean containsPreviousEntry(int prevLogIndex, Term prevLogTerm) {
-        return doRead(() -> hasEntry(prevLogIndex) && getEntry(prevLogIndex).getTerm().equals(prevLogTerm));
+        return doRead(() -> hasEntry(prevLogIndex) != EntryStatus.AfterEnd && getEntry(prevLogIndex).getTerm().equals(prevLogTerm));
     }
 
     public List<LogEntry> getEntries() {
@@ -113,7 +122,7 @@ public class Log {
         return doRead(() -> new LogSummary(getLastLogTerm(), getLastLogIndex()));
     }
 
-    public boolean hasEntry(int index) {
+    public EntryStatus hasEntry(int index) {
         return doRead(() -> {
             validateIndex(index);
             return storage.hasEntry(index);

@@ -5,6 +5,8 @@ import java.util.Objects;
 
 public class Term implements Serializable, Comparable<Term> {
 
+    public static final Term ZERO = new Term(0);
+
     private final int number;
 
     public Term(int number) {

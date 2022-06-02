@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.replication;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.log.EntryStatus;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
@@ -59,7 +60,7 @@ public class LogReplicator<ID extends Serializable> {
     }
 
     private Optional<Term> getTermAtIndex(Log log, int index) {
-        return index > 0 && log.hasEntry(index)
+        return index > 0 && log.hasEntry(index) == EntryStatus.Present
                 ? Optional.of(log.getEntry(index).getTerm())
                 : Optional.empty();
     }
@@ -86,7 +87,7 @@ public class LogReplicator<ID extends Serializable> {
     }
 
     private List<LogEntry> getEntriesToReplicate(Log log, int nextIndex) {
-        if (log.hasEntry(nextIndex)) {
+        if (log.hasEntry(nextIndex) == EntryStatus.Present) {
             return log.getEntries(nextIndex, maxBatchSize);
         } else {
             return emptyList();

@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.log.storage;
 
+import au.id.tindall.distalg.raft.log.EntryStatus;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 
@@ -12,8 +13,13 @@ public interface LogStorage {
 
     void truncate(int fromIndex);
 
-    default boolean hasEntry(int index) {
-        return size() >= index;
+    default EntryStatus hasEntry(int index) {
+        if (index < getFirstLogIndex()) {
+            return EntryStatus.BeforeStart;
+        } else if (index > getLastLogIndex()) {
+            return EntryStatus.AfterEnd;
+        }
+        return EntryStatus.Present;
     }
 
     LogEntry getEntry(int index);
@@ -21,6 +27,10 @@ public interface LogStorage {
     List<LogEntry> getEntries();
 
     List<LogEntry> getEntries(int fromIndexInclusive, int toIndexExclusive);
+
+    default int getFirstLogIndex() {
+        return 1;
+    }
 
     default int getLastLogIndex() {
         return size();
