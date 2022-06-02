@@ -24,6 +24,7 @@ import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Serializable;
@@ -118,6 +119,10 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     protected Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
+        return complete(this);
+    }
+
+    protected Result<ID> handle(InstallSnapshotRequest<ID> installSnapshotRequest) {
         return complete(this);
     }
 

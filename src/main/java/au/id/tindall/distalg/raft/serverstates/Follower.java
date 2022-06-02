@@ -4,7 +4,9 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
 import au.id.tindall.distalg.raft.state.PersistentState;
+import au.id.tindall.distalg.raft.state.Snapshot;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
@@ -68,6 +70,44 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         int indexOfLastEntryAppended = appendEntriesRequest.getPrevLogIndex() + appendEntriesRequest.getEntries().size();
         cluster.sendAppendEntriesResponse(appendEntriesRequest.getTerm(), appendEntriesRequest.getLeaderId(), true, Optional.of(indexOfLastEntryAppended));
         return complete(this);
+    }
+
+    @Override
+    protected Result<ID> handle(InstallSnapshotRequest<ID> installSnapshotRequest) {
+        if (installSnapshotRequest.getTerm().isGreaterThan(persistentState.getCurrentTerm())) {
+            throw new IllegalStateException("Received a request from a future term! this should never happen");
+        }
+
+        if (messageIsStale(installSnapshotRequest)) {
+            cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false, installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset());
+            return complete(this);
+        }
+
+        final Optional<Snapshot> optionalNextSnapshot = persistentState.getNextSnapshot();
+        if (installSnapshotRequest.getOffset() == 0) {
+            persistentState.createNextSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig());
+        }
+        Snapshot snapshot = optionalNextSnapshot.orElseThrow(() -> new IllegalStateException("This will never happen"));
+
+        if (snapshot.getLastIndex() == installSnapshotRequest.getLastIndex()
+                && snapshot.getLastTerm().equals(installSnapshotRequest.getLastTerm())) {
+            updateAndPromoteSnapshot(snapshot, installSnapshotRequest);
+        } else {
+            sendInstallSnapshotFailedResponse(installSnapshotRequest);
+        }
+        return complete(this);
+    }
+
+    private void sendInstallSnapshotFailedResponse(InstallSnapshotRequest<ID> installSnapshotRequest) {
+        cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false, installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset());
+    }
+
+    private void updateAndPromoteSnapshot(Snapshot nextSnapshot, InstallSnapshotRequest<ID> installSnapshotRequest) {
+        nextSnapshot.getContents().position(installSnapshotRequest.getOffset()).put(installSnapshotRequest.getData());
+        if (installSnapshotRequest.isDone()) {
+            persistentState.promoteNextSnapshot();
+        }
+        cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), true, installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset());
     }
 
     @Override

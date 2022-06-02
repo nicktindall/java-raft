@@ -48,4 +48,15 @@ public interface PersistentState<ID extends Serializable> {
     default ConfigurationEntry getPrevConfig() {
         return null;
     }
+
+    void promoteNextSnapshot();
+
+    default Optional<Snapshot> getCurrentSnapshot() {
+        return Optional.empty();
+    }
+
+    Optional<Snapshot> getNextSnapshot();
+
+    Snapshot createNextSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig);
 }
+

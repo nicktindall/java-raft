@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.state;
 
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.InMemoryLogStorage;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 
@@ -14,6 +15,8 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     private final LogStorage logStorage;
     private final AtomicReference<Term> currentTerm;
     private final AtomicReference<ID> votedFor;
+    private InMemorySnapshot nextSnapshot;
+    private InMemorySnapshot currentSnapshot;
 
     public InMemoryPersistentState(ID id) {
         this.id = id;
@@ -57,5 +60,25 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     @Override
     public LogStorage getLogStorage() {
         return logStorage;
+    }
+
+    @Override
+    public Optional<Snapshot> getCurrentSnapshot() {
+        return Optional.of(currentSnapshot);
+    }
+
+    @Override
+    public void promoteNextSnapshot() {
+
+    }
+
+    @Override
+    public Optional<Snapshot> getNextSnapshot() {
+        return Optional.of(nextSnapshot);
+    }
+
+    @Override
+    public Snapshot createNextSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
+        return null;
     }
 }

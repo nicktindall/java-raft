@@ -12,6 +12,7 @@ import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
 import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
 
@@ -85,6 +86,11 @@ public class TestClusterFactory implements ClusterFactory<Long> {
             @Override
             public void sendTimeoutNowRequest(Term currentTerm, Long destinationId) {
                 sendingStrategy.send(new TimeoutNowMessage<>(currentTerm, localId, destinationId));
+            }
+
+            @Override
+            public void sendInstallSnapshotResponse(Term currentTerm, Long destinationId, boolean success, int lastIndex, int offset) {
+                sendingStrategy.send(new InstallSnapshotResponse<>(currentTerm, localId, destinationId, success, lastIndex, offset));
             }
         };
     }

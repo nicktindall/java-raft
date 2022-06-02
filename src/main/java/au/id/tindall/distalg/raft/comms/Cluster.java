@@ -23,4 +23,6 @@ public interface Cluster<ID extends Serializable> {
     void sendRequestVoteResponse(Term currentTerm, ID destinationId, boolean granted);
 
     void sendTimeoutNowRequest(Term currentTerm, ID destinationId);
+
+    void sendInstallSnapshotResponse(Term currentTerm, ID destinationId, boolean success, int lastIndex, int offset);
 }

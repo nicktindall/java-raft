@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.state;
 
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.log.storage.PersistentLogStorage;
 
@@ -21,7 +22,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
 
 /**
  * Very crude file-based persistent state. Layout of state file is:
- *
+ * <p>
  * - length of serialized ID (integer)
  * - current term (integer)
  * - length of serialized voted-for ID (set to zero if absent, integer)
@@ -194,5 +195,20 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     @Override
     public LogStorage getLogStorage() {
         return logStorage;
+    }
+
+    @Override
+    public void promoteNextSnapshot() {
+        throw new UnsupportedOperationException("TODO: Implement");
+    }
+
+    @Override
+    public Optional<Snapshot> getNextSnapshot() {
+        throw new UnsupportedOperationException("TODO: Implement");
+    }
+
+    @Override
+    public Snapshot createNextSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
+        throw new UnsupportedOperationException("TODO: Implement");
     }
 }
