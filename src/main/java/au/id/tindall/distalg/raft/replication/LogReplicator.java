@@ -14,7 +14,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Collections.emptyList;
 
-public class LogReplicator<ID extends Serializable> {
+public class LogReplicator<ID extends Serializable> implements StateReplicator<ID> {
 
     private final Log log;
     private final Term term;
@@ -34,7 +34,7 @@ public class LogReplicator<ID extends Serializable> {
         this.replicationScheduler = replicationScheduler;
         this.matchIndex = 0;
         this.nextIndex = nextIndex;
-        replicationScheduler.setSendAppendEntriesRequest(this::sendAppendEntriesRequest);
+        replicationScheduler.setSendAppendEntriesRequest(this::sendNextReplicationMessage);
     }
 
     public void start() {
@@ -49,7 +49,8 @@ public class LogReplicator<ID extends Serializable> {
         replicationScheduler.replicate();
     }
 
-    private void sendAppendEntriesRequest() {
+    @Override
+    public void sendNextReplicationMessage() {
         int nextIndexToSend = nextIndex;    // This can change, take a copy
         int prevLogIndex = nextIndexToSend - 1;
         Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
@@ -65,11 +66,13 @@ public class LogReplicator<ID extends Serializable> {
                 : Optional.empty();
     }
 
+    @Override
     public synchronized void logSuccessResponse(int lastAppendedIndex) {
         nextIndex = Math.max(lastAppendedIndex + 1, nextIndex);
         matchIndex = Math.max(lastAppendedIndex, matchIndex);
     }
 
+    @Override
     public synchronized void logFailedResponse(Integer followerLastLogIndex) {
         int highestPossibleIndex = nextIndex - 1;
         if (followerLastLogIndex != null) {
@@ -78,10 +81,12 @@ public class LogReplicator<ID extends Serializable> {
         nextIndex = max(highestPossibleIndex, 1);
     }
 
+    @Override
     public int getMatchIndex() {
         return matchIndex;
     }
 
+    @Override
     public int getNextIndex() {
         return nextIndex;
     }

@@ -17,13 +17,13 @@ public class ReplicationManager<ID extends Serializable> {
     private static final Logger LOGGER = LogManager.getLogger();
 
     private final Configuration<ID> configuration;
-    private final LogReplicatorFactory<ID> logReplicatorFactory;
-    private Map<ID, LogReplicator<ID>> replicators;
+    private final SingleClientReplicatorFactory<ID> replicatorFactory;
+    private Map<ID, SingleClientReplicator<ID>> replicators;
     private boolean started;
 
-    public ReplicationManager(Configuration<ID> configuration, LogReplicatorFactory<ID> logReplicatorFactory) {
+    public ReplicationManager(Configuration<ID> configuration, SingleClientReplicatorFactory<ID> replicatorFactory) {
         this.configuration = configuration;
-        this.logReplicatorFactory = logReplicatorFactory;
+        this.replicatorFactory = replicatorFactory;
         this.started = false;
     }
 
@@ -31,14 +31,14 @@ public class ReplicationManager<ID extends Serializable> {
         assert replicators == null;
         assert !started;
         replicators = new ConcurrentHashMap<>(configuration.getOtherServerIds().stream()
-                .collect(toMap(identity(), logReplicatorFactory::createLogReplicator)));
-        replicators.values().forEach(LogReplicator::start);
+                .collect(toMap(identity(), replicatorFactory::createReplicator)));
+        replicators.values().forEach(SingleClientReplicator::start);
         started = true;
     }
 
     public void stop() {
         assert started;
-        replicators.values().forEach(LogReplicator::stop);
+        replicators.values().forEach(SingleClientReplicator::stop);
         started = false;
     }
 
@@ -47,7 +47,7 @@ public class ReplicationManager<ID extends Serializable> {
     }
 
     public void logSuccessResponse(ID serverId, int lastAppendedIndex) {
-        final LogReplicator<ID> replicator = replicators.get(serverId);
+        final SingleClientReplicator<ID> replicator = replicators.get(serverId);
         if (replicator != null) {
             replicator.logSuccessResponse(lastAppendedIndex);
         } else {
@@ -60,7 +60,7 @@ public class ReplicationManager<ID extends Serializable> {
     }
 
     public void replicateIfTrailingIndex(ID serverId, int lastLogIndex) {
-        final LogReplicator<ID> replicator = replicators.get(serverId);
+        final SingleClientReplicator<ID> replicator = replicators.get(serverId);
         if (replicator != null && replicator.getNextIndex() <= lastLogIndex) {
             replicator.replicate();
         }
@@ -71,11 +71,11 @@ public class ReplicationManager<ID extends Serializable> {
     }
 
     public void replicate() {
-        replicators.values().forEach(LogReplicator::replicate);
+        replicators.values().forEach(SingleClientReplicator::replicate);
     }
 
     public void logFailedResponse(ID serverId, Integer followerLastLogIndex) {
-        final LogReplicator<ID> replicator = replicators.get(serverId);
+        final SingleClientReplicator<ID> replicator = replicators.get(serverId);
         if (replicator != null) {
             replicator.logFailedResponse(followerLastLogIndex);
         } else {
@@ -86,19 +86,19 @@ public class ReplicationManager<ID extends Serializable> {
     public List<Integer> getFollowerMatchIndices() {
         return configuration.getOtherServerIds().stream()
                 .map(followerId -> replicators.get(followerId))
-                .map(LogReplicator::getMatchIndex)
+                .map(SingleClientReplicator::getMatchIndex)
                 .collect(toList());
     }
 
     public void startReplicatingTo(ID serverId) {
-        final LogReplicator<ID> logReplicator = logReplicatorFactory.createLogReplicator(serverId);
+        final SingleClientReplicator<ID> logReplicator = replicatorFactory.createReplicator(serverId);
         replicators.put(serverId, logReplicator);
         logReplicator.start();
         logReplicator.replicate();
     }
 
     public void stopReplicatingTo(ID serverId) {
-        final LogReplicator<ID> replicator = replicators.remove(serverId);
+        final SingleClientReplicator<ID> replicator = replicators.remove(serverId);
         if (replicator != null) {
             replicator.stop();
         }

@@ -7,14 +7,14 @@ import java.io.Serializable;
 public class ReplicationManagerFactory<ID extends Serializable> {
 
     private final Configuration<ID> configuration;
-    private final LogReplicatorFactory<ID> logReplicatorFactory;
+    private final SingleClientReplicatorFactory<ID> replicatorFactory;
 
-    public ReplicationManagerFactory(Configuration<ID> configuration, LogReplicatorFactory<ID> logReplicatorFactory) {
+    public ReplicationManagerFactory(Configuration<ID> configuration, SingleClientReplicatorFactory<ID> replicatorFactory) {
         this.configuration = configuration;
-        this.logReplicatorFactory = logReplicatorFactory;
+        this.replicatorFactory = replicatorFactory;
     }
 
     public ReplicationManager<ID> createReplicationManager() {
-        return new ReplicationManager<>(configuration, logReplicatorFactory);
+        return new ReplicationManager<>(configuration, replicatorFactory);
     }
 }

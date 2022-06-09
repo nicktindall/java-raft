@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.comms;
 import au.id.tindall.distalg.raft.Server;
 import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
@@ -12,10 +13,12 @@ import au.id.tindall.distalg.raft.rpc.server.RequestVoteResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
 import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
 import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -89,8 +92,13 @@ public class TestClusterFactory implements ClusterFactory<Long> {
             }
 
             @Override
-            public void sendInstallSnapshotResponse(Term currentTerm, Long destinationId, boolean success, int lastIndex, int offset) {
-                sendingStrategy.send(new InstallSnapshotResponse<>(currentTerm, localId, destinationId, success, lastIndex, offset));
+            public void sendInstallSnapshotResponse(Term currentTerm, Long destinationId, boolean success, int lastIndex, int endOffset) {
+                sendingStrategy.send(new InstallSnapshotResponse<>(currentTerm, localId, destinationId, success, lastIndex, endOffset));
+            }
+
+            @Override
+            public void sendInstallSnapshotRequest(Term currentTerm, Long destinationId, int lastIndex, Term lastTerm, ConfigurationEntry lastConfiguration, int offset, ByteBuffer data, boolean done) {
+                sendingStrategy.send(new InstallSnapshotRequest<>(currentTerm, localId, destinationId, lastIndex, lastTerm, lastConfiguration, offset, data, done));
             }
         };
     }

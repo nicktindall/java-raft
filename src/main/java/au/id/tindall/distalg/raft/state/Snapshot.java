@@ -13,5 +13,7 @@ public interface Snapshot {
 
     ConfigurationEntry getLastConfig();
 
-    ByteBuffer getContents();
+    void readInto(ByteBuffer byteBuffer, int fromOffset);
+
+    int writeBytes(int offset, ByteBuffer byteBuffer);
 }

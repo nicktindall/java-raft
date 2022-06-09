@@ -14,6 +14,7 @@ import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
+import au.id.tindall.distalg.raft.replication.SingleClientReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManagerFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
@@ -110,7 +111,8 @@ class ServerFactoryTest {
                                 electionScheduler,
                                 new LeadershipTransferFactory<>(cluster, persistentState),
                                 new ReplicationManagerFactory<>(configuration,
-                                        new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE, replicationSchedulerFactory)
+                                        new SingleClientReplicatorFactory<>(replicationSchedulerFactory,
+                                                new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE, replicationSchedulerFactory))
                                 ),
                                 new ClusterMembershipChangeManagerFactory<>(log, persistentState, configuration)
                         ),

@@ -22,13 +22,13 @@ import static org.mockito.Mockito.when;
 class ReplicationManagerTest {
 
     @Mock
-    private LogReplicator<Integer> logReplicatorOne;
+    private SingleClientReplicator<Integer> logReplicatorOne;
     @Mock
-    private LogReplicator<Integer> logReplicatorTwo;
+    private SingleClientReplicator<Integer> logReplicatorTwo;
     @Mock
-    private LogReplicator<Integer> logReplicatorThree;
+    private SingleClientReplicator<Integer> logReplicatorThree;
     @Mock
-    private LogReplicatorFactory<Integer> logReplicatorFactory;
+    private SingleClientReplicatorFactory<Integer> singleClientReplicatorFactory;
     @Mock
     private Configuration<Integer> configuration;
 
@@ -37,9 +37,9 @@ class ReplicationManagerTest {
     @BeforeEach
     void setUp() {
         when(configuration.getOtherServerIds()).thenReturn(Set.of(1, 2));
-        when(logReplicatorFactory.createLogReplicator(1)).thenReturn(logReplicatorOne);
-        when(logReplicatorFactory.createLogReplicator(2)).thenReturn(logReplicatorTwo);
-        replicationManager = new ReplicationManager<>(configuration, logReplicatorFactory);
+        when(singleClientReplicatorFactory.createReplicator(1)).thenReturn(logReplicatorOne);
+        when(singleClientReplicatorFactory.createReplicator(2)).thenReturn(logReplicatorTwo);
+        replicationManager = new ReplicationManager<>(configuration, singleClientReplicatorFactory);
     }
 
     @Nested
@@ -48,8 +48,8 @@ class ReplicationManagerTest {
         @Test
         void willCreateAndStartReplicatorsForAllFollowers() {
             replicationManager.start();
-            verify(logReplicatorFactory).createLogReplicator(1);
-            verify(logReplicatorFactory).createLogReplicator(2);
+            verify(singleClientReplicatorFactory).createReplicator(1);
+            verify(singleClientReplicatorFactory).createReplicator(2);
             verify(logReplicatorOne).start();
             verify(logReplicatorTwo).start();
         }
@@ -77,14 +77,14 @@ class ReplicationManagerTest {
         @BeforeEach
         void setUp() {
             replicationManager.start();
-            when(logReplicatorFactory.createLogReplicator(3)).thenReturn(logReplicatorThree);
+            when(singleClientReplicatorFactory.createReplicator(3)).thenReturn(logReplicatorThree);
         }
 
         @Test
         void willCreateANewReplicatorAndStartReplicatingToIt() {
             replicationManager.startReplicatingTo(3);
 
-            verify(logReplicatorFactory).createLogReplicator(3);
+            verify(singleClientReplicatorFactory).createReplicator(3);
             final InOrder sequence = inOrder(logReplicatorThree);
             sequence.verify(logReplicatorThree).start();
             sequence.verify(logReplicatorThree).replicate();

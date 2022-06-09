@@ -79,7 +79,8 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         }
 
         if (messageIsStale(installSnapshotRequest)) {
-            cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false, installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset());
+            cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false,
+                    installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().remaining());
             return complete(this);
         }
 
@@ -99,15 +100,17 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
     }
 
     private void sendInstallSnapshotFailedResponse(InstallSnapshotRequest<ID> installSnapshotRequest) {
-        cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false, installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset());
+        cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false,
+                installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().remaining());
     }
 
     private void updateAndPromoteSnapshot(Snapshot nextSnapshot, InstallSnapshotRequest<ID> installSnapshotRequest) {
-        nextSnapshot.getContents().position(installSnapshotRequest.getOffset()).put(installSnapshotRequest.getData());
+        int bytesWritten = nextSnapshot.writeBytes(installSnapshotRequest.getOffset(), installSnapshotRequest.getData());
         if (installSnapshotRequest.isDone()) {
             persistentState.promoteNextSnapshot();
         }
-        cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), true, installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset());
+        cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), true,
+                installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + bytesWritten);
     }
 
     @Override

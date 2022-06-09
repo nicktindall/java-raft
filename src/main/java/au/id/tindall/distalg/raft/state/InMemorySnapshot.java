@@ -8,7 +8,7 @@ import java.nio.ByteBuffer;
 public class InMemorySnapshot implements Snapshot {
 
     // TODO server should send this
-    private final int SNAPSHOT_SIZE = 1 << 19; // about 512k
+    private static final int SNAPSHOT_SIZE = 1 << 19; // about 512k
 
     private final int lastIndex;
     private final Term lastTerm;
@@ -38,7 +38,14 @@ public class InMemorySnapshot implements Snapshot {
     }
 
     @Override
-    public ByteBuffer getContents() {
-        return contents;
+    public synchronized void readInto(ByteBuffer byteBuffer, int fromOffset) {
+        byteBuffer.put(contents.position(fromOffset));
+    }
+
+    @Override
+    public synchronized int writeBytes(int offset, ByteBuffer byteBuffer) {
+        int bytesWritten = byteBuffer.remaining();
+        contents.position(offset).put(byteBuffer);
+        return bytesWritten;
     }
 }

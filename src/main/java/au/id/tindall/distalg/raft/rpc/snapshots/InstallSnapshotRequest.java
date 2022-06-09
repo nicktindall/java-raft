@@ -5,6 +5,7 @@ import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 
 public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMessage<ID> {
 
@@ -13,12 +14,12 @@ public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMess
     private final Term lastTerm;
     private final ConfigurationEntry lastConfig;
     private final int offset;
-    private final byte[] data;
+    private final ByteBuffer data;
     private final boolean done;
 
     public InstallSnapshotRequest(Term term, ID leaderId, ID destination,
                                   int lastIndex, Term lastTerm, ConfigurationEntry lastConfig,
-                                  int offset, byte[] data, boolean done) {
+                                  int offset, ByteBuffer data, boolean done) {
         super(term, leaderId, destination);
         this.leaderId = leaderId;
         this.lastIndex = lastIndex;
@@ -49,7 +50,7 @@ public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMess
         return offset;
     }
 
-    public byte[] getData() {
+    public ByteBuffer getData() {
         return data;
     }
 
