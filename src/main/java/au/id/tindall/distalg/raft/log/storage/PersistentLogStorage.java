@@ -1,8 +1,10 @@
 package au.id.tindall.distalg.raft.log.storage;
 
+import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.persistence.EntrySerializer;
 import au.id.tindall.distalg.raft.log.persistence.JavaEntrySerializer;
+import au.id.tindall.distalg.raft.state.Snapshot;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -21,8 +23,11 @@ import static java.util.Collections.unmodifiableList;
 public class PersistentLogStorage implements LogStorage {
 
     private final EntrySerializer entrySerializer;
-    private final FileChannel fileChannel;
+    private final FileChannel logFileChannel;
     private List<Long> entryEndIndex;
+
+    private int prevIndex = 0;
+    private Term prevTerm = Term.ZERO;
 
     public PersistentLogStorage(Path logFilePath) {
         this(logFilePath, JavaEntrySerializer.INSTANCE);
@@ -31,7 +36,7 @@ public class PersistentLogStorage implements LogStorage {
     public PersistentLogStorage(Path logFilePath, EntrySerializer entrySerializer) {
         this.entrySerializer = entrySerializer;
         try {
-            fileChannel = FileChannel.open(logFilePath, READ, WRITE, CREATE, SYNC);
+            logFileChannel = FileChannel.open(logFilePath, READ, WRITE, CREATE, SYNC);
         } catch (IOException e) {
             throw new RuntimeException("Error opening log file for writing", e);
         }
@@ -46,8 +51,8 @@ public class PersistentLogStorage implements LogStorage {
     @Override
     public void truncate(int fromIndex) {
         try {
-            fileChannel.truncate(entryEndIndex.get(fromIndex - 1));
-            entryEndIndex = entryEndIndex.subList(0, fromIndex);
+            logFileChannel.truncate(startPositionOfEntry(fromIndex));
+            entryEndIndex = entryEndIndex.subList(0, fromIndex - getPrevIndex());
         } catch (IOException ex) {
             throw new RuntimeException("Error truncating log", ex);
         }
@@ -61,14 +66,16 @@ public class PersistentLogStorage implements LogStorage {
     @Override
     public List<LogEntry> getEntries() {
         List<LogEntry> entries = new ArrayList<>();
-        for (int i = 0; i < size(); i++) {
-            entries.add(readEntry(i + 1));
+        for (int i = getFirstLogIndex(); i <= getLastLogIndex(); i++) {
+            entries.add(readEntry(i));
         }
         return unmodifiableList(entries);
     }
 
     @Override
     public List<LogEntry> getEntries(int fromIndexInclusive, int toIndexExclusive) {
+        validateIndex(fromIndexInclusive);
+        validateIndex(toIndexExclusive - 1);
         List<LogEntry> entries = new ArrayList<>();
         for (int i = fromIndexInclusive; i < toIndexExclusive; i++) {
             entries.add(readEntry(i));
@@ -77,31 +84,66 @@ public class PersistentLogStorage implements LogStorage {
     }
 
     @Override
+    public void installSnapshot(Snapshot snapshot) {
+        int oldPrevIndex = prevIndex;
+        prevIndex = snapshot.getLastIndex();
+        prevTerm = snapshot.getLastTerm();
+        if (prevIndex < oldPrevIndex + entryEndIndex.size() - 1) {
+            entryEndIndex = entryEndIndex.subList(prevIndex - oldPrevIndex, entryEndIndex.size());
+        } else {
+            entryEndIndex = entryEndIndex.subList(entryEndIndex.size() - 1, entryEndIndex.size());
+        }
+    }
+
+    @Override
+    public int getPrevIndex() {
+        return prevIndex;
+    }
+
+    @Override
+    public Term getPrevTerm() {
+        return prevTerm;
+    }
+
+    @Override
     public int size() {
         return entryEndIndex.size() - 1;
     }
 
+    @Override
+    public int getLastLogIndex() {
+        return getPrevIndex() + size();
+    }
+
     private long startPositionOfEntry(int index) {
-        return entryEndIndex.get(index - 1);
+        return endPositionOfEntry(index - 1);
     }
 
     private int lengthOfEntry(int index) {
-        return (int) (entryEndIndex.get(index) - startPositionOfEntry(index) - 4);
+        validateIndex(index);
+        return (int) (endPositionOfEntry(index) - startPositionOfEntry(index) - 4);
+    }
+
+    private long endPositionOfEntry(int index) {
+        if (index == 0) {
+            return 0;
+        }
+        return entryEndIndex.get(index - getPrevIndex());
     }
 
     public void reIndex() {
         try {
             entryEndIndex = new ArrayList<>();
             entryEndIndex.add(0L);
-            fileChannel.position(0);
+            logFileChannel.position(0);
             ByteBuffer lengthBuffer = ByteBuffer.allocate(4);
-            while (fileChannel.position() < fileChannel.size()) {
-                lengthBuffer.position(0);
-                fileChannel.read(lengthBuffer);
+            while (logFileChannel.position() < logFileChannel.size()) {
+                lengthBuffer.clear();
+                logFileChannel.read(lengthBuffer);
                 int length = lengthBuffer.getInt(0);
-                long endIndex = fileChannel.position() + length;
+                long endIndex = logFileChannel.position() + length;
                 entryEndIndex.add(endIndex);
-                fileChannel.position(endIndex);
+                logFileChannel.position(endIndex);
             }
         } catch (IOException ex) {
             throw new RuntimeException("Error reading log", ex);
@@ -114,20 +156,21 @@ public class PersistentLogStorage implements LogStorage {
             ByteBuffer byteBuffer = ByteBuffer.allocate(entryBytes.length + 4);
             byteBuffer.putInt(entryBytes.length);
             byteBuffer.put(entryBytes);
-            byteBuffer.position(0);
-            fileChannel.write(byteBuffer);
-            entryEndIndex.add(fileChannel.position());
+            byteBuffer.flip();
+            logFileChannel.write(byteBuffer);
+            entryEndIndex.add(logFileChannel.position());
         } catch (IOException ex) {
             throw new RuntimeException("Error writing to log", ex);
         }
     }
 
     private LogEntry readEntry(int index) {
+        validateIndex(index);
         try {
             long offset = startPositionOfEntry(index);
             int length = lengthOfEntry(index);
             ByteBuffer buffer = ByteBuffer.allocate(length);
-            fileChannel.read(buffer, offset + 4);
+            logFileChannel.read(buffer, offset + 4);
             return entrySerializer.deserialize(buffer.array());
         } catch (IOException ex) {
             throw new RuntimeException("Error reading log entry", ex);

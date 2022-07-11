@@ -3,6 +3,8 @@ package au.id.tindall.distalg.raft.cluster;
 import au.id.tindall.distalg.raft.log.EntryAppendedEventHandler;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.state.Snapshot;
+import au.id.tindall.distalg.raft.state.SnapshotInstalledListener;
 
 import java.io.Serializable;
 import java.time.Duration;
@@ -12,11 +14,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class Configuration<ID extends Serializable> implements EntryAppendedEventHandler {
+public class Configuration<ID extends Serializable> implements EntryAppendedEventHandler, SnapshotInstalledListener {
 
     private final ID localId;
     private final Set<ID> servers;
     private final Duration electionTimeout;
+
+    private int configurationIndex;
 
     public Configuration(ID localId, Set<ID> initialServers, Duration electionTimeout) {
         this.localId = localId;
@@ -35,6 +39,10 @@ public class Configuration<ID extends Serializable> implements EntryAppendedEven
                 .collect(Collectors.toSet());
     }
 
+    public ID getLocalId() {
+        return localId;
+    }
+
     public boolean isQuorum(Set<ID> receivedVotes) {
         return receivedVotes.size() > (servers.size() / 2f);
     }
@@ -47,8 +55,21 @@ public class Configuration<ID extends Serializable> implements EntryAppendedEven
     @Override
     public void entryAppended(int index, LogEntry logEntry) {
         if (logEntry instanceof ConfigurationEntry) {
+            configurationIndex = index;
             servers.clear();
             servers.addAll((Set<ID>) ((ConfigurationEntry) logEntry).getClusterMembers());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void onSnapshotInstalled(Snapshot snapshot) {
+        if (snapshot.getLastIndex() > configurationIndex
+                && snapshot.getLastConfig() != null) {
+            configurationIndex = snapshot.getLastIndex();
+            servers.clear();
+            final ConfigurationEntry lastConfig = snapshot.getLastConfig();
+            servers.addAll((Set<ID>) lastConfig.getClusterMembers());
         }
     }
 }

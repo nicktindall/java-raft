@@ -110,4 +110,6 @@ abstract public class MembershipChange<ID extends Serializable, R extends Cluste
         ));
         return log.getLastLogIndex();
     }
+
+    public abstract void logSnapshotResponse(ID serverId);
 }

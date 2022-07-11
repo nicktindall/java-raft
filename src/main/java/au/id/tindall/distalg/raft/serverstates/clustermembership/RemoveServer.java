@@ -32,6 +32,11 @@ public class RemoveServer<ID extends Serializable> extends MembershipChange<ID, 
     }
 
     @Override
+    public void logSnapshotResponse(ID serverId) {
+        // Do nothing
+    }
+
+    @Override
     public void close() {
         responseFuture.complete(RemoveServerResponse.NOT_LEADER);
     }

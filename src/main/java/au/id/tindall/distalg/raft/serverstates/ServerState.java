@@ -25,6 +25,7 @@ import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
 import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Serializable;
@@ -79,6 +80,10 @@ public abstract class ServerState<ID extends Serializable> {
             return handle((TimeoutNowMessage<ID>) message);
         } else if (message instanceof TransferLeadershipMessage) {
             return handle((TransferLeadershipMessage<ID>) message);
+        } else if (message instanceof InstallSnapshotRequest) {
+            return handle((InstallSnapshotRequest<ID>) message);
+        } else if (message instanceof InstallSnapshotResponse) {
+            return handle((InstallSnapshotResponse<ID>) message);
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
@@ -123,6 +128,10 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     protected Result<ID> handle(InstallSnapshotRequest<ID> installSnapshotRequest) {
+        return complete(this);
+    }
+
+    protected Result<ID> handle(InstallSnapshotResponse<ID> installSnapshotResponse) {
         return complete(this);
     }
 

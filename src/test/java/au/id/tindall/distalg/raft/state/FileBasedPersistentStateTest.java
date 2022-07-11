@@ -2,16 +2,15 @@ package au.id.tindall.distalg.raft.state;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.File;
-import java.io.IOException;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,27 +21,28 @@ class FileBasedPersistentStateTest {
     private static final long SERVER_ID = 123L;
     private static final long VOTED_FOR = 456L;
     private static final Term CURRENT_TERM = new Term(9);
-    private File tempFile;
+    @TempDir
+    private Path tempDir;
+    private Path stateFile;
+    private Path nextSnapshotPath;
+    private Path currentSnapshotPath;
     @Mock
     private LogStorage logStorage;
 
     @BeforeEach
-    void setUp() throws IOException {
-        tempFile = File.createTempFile("logFileTest", "append");
-        tempFile.delete();
-    }
+    void setUp() {
+        stateFile = tempDir.resolve("stateFile");
+        nextSnapshotPath = tempDir.resolve("nextSnapshot");
+        currentSnapshotPath = tempDir.resolve("currentSnapshot");
 
-    @AfterEach
-    void tearDown() {
-        tempFile.delete();
     }
 
     @Test
     void willRestoreFromFile() {
-        PersistentState<Long> original = new FileBasedPersistentState<>(logStorage, tempFile.toPath(), new JavaIDSerializer<>(), SERVER_ID);
+        PersistentState<Long> original = new FileBasedPersistentState<>(logStorage, stateFile, nextSnapshotPath, currentSnapshotPath, new JavaIDSerializer<>(), SERVER_ID);
         original.setCurrentTerm(CURRENT_TERM);
         original.setVotedFor(VOTED_FOR);
-        PersistentState<Long> restored = new FileBasedPersistentState<>(logStorage, tempFile.toPath(), new JavaIDSerializer<>());
+        PersistentState<Long> restored = new FileBasedPersistentState<>(logStorage, stateFile, nextSnapshotPath, currentSnapshotPath, new JavaIDSerializer<>());
         assertThat(restored.getId()).isEqualTo(SERVER_ID);
         assertThat(restored.getCurrentTerm()).isEqualTo(CURRENT_TERM);
         assertThat(restored.getVotedFor()).contains(VOTED_FOR);
@@ -55,7 +55,7 @@ class FileBasedPersistentStateTest {
 
         @BeforeEach
         void setUp() {
-            persistentState = new FileBasedPersistentState<>(logStorage, tempFile.toPath(), new JavaIDSerializer<>(), SERVER_ID);
+            persistentState = new FileBasedPersistentState<>(logStorage, stateFile, nextSnapshotPath, currentSnapshotPath, new JavaIDSerializer<>(), SERVER_ID);
         }
 
         @Test

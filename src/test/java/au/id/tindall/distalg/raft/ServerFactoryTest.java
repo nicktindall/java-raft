@@ -15,9 +15,11 @@ import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.replication.SingleClientReplicatorFactory;
+import au.id.tindall.distalg.raft.replication.SnapshotReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManagerFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
+import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
@@ -65,7 +67,7 @@ class ServerFactoryTest {
     @Mock
     private StateMachineFactory stateMachineFactory;
     @Mock
-    private CommandExecutor commandExecutor;
+    private CommandExecutor<Long> commandExecutor;
     @Mock
     private StateMachine stateMachine;
     @Mock
@@ -78,6 +80,8 @@ class ServerFactoryTest {
     private LogStorage logStorage;
     @Mock
     private ReplicationSchedulerFactory replicationSchedulerFactory;
+    @Mock
+    private Snapshotter<Long> snapshotter;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
@@ -89,7 +93,7 @@ class ServerFactoryTest {
         when(logFactory.createLog(logStorage)).thenReturn(log);
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
         when(electionSchedulerFactory.createElectionScheduler()).thenReturn(electionScheduler);
-        when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore)).thenReturn(commandExecutor);
+        when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter)).thenReturn(commandExecutor);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
                 commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT);
     }
@@ -112,7 +116,8 @@ class ServerFactoryTest {
                                 new LeadershipTransferFactory<>(cluster, persistentState),
                                 new ReplicationManagerFactory<>(configuration,
                                         new SingleClientReplicatorFactory<>(replicationSchedulerFactory,
-                                                new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE, replicationSchedulerFactory))
+                                                new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE),
+                                                new SnapshotReplicatorFactory<>(persistentState, cluster))
                                 ),
                                 new ClusterMembershipChangeManagerFactory<>(log, persistentState, configuration)
                         ),

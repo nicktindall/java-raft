@@ -27,10 +27,6 @@ class LogReplicatorFactoryTest {
     private Cluster<Long> cluster;
     @Mock
     private PersistentState<Long> persistentState;
-    @Mock
-    private ReplicationSchedulerFactory replicationSchedulerFactory;
-    @Mock
-    private ReplicationScheduler replicationScheduler;
 
     private LogReplicatorFactory<Long> logReplicatorFactory;
 
@@ -38,14 +34,13 @@ class LogReplicatorFactoryTest {
     void setUp() {
         when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
         when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
-        when(replicationSchedulerFactory.create()).thenReturn(replicationScheduler);
-        logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE, replicationSchedulerFactory);
+        logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE);
     }
 
     @Test
     void willCreateLogReplicator() {
         assertThat(logReplicatorFactory.createLogReplicator(FOLLOWER_ID))
                 .usingRecursiveComparison()
-                .isEqualTo(new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, NEXT_LOG_INDEX, replicationScheduler));
+                .isEqualTo(new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, NEXT_LOG_INDEX));
     }
 }

@@ -4,13 +4,21 @@ import java.io.Serializable;
 
 public interface StateReplicator<ID extends Serializable> {
 
-    void sendNextReplicationMessage();
+    enum ReplicationResult {
+        StayInCurrentMode,
+        SwitchToLogReplication,
+        SwitchToSnapshotReplication
+    }
+
+    ReplicationResult sendNextReplicationMessage();
 
     void logSuccessResponse(int lastAppendedIndex);
+
+    void logSuccessSnapshotResponse(int lastIndex, int lastOffset);
 
     int getMatchIndex();
 
     int getNextIndex();
 
-    void logFailedResponse(Integer followerLastLogIndex);
+    void logFailedResponse(Integer earliestPossibleMatchIndex);
 }

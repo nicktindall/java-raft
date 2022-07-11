@@ -77,4 +77,10 @@ public class ClusterMembershipChangeManager<ID extends Serializable> implements 
         }
         closeQuietly(membershipChangeQueue);
     }
+
+    public void logSnapshotResponse(ID serverId) {
+        if (currentMembershipChange != null) {
+            currentMembershipChange.logSnapshotResponse(serverId);
+        }
+    }
 }

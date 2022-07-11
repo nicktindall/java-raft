@@ -5,7 +5,6 @@ import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -29,5 +28,5 @@ public interface Cluster<ID extends Serializable> {
     void sendInstallSnapshotResponse(Term currentTerm, ID destinationId, boolean success, int lastIndex, int endOffset);
 
     void sendInstallSnapshotRequest(Term currentTerm, ID destinationId, int lastIndex, Term lastTerm,
-                                    ConfigurationEntry lastConfiguration, int offset, ByteBuffer data, boolean done);
+                                    ConfigurationEntry lastConfiguration, int offset, byte[] data, boolean done);
 }

@@ -4,6 +4,7 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,12 +32,14 @@ class CommandExecutorTest {
     private StateMachine stateMachine;
     @Mock
     private ClientSessionStore clientSessionStore;
+    @Mock
+    private Snapshotter<Long> snapshotter;
 
-    private CommandExecutor commandExecutor;
+    private CommandExecutor<Long> commandExecutor;
 
     @BeforeEach
     void setUp() {
-        commandExecutor = new CommandExecutor(stateMachine, clientSessionStore);
+        commandExecutor = new CommandExecutor<>(stateMachine, clientSessionStore, snapshotter);
     }
 
     @Test

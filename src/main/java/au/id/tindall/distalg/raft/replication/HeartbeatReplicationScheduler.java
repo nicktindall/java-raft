@@ -1,22 +1,26 @@
 package au.id.tindall.distalg.raft.replication;
 
+import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class HeartbeatReplicationScheduler implements ReplicationScheduler {
+public class HeartbeatReplicationScheduler<ID extends Serializable> implements ReplicationScheduler {
 
     private static final Logger LOGGER = LogManager.getLogger();
 
+    private final ID serverId;
     private final long maxDelayBetweenMessagesInMilliseconds;
     private final ExecutorService executorService;
     private final AtomicBoolean replicationScheduled;
     private volatile boolean running;
     private Runnable sendAppendEntriesRequest;
 
-    public HeartbeatReplicationScheduler(long maxDelayBetweenMessagesInMilliseconds, ExecutorService executorService) {
+    public HeartbeatReplicationScheduler(ID serverId, long maxDelayBetweenMessagesInMilliseconds, ExecutorService executorService) {
+        this.serverId = serverId;
         this.maxDelayBetweenMessagesInMilliseconds = maxDelayBetweenMessagesInMilliseconds;
         this.executorService = executorService;
         replicationScheduled = new AtomicBoolean(false);
@@ -49,21 +53,23 @@ public class HeartbeatReplicationScheduler implements ReplicationScheduler {
     }
 
     private Void run() throws InterruptedException {
-        try {
-            while (running) {
-                if (replicationScheduled.getAndSet(false)) {
-                    sendAppendEntriesRequest.run();
-                } else {
-                    synchronized (replicationScheduled) {
-                        replicationScheduled.wait(maxDelayBetweenMessagesInMilliseconds);
+        try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", serverId.toString())) {
+            try {
+                while (running) {
+                    if (replicationScheduled.getAndSet(false)) {
+                        sendAppendEntriesRequest.run();
+                    } else {
+                        synchronized (replicationScheduled) {
+                            replicationScheduled.wait(maxDelayBetweenMessagesInMilliseconds);
+                        }
+                        replicationScheduled.set(true);
                     }
-                    replicationScheduled.set(true);
                 }
+            } catch (RuntimeException ex) {
+                LOGGER.error("Replication thread failed!", ex);
             }
-        } catch (RuntimeException ex) {
-            LOGGER.error("Replication thread failed!", ex);
+            return null;
         }
-        return null;
     }
 
     @Override

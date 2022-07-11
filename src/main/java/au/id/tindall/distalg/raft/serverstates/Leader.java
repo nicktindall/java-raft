@@ -21,6 +21,7 @@ import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
 import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManager;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
 import au.id.tindall.distalg.raft.state.PersistentState;
@@ -92,6 +93,20 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
             handleCurrentAppendResponse(appendEntriesResponse);
             if (appendEntriesResponse.isSuccess() && leadershipTransfer.isInProgress()) {
                 leadershipTransfer.sendTimeoutNowRequestIfReadyToTransfer();
+            }
+        }
+        return complete(this);
+    }
+
+    @Override
+    protected Result<ID> handle(InstallSnapshotResponse<ID> installSnapshotResponse) {
+        if (messageIsNotStale(installSnapshotResponse)) {
+            if (installSnapshotResponse.isSuccess()) {
+                clusterMembershipChangeManager.logSnapshotResponse(installSnapshotResponse.getSource());
+                replicationManager.logSuccessSnapshotResponse(installSnapshotResponse.getSource(), installSnapshotResponse.getLastIndex(), installSnapshotResponse.getLastIndex());
+            } else {
+                clusterMembershipChangeManager.logSnapshotResponse(installSnapshotResponse.getSource());
+                LOGGER.warn("Follower {} failure snapshot response", installSnapshotResponse.getSource());
             }
         }
         return complete(this);

@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft.replication;
 
-public interface ReplicationSchedulerFactory {
+import java.io.Serializable;
 
-    ReplicationScheduler create();
+public interface ReplicationSchedulerFactory<ID extends Serializable> {
+
+    ReplicationScheduler create(ID serverId);
 }

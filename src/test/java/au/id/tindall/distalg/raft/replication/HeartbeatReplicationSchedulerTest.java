@@ -19,6 +19,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @ExtendWith(MockitoExtension.class)
 class HeartbeatReplicationSchedulerTest {
 
+    private static final long SERVER_ID = 1234;
+
     @Mock
     private Runnable sendAppendEntriesRequest;
 
@@ -29,7 +31,7 @@ class HeartbeatReplicationSchedulerTest {
 
         @Test
         void willSendRegularHeartbeats() {
-            scheduler = new HeartbeatReplicationScheduler(500, Executors.newSingleThreadExecutor());
+            scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, 500, Executors.newSingleThreadExecutor());
             scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
             scheduler.start();
             await().atMost(2, SECONDS).untilAsserted(() ->
@@ -39,7 +41,7 @@ class HeartbeatReplicationSchedulerTest {
 
         @Test
         void willSendAppendEntriesRequestsOnDemand() {
-            scheduler = new HeartbeatReplicationScheduler(Long.MAX_VALUE, Executors.newSingleThreadExecutor());
+            scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, Long.MAX_VALUE, Executors.newSingleThreadExecutor());
             scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
             scheduler.start();
             scheduler.replicate();
@@ -64,7 +66,7 @@ class HeartbeatReplicationSchedulerTest {
 
         @Test
         void willNotSendRegularHeartbeats() throws InterruptedException {
-            scheduler = new HeartbeatReplicationScheduler(100, Executors.newSingleThreadExecutor());
+            scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, 100, Executors.newSingleThreadExecutor());
             scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
             Thread.sleep(500L);
             verifyNoInteractions(sendAppendEntriesRequest);
@@ -72,7 +74,7 @@ class HeartbeatReplicationSchedulerTest {
 
         @Test
         void willNotSendAppendEntriesRequestsOnDemand() throws InterruptedException {
-            scheduler = new HeartbeatReplicationScheduler(Long.MAX_VALUE, Executors.newSingleThreadExecutor());
+            scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, Long.MAX_VALUE, Executors.newSingleThreadExecutor());
             scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
             scheduler.replicate();
             Thread.sleep(1000L);

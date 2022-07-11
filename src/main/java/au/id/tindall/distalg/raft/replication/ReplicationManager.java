@@ -31,7 +31,7 @@ public class ReplicationManager<ID extends Serializable> {
         assert replicators == null;
         assert !started;
         replicators = new ConcurrentHashMap<>(configuration.getOtherServerIds().stream()
-                .collect(toMap(identity(), replicatorFactory::createReplicator)));
+                .collect(toMap(identity(), followerId -> replicatorFactory.createReplicator(configuration.getLocalId(), followerId))));
         replicators.values().forEach(SingleClientReplicator::start);
         started = true;
     }
@@ -55,6 +55,15 @@ public class ReplicationManager<ID extends Serializable> {
         }
     }
 
+    public void logSuccessSnapshotResponse(ID serverId, int lastIndex, int lastOffset) {
+        final SingleClientReplicator<ID> replicator = replicators.get(serverId);
+        if (replicator != null) {
+            replicator.logSuccessSnapshotResponse(lastIndex, lastOffset);
+        } else {
+            LOGGER.warn("Tried to log success response for missing peer: {}", serverId);
+        }
+    }
+
     public int getNextIndex(ID serverId) {
         return replicators.get(serverId).getNextIndex();
     }
@@ -67,17 +76,20 @@ public class ReplicationManager<ID extends Serializable> {
     }
 
     public void replicate(ID serverId) {
-        replicators.get(serverId).replicate();
+        final SingleClientReplicator<ID> idSingleClientReplicator = replicators.get(serverId);
+        if (idSingleClientReplicator != null) {
+            idSingleClientReplicator.replicate();
+        }
     }
 
     public void replicate() {
         replicators.values().forEach(SingleClientReplicator::replicate);
     }
 
-    public void logFailedResponse(ID serverId, Integer followerLastLogIndex) {
+    public void logFailedResponse(ID serverId, Integer earliestPossibleMatchIndex) {
         final SingleClientReplicator<ID> replicator = replicators.get(serverId);
         if (replicator != null) {
-            replicator.logFailedResponse(followerLastLogIndex);
+            replicator.logFailedResponse(earliestPossibleMatchIndex);
         } else {
             LOGGER.warn("Tried to log failed response for missing peer: {}", serverId);
         }
@@ -90,9 +102,10 @@ public class ReplicationManager<ID extends Serializable> {
                 .collect(toList());
     }
 
-    public void startReplicatingTo(ID serverId) {
-        final SingleClientReplicator<ID> logReplicator = replicatorFactory.createReplicator(serverId);
-        replicators.put(serverId, logReplicator);
+    public void startReplicatingTo(ID followerId) {
+        LOGGER.warn("Starting replicating to " + followerId);
+        final SingleClientReplicator<ID> logReplicator = replicatorFactory.createReplicator(configuration.getLocalId(), followerId);
+        replicators.put(followerId, logReplicator);
         logReplicator.start();
         logReplicator.replicate();
     }

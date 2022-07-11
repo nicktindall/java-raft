@@ -18,7 +18,6 @@ import java.util.Optional;
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -49,8 +48,7 @@ class LogReplicatorTest {
     void setUp() {
         log = logContaining(ENTRY_ONE, ENTRY_TWO, ENTRY_THREE, ENTRY_FOUR);
         log.advanceCommitIndex(COMMIT_INDEX);
-        logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX, new SynchronousReplicationScheduler());
-        logReplicator.start();
+        logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX);
     }
 
     @Nested
@@ -65,12 +63,12 @@ class LogReplicatorTest {
             assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX);
         }
 
-        @Test
-        void willSetSendAppendEntriesRequestOnReplicationScheduler() {
-            ReplicationScheduler replicationScheduler = mock(ReplicationScheduler.class);
-            new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX, replicationScheduler);
-            verify(replicationScheduler).setSendAppendEntriesRequest(any(Runnable.class));
-        }
+//        @Test
+//        void willSetSendAppendEntriesRequestOnReplicationScheduler() {
+//            ReplicationScheduler replicationScheduler = mock(ReplicationScheduler.class);
+//            new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX, replicationScheduler);
+//            verify(replicationScheduler).setSendAppendEntriesRequest(any(Runnable.class));
+//        }
     }
 
     @Nested
@@ -79,9 +77,8 @@ class LogReplicatorTest {
         @Test
         void willStartLogReplicator() {
             ReplicationScheduler replicationScheduler = mock(ReplicationScheduler.class);
-            LogReplicator<Long> replicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX, replicationScheduler);
+            LogReplicator<Long> replicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX);
             reset(replicationScheduler);
-            replicator.start();
             verify(replicationScheduler).start();
         }
     }
@@ -92,9 +89,8 @@ class LogReplicatorTest {
         @Test
         void willStopLogReplicator() {
             ReplicationScheduler replicationScheduler = mock(ReplicationScheduler.class);
-            LogReplicator<Long> replicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX, replicationScheduler);
+            LogReplicator<Long> replicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, INITIAL_NEXT_INDEX);
             reset(replicationScheduler);
-            replicator.stop();
             verify(replicationScheduler).stop();
         }
     }
@@ -168,22 +164,22 @@ class LogReplicatorTest {
 
         @Test
         void willSendEmptyAppendEntriesRequest_WhenThereAreNoLogEntries() {
-            logReplicator = new LogReplicator<>(logContaining(), CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, 1, new SynchronousReplicationScheduler());
-            logReplicator.replicate();
+            logReplicator = new LogReplicator<>(logContaining(), CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, 1);
+            logReplicator.sendNextReplicationMessage();
             verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, 0, Optional.empty(), emptyList(), 0);
         }
 
         @Test
         void shouldSendEmptyAppendEntriesRequest_WhenFollowerIsCaughtUp() {
-            logReplicator.replicate();
+            logReplicator.sendNextReplicationMessage();
             verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX, Optional.of(ENTRY_FOUR.getTerm()), emptyList(), COMMIT_INDEX);
         }
 
         @Test
         void shouldSendUpToMaxBatchSizeEntries_WhenFollowerIsLagging() {
             int maxBatchSize = 2;
-            logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, maxBatchSize, LAST_LOG_INDEX - 2, new SynchronousReplicationScheduler());
-            logReplicator.replicate();
+            logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, maxBatchSize, LAST_LOG_INDEX - 2);
+            logReplicator.sendNextReplicationMessage();
             verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX - 3, Optional.of(ENTRY_ONE.getTerm()), List.of(ENTRY_TWO, ENTRY_THREE), COMMIT_INDEX);
         }
     }

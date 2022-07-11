@@ -90,6 +90,13 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
     }
 
     @Override
+    public void logSnapshotResponse(ID serverId) {
+        if (this.serverId.equals(serverId)) {
+            lastProgressTime = timeSource.get();
+        }
+    }
+
+    @Override
     protected AddServerResponse entryCommittedInternal(int index) {
         if (finishedAtIndex == index) {
             return AddServerResponse.OK;

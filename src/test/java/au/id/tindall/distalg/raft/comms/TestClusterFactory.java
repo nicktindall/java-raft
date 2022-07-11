@@ -18,7 +18,6 @@ import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
 import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,7 +96,7 @@ public class TestClusterFactory implements ClusterFactory<Long> {
             }
 
             @Override
-            public void sendInstallSnapshotRequest(Term currentTerm, Long destinationId, int lastIndex, Term lastTerm, ConfigurationEntry lastConfiguration, int offset, ByteBuffer data, boolean done) {
+            public void sendInstallSnapshotRequest(Term currentTerm, Long destinationId, int lastIndex, Term lastTerm, ConfigurationEntry lastConfiguration, int offset, byte[] data, boolean done) {
                 sendingStrategy.send(new InstallSnapshotRequest<>(currentTerm, localId, destinationId, lastIndex, lastTerm, lastConfiguration, offset, data, done));
             }
         };

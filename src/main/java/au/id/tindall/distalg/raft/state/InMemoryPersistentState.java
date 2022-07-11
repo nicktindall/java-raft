@@ -6,6 +6,7 @@ import au.id.tindall.distalg.raft.log.storage.InMemoryLogStorage;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -17,6 +18,8 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     private final AtomicReference<ID> votedFor;
     private InMemorySnapshot nextSnapshot;
     private InMemorySnapshot currentSnapshot;
+    private Integer minimumMatchIndex;
+    private List<SnapshotInstalledListener> snapshotInstalledListeners;
 
     public InMemoryPersistentState(ID id) {
         this.id = id;
@@ -64,12 +67,17 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
 
     @Override
     public Optional<Snapshot> getCurrentSnapshot() {
-        return Optional.of(currentSnapshot);
+        return Optional.ofNullable(currentSnapshot);
     }
 
     @Override
     public void promoteNextSnapshot() {
-
+        currentSnapshot = nextSnapshot;
+        nextSnapshot = null;
+        logStorage.installSnapshot(currentSnapshot);
+        for (SnapshotInstalledListener listener : snapshotInstalledListeners) {
+            listener.onSnapshotInstalled(currentSnapshot);
+        }
     }
 
     @Override
@@ -79,6 +87,12 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
 
     @Override
     public Snapshot createNextSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
-        return null;
+        nextSnapshot = new InMemorySnapshot(lastIndex, lastTerm, lastConfig);
+        return nextSnapshot;
+    }
+
+    @Override
+    public void addSnapshotInstalledListener(SnapshotInstalledListener listener) {
+        snapshotInstalledListeners.add(listener);
     }
 }

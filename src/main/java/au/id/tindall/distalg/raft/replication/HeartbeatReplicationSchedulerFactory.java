@@ -1,8 +1,10 @@
 package au.id.tindall.distalg.raft.replication;
 
+import java.io.Serializable;
+
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
-public class HeartbeatReplicationSchedulerFactory implements ReplicationSchedulerFactory {
+public class HeartbeatReplicationSchedulerFactory<ID extends Serializable> implements ReplicationSchedulerFactory<ID> {
 
     private final long maxDelayBetweenMessagesInMilliseconds;
 
@@ -11,7 +13,7 @@ public class HeartbeatReplicationSchedulerFactory implements ReplicationSchedule
     }
 
     @Override
-    public ReplicationScheduler create() {
-        return new HeartbeatReplicationScheduler(maxDelayBetweenMessagesInMilliseconds, newSingleThreadExecutor());
+    public ReplicationScheduler create(ID serverId) {
+        return new HeartbeatReplicationScheduler<>(serverId, maxDelayBetweenMessagesInMilliseconds, newSingleThreadExecutor());
     }
 }

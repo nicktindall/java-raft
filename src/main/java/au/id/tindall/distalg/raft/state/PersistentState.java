@@ -21,25 +21,6 @@ public interface PersistentState<ID extends Serializable> {
 
     LogStorage getLogStorage();
 
-
-    /**
-     * prevIndex is the index of the last discarded entry (initialized to 0 on first boot)
-     *
-     * @return the prevIndex
-     */
-    default int getPrevIndex() {
-        return 0;
-    }
-
-    /**
-     * prevTerm is the term of the last discarded entry (initialized to 0 on first boot)
-     *
-     * @return the prevTerm
-     */
-    default Term getPrevTerm() {
-        return Term.ZERO;
-    }
-
     /**
      * The latest cluster membership configuration up through prevIndex
      *
@@ -58,5 +39,8 @@ public interface PersistentState<ID extends Serializable> {
     Optional<Snapshot> getNextSnapshot();
 
     Snapshot createNextSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig);
+
+    void addSnapshotInstalledListener(SnapshotInstalledListener listener);
+
 }
 

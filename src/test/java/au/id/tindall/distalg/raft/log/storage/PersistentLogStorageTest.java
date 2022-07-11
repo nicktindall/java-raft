@@ -2,16 +2,26 @@ package au.id.tindall.distalg.raft.log.storage;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
+import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.state.InMemorySnapshot;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
+import static au.id.tindall.distalg.raft.log.EntryStatus.AfterEnd;
+import static au.id.tindall.distalg.raft.log.EntryStatus.BeforeStart;
+import static au.id.tindall.distalg.raft.log.EntryStatus.Present;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class PersistentLogStorageTest {
 
@@ -125,5 +135,79 @@ class PersistentLogStorageTest {
         entries.forEach(storage::add);
         assertThat(storage.getEntries(1, 3)).usingFieldByFieldElementComparator()
                 .isEqualTo(entries.subList(0, 2));
+    }
+
+    @Nested
+    class InstallSnapshot {
+
+        List<LogEntry> entries = List.of(
+                new ClientRegistrationEntry(TERM, 123),
+                new ClientRegistrationEntry(TERM, 456),
+                new ClientRegistrationEntry(TERM, 789),
+                new ClientRegistrationEntry(TERM, 987),
+                new ClientRegistrationEntry(TERM, 876)
+        );
+
+        List<Integer> params() {
+            return List.of(1, 2, 3, 4, 5);
+        }
+
+        void populateThenSnapshot(int lastIndex) {
+            entries.forEach(storage::add);
+            storage.installSnapshot(new InMemorySnapshot(lastIndex, TERM, new ConfigurationEntry(TERM, Set.of(1, 2, 3))));
+        }
+
+        @Test
+        void willReturnCorrectEntriesAfterWholeLogIsSnapshotted() {
+            populateThenSnapshot(10);
+            final ClientRegistrationEntry entry = new ClientRegistrationEntry(TERM, 99999);
+            storage.add(entry);
+            assertThat(storage.getEntries()).usingFieldByFieldElementComparator().isEqualTo(List.of(entry));
+        }
+
+        @ParameterizedTest
+        @MethodSource("params")
+        void willCorrectlyReportSize(int lastIndex) {
+            populateThenSnapshot(lastIndex);
+            assertEquals(5 - lastIndex, storage.size());
+        }
+
+        @ParameterizedTest
+        @MethodSource("params")
+        void willCorrectlyReportFirstLogIndex(int lastIndex) {
+            populateThenSnapshot(lastIndex);
+            assertEquals(lastIndex + 1, storage.getFirstLogIndex());
+        }
+
+        @ParameterizedTest
+        @MethodSource("params")
+        void willCorrectlyReportLastLogIndex(int lastIndex) {
+            populateThenSnapshot(lastIndex);
+            assertEquals(5, storage.getLastLogIndex());
+        }
+
+        @ParameterizedTest
+        @MethodSource("params")
+        void willCorrectlyReportPrevIndex(int lastIndex) {
+            populateThenSnapshot(lastIndex);
+            assertThat(storage.getPrevIndex()).isEqualTo(lastIndex);
+        }
+
+        @ParameterizedTest
+        @MethodSource("params")
+        void willCorrectlyReturnAllEntries(int lastIndex) {
+            populateThenSnapshot(lastIndex);
+            assertThat(storage.getEntries()).usingFieldByFieldElementComparator()
+                    .isEqualTo(entries.subList(lastIndex, entries.size()));
+        }
+
+        @ParameterizedTest
+        @MethodSource("params")
+        void willCorrectlyIdentifyIfAnIndexIsPresent(int lastIndex) {
+            populateThenSnapshot(lastIndex);
+            for (int i = 1; i < lastIndex + 5; i++) {
+                assertThat(storage.hasEntry(i)).isEqualTo(i <= lastIndex ? BeforeStart : i > 5 ? AfterEnd : Present);
+            }
+        }
     }
 }

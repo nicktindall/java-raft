@@ -8,7 +8,9 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
@@ -26,7 +28,7 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
 
     private int currentSnapshotLastIndex = -1;
     private Term currentSnapshotLastTerm = null;
-    private int lastOffsetConfirmed = 0;
+    private int lastOffsetConfirmed = -1;
 
     public SnapshotReplicator(Term term, Cluster<ID> cluster, ID followerId, PersistentState<ID> persistentState) {
         this.term = term;
@@ -36,24 +38,35 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
     }
 
     @Override
-    public void sendNextReplicationMessage() {
+    public ReplicationResult sendNextReplicationMessage() {
         final Optional<Snapshot> currentSnapshot = persistentState.getCurrentSnapshot();
+        final AtomicReference<ReplicationResult> returnValue = new AtomicReference<>(ReplicationResult.StayInCurrentMode);
         currentSnapshot.ifPresentOrElse(snapshot -> {
             if (sendingANewSnapshot(snapshot)) {
                 resetSendingState(snapshot);
             }
             final int nextOffset = lastOffsetConfirmed + 1;
-            snapshot.readInto(buffer, nextOffset);
+            buffer.clear();
+            int bytesRead = snapshot.readInto(buffer, nextOffset);
+            if (buffer.position() == 0) {
+                LOGGER.warn("Switching to log replication, sent lastIndex: {}, lastTerm: {}", snapshot.getLastIndex(), snapshot.getLastTerm());
+                returnValue.set(ReplicationResult.SwitchToLogReplication);
+                return;
+            }
             cluster.sendInstallSnapshotRequest(term, followerId, snapshot.getLastIndex(), snapshot.getLastTerm(),
-                    snapshot.getLastConfig(), nextOffset, buffer, buffer.hasRemaining());
-        }, () -> {
-            LOGGER.warn("Attempted to send snapshot but there is no current snapshot");
-        });
+                    snapshot.getLastConfig(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
+        }, () -> LOGGER.warn("Attempted to send snapshot but there is no current snapshot"));
+        return returnValue.get();
     }
 
     @Override
     public void logSuccessResponse(int lastAppendedIndex) {
-        // Do nothing!
+        // Do nothing
+    }
+
+    @Override
+    public void logSuccessSnapshotResponse(int lastIndex, int lastOffset) {
+        lastOffsetConfirmed = lastOffset;
     }
 
     @Override
@@ -69,14 +82,14 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
     }
 
     @Override
-    public void logFailedResponse(Integer followerLastLogIndex) {
+    public void logFailedResponse(Integer earliestPossibleMatchIndex) {
         // Do nothing!
     }
 
     private void resetSendingState(Snapshot snapshot) {
         currentSnapshotLastIndex = snapshot.getLastIndex();
         currentSnapshotLastTerm = snapshot.getLastTerm();
-        lastOffsetConfirmed = 0;
+        lastOffsetConfirmed = -1;
     }
 
     private boolean sendingANewSnapshot(Snapshot currentSnapshot) {

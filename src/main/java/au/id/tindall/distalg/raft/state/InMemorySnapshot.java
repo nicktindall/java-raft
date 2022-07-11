@@ -38,14 +38,26 @@ public class InMemorySnapshot implements Snapshot {
     }
 
     @Override
-    public synchronized void readInto(ByteBuffer byteBuffer, int fromOffset) {
+    public synchronized int readInto(ByteBuffer byteBuffer, int fromOffset) {
+        int startPosition = byteBuffer.position();
         byteBuffer.put(contents.position(fromOffset));
+        return byteBuffer.position() - startPosition;
     }
 
     @Override
-    public synchronized int writeBytes(int offset, ByteBuffer byteBuffer) {
-        int bytesWritten = byteBuffer.remaining();
-        contents.position(offset).put(byteBuffer);
+    public synchronized int writeBytes(int offset, byte[] chunk) {
+        int bytesWritten = chunk.length;
+        contents.position(offset).put(chunk);
         return bytesWritten;
+    }
+
+    @Override
+    public void finalise() {
+        // Do nothing
+    }
+
+    @Override
+    public void close() {
+        // Do nothing
     }
 }

@@ -81,7 +81,7 @@ class ServerInteractionTest {
                 TestStateMachine::new,
                 electionSchedulerFactory,
                 MAX_BATCH_SIZE,
-                SynchronousReplicationScheduler::new,
+                id -> new SynchronousReplicationScheduler(),
                 Duration.ZERO
         );
     }

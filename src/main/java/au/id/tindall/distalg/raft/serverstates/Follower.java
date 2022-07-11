@@ -2,6 +2,7 @@ package au.id.tindall.distalg.raft.serverstates;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
+import au.id.tindall.distalg.raft.log.EntryStatus;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
@@ -59,10 +60,33 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
         electionScheduler.resetTimeout();
 
-        if (appendEntriesRequest.getPrevLogIndex() > 0 &&
-                !log.containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
-            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(log.getLastLogIndex()));
-            return complete(this);
+        if (appendEntriesRequest.getPrevLogIndex() > 0) {
+            final EntryStatus entryStatus = log.hasEntry(appendEntriesRequest.getPrevLogIndex());
+            switch (entryStatus) {
+                case AfterEnd:
+                    LOGGER.warn("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, appendPrevTerm={}, log.hasEntry={}", appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(),
+                            appendEntriesRequest.getPrevLogTerm(), log.hasEntry(appendEntriesRequest.getPrevLogIndex()));
+                    cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(log.getLastLogIndex() + 1));
+                    return complete(this);
+                case BeforeStart:
+                    if (log.getPrevIndex() != appendEntriesRequest.getPrevLogIndex() || !log.getPrevTerm().equals(appendEntriesRequest.getPrevLogTerm())) {
+                        LOGGER.warn("Ignoring append entry: appendPrevIndex={}, appendPrevTerm={}, log.getPrevIndex={}", appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm(),
+                                log.getPrevIndex());
+                        cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(Math.max(log.getLastLogIndex(), log.getPrevIndex() + 1)));
+                        return complete(this);
+                    }
+                    break;
+                case Present:
+                    if (!log.containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
+                        LOGGER.warn("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, appendPrevTerm={}, log.hasEntry={}", appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(),
+                                appendEntriesRequest.getPrevLogTerm(), log.hasEntry(appendEntriesRequest.getPrevLogIndex()));
+                        cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(appendEntriesRequest.getPrevLogIndex()));
+                        return complete(this);
+                    }
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected entry status: " + entryStatus);
+            }
         }
 
         log.appendEntries(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getEntries());
@@ -80,15 +104,17 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
         if (messageIsStale(installSnapshotRequest)) {
             cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false,
-                    installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().remaining());
+                    installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length);
             return complete(this);
         }
 
         final Optional<Snapshot> optionalNextSnapshot = persistentState.getNextSnapshot();
+        Snapshot snapshot;
         if (installSnapshotRequest.getOffset() == 0) {
-            persistentState.createNextSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig());
+            snapshot = persistentState.createNextSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig());
+        } else {
+            snapshot = optionalNextSnapshot.orElseThrow(() -> new IllegalStateException("This will never happen"));
         }
-        Snapshot snapshot = optionalNextSnapshot.orElseThrow(() -> new IllegalStateException("This will never happen"));
 
         if (snapshot.getLastIndex() == installSnapshotRequest.getLastIndex()
                 && snapshot.getLastTerm().equals(installSnapshotRequest.getLastTerm())) {
@@ -101,7 +127,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     private void sendInstallSnapshotFailedResponse(InstallSnapshotRequest<ID> installSnapshotRequest) {
         cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false,
-                installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().remaining());
+                installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length);
     }
 
     private void updateAndPromoteSnapshot(Snapshot nextSnapshot, InstallSnapshotRequest<ID> installSnapshotRequest) {

@@ -3,6 +3,8 @@ package au.id.tindall.distalg.raft.log;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.storage.InMemoryLogStorage;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
+import au.id.tindall.distalg.raft.state.Snapshot;
+import au.id.tindall.distalg.raft.state.SnapshotInstalledListener;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
@@ -18,7 +20,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Log {
+public class Log implements SnapshotInstalledListener {
 
     private static final Logger LOGGER = getLogger();
 
@@ -99,7 +101,16 @@ public class Log {
     }
 
     public boolean containsPreviousEntry(int prevLogIndex, Term prevLogTerm) {
-        return doRead(() -> hasEntry(prevLogIndex) != EntryStatus.AfterEnd && getEntry(prevLogIndex).getTerm().equals(prevLogTerm));
+        return doRead(() -> {
+            switch (hasEntry(prevLogIndex)) {
+                case Present:
+                    return getEntry(prevLogIndex).getTerm().equals(prevLogTerm);
+                case BeforeStart:
+                    return storage.getPrevIndex() == prevLogIndex && storage.getPrevTerm().equals(prevLogTerm);
+                default:
+                    return false;
+            }
+        });
     }
 
     public List<LogEntry> getEntries() {
@@ -112,6 +123,14 @@ public class Log {
 
     public int getNextLogIndex() {
         return doRead(storage::getNextLogIndex);
+    }
+
+    public int getPrevIndex() {
+        return doRead(storage::getPrevIndex);
+    }
+
+    public Term getPrevTerm() {
+        return doRead(storage::getPrevTerm);
     }
 
     public Optional<Term> getLastLogTerm() {
@@ -177,8 +196,9 @@ public class Log {
     }
 
     private void notifyCommittedListeners(int committedIndex) {
+        final LogEntry entry = getEntry(committedIndex);
         entryCommittedEventHandlers
-                .forEach(handler -> handler.entryCommitted(committedIndex, getEntry(committedIndex)));
+                .forEach(handler -> handler.entryCommitted(committedIndex, entry));
     }
 
     private void notifyAppendedListeners(int appendedIndex) {
@@ -207,5 +227,14 @@ public class Log {
         } finally {
             lock.unlock();
         }
+    }
+
+    @Override
+    public void onSnapshotInstalled(Snapshot snapshot) {
+        doWrite(() -> {
+            LOGGER.warn("Advancing commit index from {} to {} due to snapshot", commitIndex, snapshot.getLastIndex());
+            this.commitIndex = Math.max(commitIndex, snapshot.getLastIndex());
+            return null;
+        });
     }
 }

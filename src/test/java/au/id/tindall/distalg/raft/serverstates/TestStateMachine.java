@@ -19,6 +19,16 @@ public class TestStateMachine implements StateMachine {
         return new byte[]{(byte) appliedCommands.size()};
     }
 
+    @Override
+    public byte[] createSnapshot() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    public void installSnapshot(byte[] snapshot) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
     public List<byte[]> getAppliedCommands() {
         return appliedCommands;
     }

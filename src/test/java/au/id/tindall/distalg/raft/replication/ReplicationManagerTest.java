@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ReplicationManagerTest {
 
+    public static final int LOCAL_ID = 99;
     @Mock
     private SingleClientReplicator<Integer> logReplicatorOne;
     @Mock
@@ -36,9 +37,10 @@ class ReplicationManagerTest {
 
     @BeforeEach
     void setUp() {
+        when(configuration.getLocalId()).thenReturn(LOCAL_ID);
         when(configuration.getOtherServerIds()).thenReturn(Set.of(1, 2));
-        when(singleClientReplicatorFactory.createReplicator(1)).thenReturn(logReplicatorOne);
-        when(singleClientReplicatorFactory.createReplicator(2)).thenReturn(logReplicatorTwo);
+        when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 1)).thenReturn(logReplicatorOne);
+        when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 2)).thenReturn(logReplicatorTwo);
         replicationManager = new ReplicationManager<>(configuration, singleClientReplicatorFactory);
     }
 
@@ -48,8 +50,8 @@ class ReplicationManagerTest {
         @Test
         void willCreateAndStartReplicatorsForAllFollowers() {
             replicationManager.start();
-            verify(singleClientReplicatorFactory).createReplicator(1);
-            verify(singleClientReplicatorFactory).createReplicator(2);
+            verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 1);
+            verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 2);
             verify(logReplicatorOne).start();
             verify(logReplicatorTwo).start();
         }
@@ -77,14 +79,14 @@ class ReplicationManagerTest {
         @BeforeEach
         void setUp() {
             replicationManager.start();
-            when(singleClientReplicatorFactory.createReplicator(3)).thenReturn(logReplicatorThree);
+            when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 3)).thenReturn(logReplicatorThree);
         }
 
         @Test
         void willCreateANewReplicatorAndStartReplicatingToIt() {
             replicationManager.startReplicatingTo(3);
 
-            verify(singleClientReplicatorFactory).createReplicator(3);
+            verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 3);
             final InOrder sequence = inOrder(logReplicatorThree);
             sequence.verify(logReplicatorThree).start();
             sequence.verify(logReplicatorThree).replicate();
@@ -108,7 +110,7 @@ class ReplicationManagerTest {
 
         @Test
         void willDoNothingWhenIdIsNotPresent() {
-            replicationManager.stopReplicatingTo(99);
+            replicationManager.stopReplicatingTo(LOCAL_ID);
         }
     }
 
@@ -230,7 +232,7 @@ class ReplicationManagerTest {
 
         @Test
         void willDoNothingWhenIdIsNotPresent() {
-            replicationManager.replicateIfTrailingIndex(99, 2);
+            replicationManager.replicateIfTrailingIndex(LOCAL_ID, 2);
         }
     }
 }

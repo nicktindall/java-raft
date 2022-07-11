@@ -12,7 +12,7 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 /**
  * Just checks that the current counter value is the same as the command value,
  * increments the counter and returns the new value.
- *
+ * <p>
  * For testing that the state machine behaves as the client expects.
  */
 public class MonotonicCounter implements StateMachine {
@@ -31,6 +31,17 @@ public class MonotonicCounter implements StateMachine {
         Level level = counter.mod(BigInteger.valueOf(100L)).equals(BigInteger.ZERO) ? Level.WARN : Level.DEBUG;
         LOGGER.log(level, "Command successful, new value is {}", counter);
         return counter.toByteArray();
+    }
+
+    @Override
+    public byte[] createSnapshot() {
+        return counter.toByteArray();
+    }
+
+    @Override
+    public void installSnapshot(byte[] snapshot) {
+        counter = new BigInteger(snapshot);
+        LOGGER.warn("Installed snapshot, new value=" + counter);
     }
 
     public BigInteger getCounter() {
