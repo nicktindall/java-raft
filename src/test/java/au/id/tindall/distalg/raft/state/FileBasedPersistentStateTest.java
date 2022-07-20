@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.file.Path;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,15 +25,17 @@ class FileBasedPersistentStateTest {
     @TempDir
     private Path tempDir;
     private Path stateFile;
-    private Path nextSnapshotPath;
+    private Function<Integer, Path> nextSnapshotPath;
+    private int nextSnapshotSequence = 0;
     private Path currentSnapshotPath;
     @Mock
     private LogStorage logStorage;
 
     @BeforeEach
     void setUp() {
+        nextSnapshotSequence = 0;
         stateFile = tempDir.resolve("stateFile");
-        nextSnapshotPath = tempDir.resolve("nextSnapshot");
+        nextSnapshotPath = sequence -> tempDir.resolve("nextSnapshot" + nextSnapshotSequence++);
         currentSnapshotPath = tempDir.resolve("currentSnapshot");
 
     }

@@ -46,7 +46,17 @@ public class LiveDelayedSendingStrategy implements SendingStrategy {
     }
 
     public void stop() {
+        long startTime = System.currentTimeMillis();
         this.scheduledExecutorService.shutdownNow();
+        try {
+            if (!this.scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                LOGGER.error("Sending executor didn't stop");
+            } else {
+                LOGGER.warn("Took {} ms to shutdown", System.currentTimeMillis() - startTime);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private Runnable createDispatch(RpcMessage<Long> message) {
@@ -54,7 +64,7 @@ public class LiveDelayedSendingStrategy implements SendingStrategy {
             try {
                 this.dispatchFunction.accept(message);
             } catch (RuntimeException ex) {
-                LOGGER.error("Message sending threw", ex);
+                LOGGER.error("Message sending threw (message={})", message, ex);
             }
         };
     }

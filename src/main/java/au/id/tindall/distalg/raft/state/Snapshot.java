@@ -13,6 +13,8 @@ public interface Snapshot extends Closeable {
 
     Term getLastTerm();
 
+    long getLength();
+
     ConfigurationEntry getLastConfig();
 
     int readInto(ByteBuffer byteBuffer, int fromOffset);
@@ -23,4 +25,6 @@ public interface Snapshot extends Closeable {
 
     @Override
     void close() throws IOException;
+
+    void delete();
 }

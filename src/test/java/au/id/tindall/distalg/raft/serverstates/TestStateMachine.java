@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.serverstates;
 
+import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 
 import java.util.ArrayList;
@@ -25,7 +26,7 @@ public class TestStateMachine implements StateMachine {
     }
 
     @Override
-    public void installSnapshot(byte[] snapshot) {
+    public void installSnapshot(Snapshot snapshot) {
         throw new UnsupportedOperationException("Not implemented");
     }
 

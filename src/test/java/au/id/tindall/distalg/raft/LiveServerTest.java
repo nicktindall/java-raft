@@ -121,6 +121,13 @@ class LiveServerTest {
         liveDelayedSendingStrategy.stop();
         clusterFactory.logStats();
         testExecutorService.shutdown();
+        try {
+            if (!testExecutorService.awaitTermination(5, SECONDS)) {
+                LOGGER.error("Test executor didn't stop");
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test

@@ -52,7 +52,7 @@ public class AppendEntriesRequest<ID extends Serializable> extends UnicastMessag
                 "leaderId=" + leaderId +
                 ", prevLogIndex=" + prevLogIndex +
                 ", prevLogTerm=" + prevLogTerm +
-                ", entries=" + entries +
+                ", entries.size()=" + entries.size() +
                 ", leaderCommit=" + leaderCommit +
                 "} " + super.toString();
     }

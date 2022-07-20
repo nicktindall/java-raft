@@ -7,7 +7,8 @@ import java.util.Collection;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public final class Closeables {
+public enum Closeables {
+    ;
 
     private static final Logger LOGGER = getLogger();
 

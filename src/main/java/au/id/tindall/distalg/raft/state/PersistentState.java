@@ -30,15 +30,13 @@ public interface PersistentState<ID extends Serializable> {
         return null;
     }
 
-    void promoteNextSnapshot();
+    void setCurrentSnapshot(Snapshot snapshot);
 
     default Optional<Snapshot> getCurrentSnapshot() {
         return Optional.empty();
     }
 
-    Optional<Snapshot> getNextSnapshot();
-
-    Snapshot createNextSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig);
+    Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig);
 
     void addSnapshotInstalledListener(SnapshotInstalledListener listener);
 

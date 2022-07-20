@@ -11,7 +11,6 @@ import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.state.SnapshotInstalledListener;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -74,12 +73,7 @@ public class CommandExecutor<ID extends Serializable> implements SnapshotInstall
     @Override
     public void onSnapshotInstalled(Snapshot snapshot) {
         if (!creatingSnapshot) {
-            ByteBuffer theWholeSnapshot = ByteBuffer.allocate(500000);
-            final int length = snapshot.readInto(theWholeSnapshot, 0);
-            theWholeSnapshot.flip();
-            byte[] contents = new byte[length];
-            theWholeSnapshot.get(contents);
-            stateMachine.installSnapshot(contents);
+            stateMachine.installSnapshot(snapshot);
         }
     }
 }

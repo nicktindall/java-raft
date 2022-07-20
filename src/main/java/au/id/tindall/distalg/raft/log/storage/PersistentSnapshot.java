@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.log.storage;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.state.Snapshot;
+import org.apache.logging.log4j.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -18,8 +19,11 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import static org.apache.logging.log4j.status.StatusLogger.getLogger;
+
 public class PersistentSnapshot implements Snapshot, Closeable {
 
+    private static final Logger LOGGER = getLogger();
     private static final String HEADER = "JavaSnapshot";
     private static final int LAST_INDEX_OFFSET = HEADER.length();
     private static final int LAST_TERM_OFFSET = LAST_INDEX_OFFSET + 4;
@@ -36,10 +40,12 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     private final Term lastTerm;
     private final ConfigurationEntry lastConfig;
     private final int contentsStartOffset;
+    private final Path path;
     private long contentsLength;
-    private State state;
+    private State state = State.Initialised;
 
-    private PersistentSnapshot(FileChannel fileChannel, int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int contentsStartOffset) {
+    private PersistentSnapshot(Path path, FileChannel fileChannel, int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int contentsStartOffset) {
+        this.path = path;
         this.fileChannel = fileChannel;
         this.lastIndex = lastIndex;
         this.lastTerm = lastTerm;
@@ -47,8 +53,9 @@ public class PersistentSnapshot implements Snapshot, Closeable {
         this.contentsStartOffset = contentsStartOffset;
     }
 
-    private PersistentSnapshot(FileChannel fileChannel, int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int contentsStartOffset,
+    private PersistentSnapshot(Path path, FileChannel fileChannel, int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int contentsStartOffset,
                                long contentsLength) {
+        this.path = path;
         this.fileChannel = fileChannel;
         this.lastIndex = lastIndex;
         this.lastTerm = lastTerm;
@@ -122,6 +129,25 @@ public class PersistentSnapshot implements Snapshot, Closeable {
         fileChannel.close();
     }
 
+    @Override
+    public void delete() {
+        try {
+            close();
+        } catch (IOException e) {
+            LOGGER.warn("Error closing fileChannel", e);
+
+        }
+    }
+
+    @Override
+    public long getLength() {
+        return contentsLength;
+    }
+
+    public Path path() {
+        return path;
+    }
+
     enum State {
         Initialised,
         Complete
@@ -143,7 +169,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
             FileChannel fileChannel = FileChannel.open(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, StandardOpenOption.READ);
             byteBuffer.flip();
             fileChannel.write(byteBuffer);
-            return new PersistentSnapshot(fileChannel, lastIndex, lastTerm, configurationEntry, contentsStartIndex);
+            return new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, configurationEntry, contentsStartIndex);
         } catch (IOException e) {
             throw new RuntimeException("Error creating snapshot", e);
         }
@@ -171,7 +197,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
             try (final ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(configBytesArray))) {
                 entry = (ConfigurationEntry) ois.readObject();
             }
-            return new PersistentSnapshot(fileChannel, lastIndex, lastTerm, entry, buffer.getInt(CONTENTS_START_OFFSET), contentsLength);
+            return new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, entry, buffer.getInt(CONTENTS_START_OFFSET), contentsLength);
         } catch (ClassNotFoundException | IOException e) {
             throw new RuntimeException("Error loading snapshot", e);
         }

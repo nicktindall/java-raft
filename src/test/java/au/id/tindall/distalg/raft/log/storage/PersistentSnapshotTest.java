@@ -68,7 +68,35 @@ class PersistentSnapshotTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
 
+    @Test
+    void canWriteContentsRandomly(@TempDir Path tempDir) {
+        ConfigurationEntry lastConfig = createConfigurationEntry();
+        final Term lastTerm = new Term(456);
+        final int lastIndex = 123;
+        final Path snapshotPath = tempDir.resolve("snapshot.snap");
+
+        try (final PersistentSnapshot persistentSnapshot = PersistentSnapshot.create(snapshotPath, lastIndex, lastTerm, lastConfig)) {
+            persistentSnapshot.writeBytes(0, "Testing".getBytes());
+            persistentSnapshot.writeBytes(0, "Fa".getBytes());
+            persistentSnapshot.writeBytes(4, "er".getBytes());
+            persistentSnapshot.writeBytes(6, "!!!".getBytes());
+            persistentSnapshot.finalise();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        try (PersistentSnapshot loadedSnapshot = PersistentSnapshot.load(snapshotPath)) {
+            assertThat(loadedSnapshot.getLastTerm()).isEqualTo(lastTerm);
+            assertThat(loadedSnapshot.getLastIndex()).isEqualTo(lastIndex);
+            assertThat(loadedSnapshot.getLastConfig()).usingRecursiveComparison().isEqualTo(lastConfig);
+            byte[] contentBytesRead = new byte[9];
+            loadedSnapshot.readInto(ByteBuffer.wrap(contentBytesRead), 0);
+            assertThat(new String(contentBytesRead)).isEqualTo("Faster!!!");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private ConfigurationEntry createConfigurationEntry() {

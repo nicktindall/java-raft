@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.READ;
@@ -52,34 +55,34 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private final AtomicReference<Term> currentTerm;
     private final AtomicReference<ID> votedFor;
 
-    private final Path nextSnapshotPath;
+    private final Function<Integer, Path> tempSnapshotPathGenerator;
     private final Path currentSnapshotPath;
     private final List<SnapshotInstalledListener> snapshotInstalledListeners;
-    private Snapshot nextSnapshot;
     private Snapshot currentSnapshot;
+    private volatile int nextSnapshotSequence = 0;
 
 
     public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateFilesPrefix, ID serverId) {
         PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath(stateFilesPrefix));
-        return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath(stateFilesPrefix), nextSnapshotPath(stateFilesPrefix),
-                currentSnapshotPath(stateFilesPrefix), new JavaIDSerializer<>(), serverId);
+        return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath(stateFilesPrefix),
+                tempSnapshotPathGenerator(stateFilesPrefix), currentSnapshotPath(stateFilesPrefix), new JavaIDSerializer<>(), serverId);
     }
 
     public static <ID extends Serializable> FileBasedPersistentState<ID> createOrOpen(Path stateFilesPrefix, ID serverId) throws IOException {
         Path logFilePath = logFilePath(stateFilesPrefix);
         Path stateFilePath = stateFilePath(stateFilesPrefix);
-        Path nextSnapshotPath = nextSnapshotPath(stateFilesPrefix);
+        Function<Integer, Path> tempSnapshotPathGenerator = tempSnapshotPathGenerator(stateFilesPrefix);
         Path currentSnapshotPath = currentSnapshotPath(stateFilesPrefix);
         if (Files.exists(logFilePath) && Files.exists(stateFilePath)) {
             PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
-            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, nextSnapshotPath, currentSnapshotPath, new JavaIDSerializer<>());
+            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, new JavaIDSerializer<>());
         } else {
             Files.deleteIfExists(logFilePath);
             Files.deleteIfExists(stateFilePath);
-            Files.deleteIfExists(nextSnapshotPath);
+            deleteAnyTempSnapshots(stateFilesPrefix);
             Files.deleteIfExists(currentSnapshotPath);
             PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
-            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, nextSnapshotPath, currentSnapshotPath, new JavaIDSerializer<>(), serverId);
+            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, new JavaIDSerializer<>(), serverId);
         }
     }
 
@@ -87,8 +90,24 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         return stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".currentSnapshot");
     }
 
-    private static Path nextSnapshotPath(Path stateFilesPrefix) {
-        return stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".nextSnapshot");
+    private static void deleteAnyTempSnapshots(Path stateFilesPrefix) {
+        try (final Stream<Path> pathStream = Files.find(stateFilesPrefix.getParent(), 1, (path, attr) -> Pattern.matches("\\.snapshot\\.\\d+$", path.getFileName().toString()))) {
+            pathStream.forEach(FileBasedPersistentState::deleteFileOrWarn);
+        } catch (IOException e) {
+            LOGGER.warn("Error deleting existing snapsots", e);
+        }
+    }
+
+    private static void deleteFileOrWarn(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            LOGGER.warn("Error deleting " + path, e);
+        }
+    }
+
+    private static Function<Integer, Path> tempSnapshotPathGenerator(Path stateFilesPrefix) {
+        return sequenceNumber -> stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".snapshot." + sequenceNumber);
     }
 
     private static Path stateFilePath(Path stateFilesPrefix) {
@@ -102,10 +121,10 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     /**
      * Create a new file-based persistent state
      */
-    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Path nextSnapshotPath, Path currentSnapshotPath, IDSerializer<ID> idSerializer, ID id) {
+    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempPathGenerator, Path currentSnapshotPath, IDSerializer<ID> idSerializer, ID id) {
         this.currentTerm = new AtomicReference<>();
         this.votedFor = new AtomicReference<>();
-        this.nextSnapshotPath = nextSnapshotPath;
+        this.tempSnapshotPathGenerator = tempPathGenerator;
         this.currentSnapshotPath = currentSnapshotPath;
         this.snapshotInstalledListeners = new ArrayList<>();
         try {
@@ -123,10 +142,10 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     /**
      * Load an existing file-based persistent state
      */
-    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Path nextSnapshotPath, Path currentSnapshotPath, IDSerializer<ID> idSerializer) {
+    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempSnapshotPathGenerator, Path currentSnapshotPath, IDSerializer<ID> idSerializer) {
         this.currentTerm = new AtomicReference<>();
         this.votedFor = new AtomicReference<>();
-        this.nextSnapshotPath = nextSnapshotPath;
+        this.tempSnapshotPathGenerator = tempSnapshotPathGenerator;
         this.currentSnapshotPath = currentSnapshotPath;
         this.snapshotInstalledListeners = new ArrayList<>();
         try {
@@ -237,7 +256,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     @Override
-    public void promoteNextSnapshot() {
+    public void setCurrentSnapshot(Snapshot nextSnapshot) {
         // no point installing a snapshot if we've already gone past that point
         if (nextSnapshot.getLastIndex() <= logStorage.getPrevIndex()) {
             LOGGER.warn("Not installing snapshot that would not advance us (log.prevLogIndex() == {}, nextSnapshot.getLastLogIndex() == {}",
@@ -246,8 +265,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         }
         try {
             Closeables.closeQuietly(nextSnapshot, currentSnapshot);
-            nextSnapshot = null;
-            Files.move(nextSnapshotPath, currentSnapshotPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(((PersistentSnapshot)nextSnapshot).path(), currentSnapshotPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             final PersistentSnapshot load = PersistentSnapshot.load(currentSnapshotPath);
             logStorage.installSnapshot(load);
             currentSnapshot = load;
@@ -260,30 +278,8 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     @Override
-    public Optional<Snapshot> getNextSnapshot() {
-        if (nextSnapshot == null && Files.exists(nextSnapshotPath)) {
-            try {
-                nextSnapshot = PersistentSnapshot.load(nextSnapshotPath);
-            } catch (RuntimeException e) {
-                LOGGER.warn("Error loading existing snapshot", e);
-            }
-        }
-        return Optional.ofNullable(nextSnapshot);
-    }
-
-    @Override
-    public Snapshot createNextSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
-        try {
-            Closeables.closeQuietly(nextSnapshot);
-            nextSnapshot = null;
-            if (Files.deleteIfExists(nextSnapshotPath)) {
-                LOGGER.info("Deleted existing snapshot " + nextSnapshotPath);
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException("Couldn't delete next snapshot file (" + nextSnapshotPath + ")", e);
-        }
-        nextSnapshot = PersistentSnapshot.create(nextSnapshotPath, lastIndex, lastTerm, lastConfig);
-        return nextSnapshot;
+    public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
+        return PersistentSnapshot.create(tempSnapshotPathGenerator.apply(nextSnapshotSequence++), lastIndex, lastTerm, lastConfig);
     }
 
     @Override

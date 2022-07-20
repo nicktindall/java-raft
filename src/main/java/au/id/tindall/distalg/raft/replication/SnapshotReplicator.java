@@ -55,7 +55,7 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
             }
             cluster.sendInstallSnapshotRequest(term, followerId, snapshot.getLastIndex(), snapshot.getLastTerm(),
                     snapshot.getLastConfig(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
-        }, () -> LOGGER.warn("Attempted to send snapshot but there is no current snapshot"));
+        }, () -> LOGGER.error("Attempted to send snapshot but there is no current snapshot"));
         return returnValue.get();
     }
 
@@ -66,7 +66,11 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
 
     @Override
     public void logSuccessSnapshotResponse(int lastIndex, int lastOffset) {
-        lastOffsetConfirmed = lastOffset;
+        if (currentSnapshotLastIndex == lastIndex) {
+            lastOffsetConfirmed = Math.max(lastOffset, lastOffsetConfirmed);
+        } else {
+            LOGGER.warn("Got a stale InstallSnapshotResponse from {}, ignoring (lastIndex={}, lastOffset={})", followerId, lastIndex, lastOffset);
+        }
     }
 
     @Override

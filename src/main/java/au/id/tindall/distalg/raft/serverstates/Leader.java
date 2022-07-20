@@ -103,7 +103,8 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         if (messageIsNotStale(installSnapshotResponse)) {
             if (installSnapshotResponse.isSuccess()) {
                 clusterMembershipChangeManager.logSnapshotResponse(installSnapshotResponse.getSource());
-                replicationManager.logSuccessSnapshotResponse(installSnapshotResponse.getSource(), installSnapshotResponse.getLastIndex(), installSnapshotResponse.getLastIndex());
+                replicationManager.logSuccessSnapshotResponse(installSnapshotResponse.getSource(), installSnapshotResponse.getLastIndex(), installSnapshotResponse.getOffset());
+                replicationManager.replicate(installSnapshotResponse.getSource());
             } else {
                 clusterMembershipChangeManager.logSnapshotResponse(installSnapshotResponse.getSource());
                 LOGGER.warn("Follower {} failure snapshot response", installSnapshotResponse.getSource());

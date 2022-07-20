@@ -11,10 +11,12 @@ import au.id.tindall.distalg.raft.state.Snapshot;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Optional;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
+import static au.id.tindall.distalg.raft.util.HexUtil.hexDump;
 import static java.lang.Math.min;
 import static java.util.Optional.empty;
 import static org.apache.logging.log4j.LogManager.getLogger;
@@ -24,6 +26,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
     private static final Logger LOGGER = getLogger();
 
     private final ElectionScheduler<ID> electionScheduler;
+    private Snapshot receivingSnapshot;
 
     public Follower(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader, ElectionScheduler<ID> electionScheduler) {
         super(persistentState, log, cluster, serverStateFactory, currentLeader);
@@ -108,17 +111,35 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
             return complete(this);
         }
 
-        final Optional<Snapshot> optionalNextSnapshot = persistentState.getNextSnapshot();
-        Snapshot snapshot;
-        if (installSnapshotRequest.getOffset() == 0) {
-            snapshot = persistentState.createNextSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig());
-        } else {
-            snapshot = optionalNextSnapshot.orElseThrow(() -> new IllegalStateException("This will never happen"));
+        if (!installSnapshotRequest.getSource().equals(currentLeader)) {
+            LOGGER.warn("Got an install snapshot request from someone other than the leader?!");
+            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false, empty());
+            return complete(this);
         }
 
-        if (snapshot.getLastIndex() == installSnapshotRequest.getLastIndex()
-                && snapshot.getLastTerm().equals(installSnapshotRequest.getLastTerm())) {
-            updateAndPromoteSnapshot(snapshot, installSnapshotRequest);
+        electionScheduler.resetTimeout();
+
+        if (installSnapshotRequest.getOffset() == 0) {
+            if (receivingSnapshot != null) {
+                if (receivingSnapshot.getLastIndex() != installSnapshotRequest.getLastIndex()
+                        || !receivingSnapshot.getLastTerm().equals(installSnapshotRequest.getLastTerm())) {
+                    receivingSnapshot.delete();
+                    receivingSnapshot = persistentState.createSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig());
+                }
+            } else {
+                receivingSnapshot = persistentState.createSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig());
+            }
+        } else {
+            if (receivingSnapshot == null) {
+                LOGGER.warn("Got an InstallSnapshotRequest late, there is no current snapshot, ignoring (offset={}, lastIndex={})",
+                        installSnapshotRequest.getOffset(), installSnapshotRequest.getLastIndex());
+                return complete(this);
+            }
+        }
+
+        if (receivingSnapshot.getLastIndex() == installSnapshotRequest.getLastIndex()
+                && receivingSnapshot.getLastTerm().equals(installSnapshotRequest.getLastTerm())) {
+            updateAndPromoteSnapshot(receivingSnapshot, installSnapshotRequest);
         } else {
             sendInstallSnapshotFailedResponse(installSnapshotRequest);
         }
@@ -133,10 +154,18 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
     private void updateAndPromoteSnapshot(Snapshot nextSnapshot, InstallSnapshotRequest<ID> installSnapshotRequest) {
         int bytesWritten = nextSnapshot.writeBytes(installSnapshotRequest.getOffset(), installSnapshotRequest.getData());
         if (installSnapshotRequest.isDone()) {
-            persistentState.promoteNextSnapshot();
+            nextSnapshot.finalise();
+            ByteBuffer endOfFirstChunkBytes = ByteBuffer.allocate(50);
+            ByteBuffer endBytes = ByteBuffer.allocate(50);
+            nextSnapshot.readInto(endOfFirstChunkBytes, 4050);
+            nextSnapshot.readInto(endBytes, (int) nextSnapshot.getLength() - 50);
+            LOGGER.warn("Received snapshot index={}, term={}, length={}, endOfFirstChunk={}, end={}", nextSnapshot.getLastIndex(), nextSnapshot.getLastTerm(), nextSnapshot.getLength(),
+                    hexDump(endOfFirstChunkBytes.array()), hexDump(endBytes.array()));
+            persistentState.setCurrentSnapshot(nextSnapshot);
+            receivingSnapshot = null;
         }
         cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), true,
-                installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + bytesWritten);
+                installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + bytesWritten - 1);
     }
 
     @Override

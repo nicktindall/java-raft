@@ -11,6 +11,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.io.Serializable;
 
+import static au.id.tindall.distalg.raft.util.HexUtil.hexDump;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Snapshotter<ID extends Serializable> {
@@ -33,12 +34,13 @@ public class Snapshotter<ID extends Serializable> {
 
     public void createSnapshotIfReady(int lastIndex, Term lastTerm) {
         if (snapshotHeuristic.shouldCreateSnapshot(log, stateMachine, persistentState.getCurrentSnapshot().orElse(null))) {
-            LOGGER.warn("Creating snapshot to index: {}, {}", lastIndex, lastTerm);
             byte[] snapshot = stateMachine.createSnapshot();
-            try (final Snapshot nextSnapshot = persistentState.createNextSnapshot(lastIndex, lastTerm, lastConfigurationEntry)) {
+            LOGGER.warn("Creating snapshot to index={}, term={}, length={}, endOfFirstChunk={}, end={}", lastIndex, lastTerm, snapshot.length,
+                    hexDump(snapshot, 4050, 50), hexDump(snapshot, snapshot.length - 50, 50));
+            try (final Snapshot nextSnapshot = persistentState.createSnapshot(lastIndex, lastTerm, lastConfigurationEntry)) {
                 nextSnapshot.writeBytes(0, snapshot);
                 nextSnapshot.finalise();
-                persistentState.promoteNextSnapshot();
+                persistentState.setCurrentSnapshot(nextSnapshot);
             } catch (IOException e) {
                 LOGGER.error("Error creating snapshot", e);
             }

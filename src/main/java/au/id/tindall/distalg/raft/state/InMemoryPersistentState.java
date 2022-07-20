@@ -6,6 +6,7 @@ import au.id.tindall.distalg.raft.log.storage.InMemoryLogStorage;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -16,9 +17,7 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     private final LogStorage logStorage;
     private final AtomicReference<Term> currentTerm;
     private final AtomicReference<ID> votedFor;
-    private InMemorySnapshot nextSnapshot;
     private InMemorySnapshot currentSnapshot;
-    private Integer minimumMatchIndex;
     private List<SnapshotInstalledListener> snapshotInstalledListeners;
 
     public InMemoryPersistentState(ID id) {
@@ -26,6 +25,7 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
         this.logStorage = new InMemoryLogStorage();
         this.currentTerm = new AtomicReference<>(new Term(0));
         this.votedFor = new AtomicReference<>();
+        this.snapshotInstalledListeners = new ArrayList<>();
     }
 
     @Override
@@ -71,9 +71,8 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     }
 
     @Override
-    public void promoteNextSnapshot() {
-        currentSnapshot = nextSnapshot;
-        nextSnapshot = null;
+    public void setCurrentSnapshot(Snapshot nextSnapshot) {
+        currentSnapshot = (InMemorySnapshot) nextSnapshot;
         logStorage.installSnapshot(currentSnapshot);
         for (SnapshotInstalledListener listener : snapshotInstalledListeners) {
             listener.onSnapshotInstalled(currentSnapshot);
@@ -81,14 +80,8 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     }
 
     @Override
-    public Optional<Snapshot> getNextSnapshot() {
-        return Optional.of(nextSnapshot);
-    }
-
-    @Override
-    public Snapshot createNextSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
-        nextSnapshot = new InMemorySnapshot(lastIndex, lastTerm, lastConfig);
-        return nextSnapshot;
+    public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
+        return new InMemorySnapshot(lastIndex, lastTerm, lastConfig);
     }
 
     @Override

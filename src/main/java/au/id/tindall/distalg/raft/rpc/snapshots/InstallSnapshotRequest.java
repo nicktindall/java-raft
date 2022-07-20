@@ -5,7 +5,6 @@ import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 
 import java.io.Serializable;
-import java.util.Arrays;
 
 public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMessage<ID> {
 
@@ -66,7 +65,7 @@ public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMess
                 ", lastTerm=" + lastTerm +
                 ", lastConfig=" + lastConfig +
                 ", offset=" + offset +
-                ", data=" + Arrays.toString(data) +
+                ", data.length=" + data.length +
                 ", done=" + done +
                 '}';
     }
