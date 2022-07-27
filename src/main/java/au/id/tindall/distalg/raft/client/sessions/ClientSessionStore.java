@@ -4,9 +4,18 @@ import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.state.Snapshot;
+import au.id.tindall.distalg.raft.state.SnapshotInstalledListener;
 import au.id.tindall.distalg.raft.statemachine.CommandAppliedEventHandler;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
+import org.apache.logging.log4j.Logger;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -14,15 +23,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class ClientSessionStore {
+import static org.apache.logging.log4j.LogManager.getLogger;
+
+public class ClientSessionStore implements SnapshotInstalledListener {
+
+    private static final Logger LOGGER = getLogger();
 
     private static final Comparator<ClientSession> LAST_INTERACTION_COMPARATOR =
             Comparator.comparing(ClientSession::getLastInteractionLogIndex);
     private final int maxSessions;
-    private final Map<Integer, ClientSession> activeSessions;
     private final EntryCommittedEventHandler clientRegistrationHandler;
     private final List<ClientSessionCreatedHandler> clientSessionCreatedHandlers;
     private final CommandAppliedEventHandler commandAppliedEventHandler;
+    private Map<Integer, ClientSession> activeSessions;
 
     public ClientSessionStore(int maxSessions) {
         this.maxSessions = maxSessions;
@@ -95,5 +108,33 @@ public class ClientSessionStore {
     public Optional<byte[]> getCommandResult(int clientId, int clientSequenceNumber) {
         return Optional.ofNullable(activeSessions.get(clientId))
                 .flatMap(session -> session.getCommandResult(clientSequenceNumber));
+    }
+
+    public byte[] serializeSessions() {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+            oos.writeObject(activeSessions);
+            return baos.toByteArray();
+        } catch (IOException e) {
+            LOGGER.error("Error serializing sessions, returning empty sessions", e);
+            return new byte[]{};
+        }
+    }
+
+    @Override
+    public void onSnapshotInstalled(Snapshot snapshot) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(snapshot.snapshotOffset());
+        snapshot.readInto(byteBuffer, 0);
+        replaceSessions(byteBuffer.array());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void replaceSessions(byte[] sessions) {
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(sessions);
+             ObjectInputStream oos = new ObjectInputStream(bais)) {
+            activeSessions = (Map<Integer, ClientSession>) oos.readObject();
+        } catch (ClassNotFoundException | IOException e) {
+            LOGGER.error("Error serializing sessions, proceeding with empty sessions", e);
+        }
     }
 }

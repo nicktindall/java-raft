@@ -13,17 +13,19 @@ public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMess
     private final Term lastTerm;
     private final ConfigurationEntry lastConfig;
     private final int offset;
+    private final int snapshotOffset;
     private final byte[] data;
     private final boolean done;
 
     public InstallSnapshotRequest(Term term, ID leaderId, ID destination,
                                   int lastIndex, Term lastTerm, ConfigurationEntry lastConfig,
-                                  int offset, byte[] data, boolean done) {
+                                  int snapshotOffset, int offset, byte[] data, boolean done) {
         super(term, leaderId, destination);
         this.leaderId = leaderId;
         this.lastIndex = lastIndex;
         this.lastTerm = lastTerm;
         this.lastConfig = lastConfig;
+        this.snapshotOffset = snapshotOffset;
         this.offset = offset;
         this.data = data;
         this.done = done;
@@ -49,6 +51,10 @@ public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMess
         return offset;
     }
 
+    public int getSnapshotOffset() {
+        return snapshotOffset;
+    }
+
     public byte[] getData() {
         return data;
     }
@@ -64,6 +70,7 @@ public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMess
                 ", lastIndex=" + lastIndex +
                 ", lastTerm=" + lastTerm +
                 ", lastConfig=" + lastConfig +
+                ", snapshotOffset=" + snapshotOffset +
                 ", offset=" + offset +
                 ", data.length=" + data.length +
                 ", done=" + done +

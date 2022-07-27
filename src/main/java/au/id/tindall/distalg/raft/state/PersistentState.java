@@ -38,6 +38,8 @@ public interface PersistentState<ID extends Serializable> {
 
     Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig);
 
+    Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int snapshotOffset);
+
     void addSnapshotInstalledListener(SnapshotInstalledListener listener);
 
 }

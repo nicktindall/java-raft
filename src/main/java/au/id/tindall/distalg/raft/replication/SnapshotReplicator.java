@@ -54,7 +54,7 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
                 return;
             }
             cluster.sendInstallSnapshotRequest(term, followerId, snapshot.getLastIndex(), snapshot.getLastTerm(),
-                    snapshot.getLastConfig(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
+                    snapshot.getLastConfig(), snapshot.snapshotOffset(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
         }, () -> LOGGER.error("Attempted to send snapshot but there is no current snapshot"));
         return returnValue.get();
     }

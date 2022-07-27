@@ -1,10 +1,11 @@
 package au.id.tindall.distalg.raft.client.sessions;
 
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Optional;
 
-public class ClientSession {
+public class ClientSession implements Serializable {
 
     private final int clientId;
     private int lastInteractionLogIndex;
@@ -58,7 +59,7 @@ public class ClientSession {
         }
     }
 
-    static class AppliedCommand {
+    static class AppliedCommand implements Serializable {
 
         private final int sequenceNumber;
         private final byte[] result;

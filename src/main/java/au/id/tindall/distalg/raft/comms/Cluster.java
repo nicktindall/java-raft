@@ -28,5 +28,5 @@ public interface Cluster<ID extends Serializable> {
     void sendInstallSnapshotResponse(Term currentTerm, ID destinationId, boolean success, int lastIndex, int endOffset);
 
     void sendInstallSnapshotRequest(Term currentTerm, ID destinationId, int lastIndex, Term lastTerm,
-                                    ConfigurationEntry lastConfiguration, int offset, byte[] data, boolean done);
+                                    ConfigurationEntry lastConfiguration, int snapshotOffset, int offset, byte[] data, boolean done);
 }

@@ -32,7 +32,8 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     private static final int CONTENTS_START_OFFSET = CONFIG_LENGTH_OFFSET + 4;
     private static final int CONTENTS_LENGTH_OFFSET = CONTENTS_START_OFFSET + 4;
     private static final int DIGEST_OFFSET = CONTENTS_LENGTH_OFFSET + 8;
-    private static final int CONFIG_OFFSET = DIGEST_OFFSET + 16;
+    private static final int SNAPSHOT_OFFSET_OFFSET = DIGEST_OFFSET + 16;
+    private static final int CONFIG_OFFSET = SNAPSHOT_OFFSET_OFFSET + 4;
     public static final int HEADER_BUFFER_LENGTH = 4096;
 
     private final FileChannel fileChannel;
@@ -42,6 +43,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     private final int contentsStartOffset;
     private final Path path;
     private long contentsLength;
+    private int snapshotOffset;
     private State state = State.Initialised;
 
     private PersistentSnapshot(Path path, FileChannel fileChannel, int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int contentsStartOffset) {
@@ -95,6 +97,30 @@ public class PersistentSnapshot implements Snapshot, Closeable {
             return fileChannel.write(ByteBuffer.wrap(chunk), contentsStartOffset + offset);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to write snapshot", e);
+        }
+    }
+
+    @Override
+    public int snapshotOffset() {
+        return snapshotOffset;
+    }
+
+    @Override
+    public void snapshotOffset(int snapshotOffset) {
+        try {
+            fileChannel.write(ByteBuffer.allocate(4).putInt(snapshotOffset).flip(), SNAPSHOT_OFFSET_OFFSET);
+        } catch (IOException e) {
+            LOGGER.error("Error persisting snapshot offset");
+        }
+        this.snapshotOffset = snapshotOffset;
+    }
+
+    @Override
+    public void finaliseSessions() {
+        try {
+            snapshotOffset((int) fileChannel.size() - contentsStartOffset);
+        } catch (IOException e) {
+            LOGGER.error("Error recording snapshot offset");
         }
     }
 
@@ -197,7 +223,9 @@ public class PersistentSnapshot implements Snapshot, Closeable {
             try (final ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(configBytesArray))) {
                 entry = (ConfigurationEntry) ois.readObject();
             }
-            return new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, entry, buffer.getInt(CONTENTS_START_OFFSET), contentsLength);
+            final PersistentSnapshot persistentSnapshot = new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, entry, buffer.getInt(CONTENTS_START_OFFSET), contentsLength);
+            persistentSnapshot.snapshotOffset = buffer.getInt(SNAPSHOT_OFFSET_OFFSET);
+            return persistentSnapshot;
         } catch (ClassNotFoundException | IOException e) {
             throw new RuntimeException("Error loading snapshot", e);
         }

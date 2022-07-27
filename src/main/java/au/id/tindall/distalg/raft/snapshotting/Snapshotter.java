@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.snapshotting;
 
+import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
@@ -22,11 +23,13 @@ public class Snapshotter<ID extends Serializable> {
     private final StateMachine stateMachine;
     private final PersistentState<ID> persistentState;
     private final SnapshotHeuristic snapshotHeuristic;
+    private final ClientSessionStore clientSessionStore;
 
     private ConfigurationEntry lastConfigurationEntry;
 
-    public Snapshotter(Log log, StateMachine stateMachine, PersistentState<ID> persistentState, SnapshotHeuristic snapshotHeuristic) {
+    public Snapshotter(Log log, ClientSessionStore clientSessionStore, StateMachine stateMachine, PersistentState<ID> persistentState, SnapshotHeuristic snapshotHeuristic) {
         this.log = log;
+        this.clientSessionStore = clientSessionStore;
         this.stateMachine = stateMachine;
         this.persistentState = persistentState;
         this.snapshotHeuristic = snapshotHeuristic;
@@ -38,7 +41,9 @@ public class Snapshotter<ID extends Serializable> {
             LOGGER.warn("Creating snapshot to index={}, term={}, length={}, endOfFirstChunk={}, end={}", lastIndex, lastTerm, snapshot.length,
                     hexDump(snapshot, 4050, 50), hexDump(snapshot, snapshot.length - 50, 50));
             try (final Snapshot nextSnapshot = persistentState.createSnapshot(lastIndex, lastTerm, lastConfigurationEntry)) {
-                nextSnapshot.writeBytes(0, snapshot);
+                final int startOfSnapshot = nextSnapshot.writeBytes(0, clientSessionStore.serializeSessions());
+                nextSnapshot.finaliseSessions();
+                nextSnapshot.writeBytes(startOfSnapshot, snapshot);
                 nextSnapshot.finalise();
                 persistentState.setCurrentSnapshot(nextSnapshot);
             } catch (IOException e) {

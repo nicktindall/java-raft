@@ -9,7 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 import static java.lang.String.format;
 
@@ -20,7 +20,7 @@ public class MessageStats {
 
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private final Map<String, Integer> messageCounts = new TreeMap<>();
+    private final Map<String, Integer> messageCounts = new ConcurrentSkipListMap<>();
     private long totalMessageBytes = 0;
     private long managementOverheadMessageBytes = 0;
 

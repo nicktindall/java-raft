@@ -85,6 +85,13 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     }
 
     @Override
+    public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int snapshotOffset) {
+        final Snapshot snapshot = createSnapshot(lastIndex, lastTerm, lastConfig);
+        snapshot.snapshotOffset(snapshotOffset);
+        return snapshot;
+    }
+
+    @Override
     public void addSnapshotInstalledListener(SnapshotInstalledListener listener) {
         snapshotInstalledListeners.add(listener);
     }

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -59,7 +60,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private final Path currentSnapshotPath;
     private final List<SnapshotInstalledListener> snapshotInstalledListeners;
     private Snapshot currentSnapshot;
-    private volatile int nextSnapshotSequence = 0;
+    private AtomicInteger nextSnapshotSequence = new AtomicInteger(0);
 
 
     public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateFilesPrefix, ID serverId) {
@@ -72,6 +73,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         Path logFilePath = logFilePath(stateFilesPrefix);
         Path stateFilePath = stateFilePath(stateFilesPrefix);
         Function<Integer, Path> tempSnapshotPathGenerator = tempSnapshotPathGenerator(stateFilesPrefix);
+        deleteAnyTempSnapshots(stateFilesPrefix);
         Path currentSnapshotPath = currentSnapshotPath(stateFilesPrefix);
         if (Files.exists(logFilePath) && Files.exists(stateFilePath)) {
             PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
@@ -79,7 +81,6 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         } else {
             Files.deleteIfExists(logFilePath);
             Files.deleteIfExists(stateFilePath);
-            deleteAnyTempSnapshots(stateFilesPrefix);
             Files.deleteIfExists(currentSnapshotPath);
             PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
             return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, new JavaIDSerializer<>(), serverId);
@@ -91,7 +92,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     private static void deleteAnyTempSnapshots(Path stateFilesPrefix) {
-        try (final Stream<Path> pathStream = Files.find(stateFilesPrefix.getParent(), 1, (path, attr) -> Pattern.matches("\\.snapshot\\.\\d+$", path.getFileName().toString()))) {
+        try (final Stream<Path> pathStream = Files.find(stateFilesPrefix.getParent(), 1, (path, attr) -> Pattern.matches(stateFilesPrefix.getFileName() + "\\.snapshot\\.\\d+", path.getFileName().toString()))) {
             pathStream.forEach(FileBasedPersistentState::deleteFileOrWarn);
         } catch (IOException e) {
             LOGGER.warn("Error deleting existing snapsots", e);
@@ -256,6 +257,13 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     @Override
+    public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int snapshotOffset) {
+        final Snapshot snapshot = createSnapshot(lastIndex, lastTerm, lastConfig);
+        snapshot.snapshotOffset(snapshotOffset);
+        return snapshot;
+    }
+
+    @Override
     public void setCurrentSnapshot(Snapshot nextSnapshot) {
         // no point installing a snapshot if we've already gone past that point
         if (nextSnapshot.getLastIndex() <= logStorage.getPrevIndex()) {
@@ -265,7 +273,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         }
         try {
             Closeables.closeQuietly(nextSnapshot, currentSnapshot);
-            Files.move(((PersistentSnapshot)nextSnapshot).path(), currentSnapshotPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(((PersistentSnapshot) nextSnapshot).path(), currentSnapshotPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             final PersistentSnapshot load = PersistentSnapshot.load(currentSnapshotPath);
             logStorage.installSnapshot(load);
             currentSnapshot = load;
@@ -279,7 +287,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
 
     @Override
     public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
-        return PersistentSnapshot.create(tempSnapshotPathGenerator.apply(nextSnapshotSequence++), lastIndex, lastTerm, lastConfig);
+        return PersistentSnapshot.create(tempSnapshotPathGenerator.apply(nextSnapshotSequence.getAndIncrement()), lastIndex, lastTerm, lastConfig);
     }
 
     @Override

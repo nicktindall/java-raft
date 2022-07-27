@@ -74,8 +74,8 @@ public class MonotonicCounter implements StateMachine {
 
     @Override
     public void installSnapshot(Snapshot snapshot) {
-        ByteBuffer temporaryBuffer = ByteBuffer.allocate((int) snapshot.getLength());
-        snapshot.readInto(temporaryBuffer, 0);
+        ByteBuffer temporaryBuffer = ByteBuffer.allocate((int) snapshot.getLength() - snapshot.snapshotOffset());
+        snapshot.readInto(temporaryBuffer, snapshot.snapshotOffset());
         byte[] snapshotChecksum = calculateChecksum(temporaryBuffer);
         byte[] snapshotArray = temporaryBuffer.array();
         if (!Arrays.equals(snapshotArray, CHECKSUM_OFFSET, JUNK_OFFSET, snapshotChecksum, 0, 16)) {

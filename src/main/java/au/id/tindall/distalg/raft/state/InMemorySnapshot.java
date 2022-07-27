@@ -14,6 +14,7 @@ public class InMemorySnapshot implements Snapshot {
     private final Term lastTerm;
     private final ConfigurationEntry lastConfig;
     private ByteBuffer contents;
+    private int snapshotOffset;
 
     public InMemorySnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
         this.lastIndex = lastIndex;
@@ -50,6 +51,21 @@ public class InMemorySnapshot implements Snapshot {
         growBufferIfNecessary(offset + chunk.length);
         contents.position(offset).put(chunk);
         return bytesWritten;
+    }
+
+    @Override
+    public int snapshotOffset() {
+        return snapshotOffset;
+    }
+
+    @Override
+    public void snapshotOffset(int snapshotOffset) {
+        this.snapshotOffset = snapshotOffset;
+    }
+
+    @Override
+    public void finaliseSessions() {
+        snapshotOffset = contents.position();
     }
 
     private void growBufferIfNecessary(int lengthToAccommodate) {
