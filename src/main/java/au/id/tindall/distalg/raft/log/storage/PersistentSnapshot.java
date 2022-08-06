@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.log.storage;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.state.Snapshot;
+import au.id.tindall.distalg.raft.util.IOUtil;
 import org.apache.logging.log4j.Logger;
 
 import java.io.ByteArrayInputStream;
@@ -108,7 +109,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     @Override
     public void snapshotOffset(int snapshotOffset) {
         try {
-            fileChannel.write(ByteBuffer.allocate(4).putInt(snapshotOffset).flip(), SNAPSHOT_OFFSET_OFFSET);
+            IOUtil.writeInteger(fileChannel, SNAPSHOT_OFFSET_OFFSET, snapshotOffset);
         } catch (IOException e) {
             LOGGER.error("Error persisting snapshot offset");
         }
@@ -138,10 +139,10 @@ public class PersistentSnapshot implements Snapshot, Closeable {
                 digest.update(byteBuffer);
                 index += read;
             }
-            fileChannel.write(ByteBuffer.wrap(new byte[]{(byte) State.Complete.ordinal()}), STATE_ORDINAL_OFFSET);
+            IOUtil.writeByte(fileChannel, STATE_ORDINAL_OFFSET, (byte) State.Complete.ordinal());
             fileChannel.write(ByteBuffer.wrap(digest.digest()), DIGEST_OFFSET);
             contentsLength = fileChannel.size() - contentsStartOffset;
-            fileChannel.write(ByteBuffer.allocate(8).putLong(contentsLength).flip(), CONTENTS_LENGTH_OFFSET);
+            IOUtil.writeLong(fileChannel, CONTENTS_LENGTH_OFFSET, contentsLength);
             state = State.Complete;
         } catch (IOException e) {
             throw new RuntimeException("Error calculating digest", e);

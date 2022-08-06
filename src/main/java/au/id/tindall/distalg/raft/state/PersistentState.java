@@ -42,5 +42,6 @@ public interface PersistentState<ID extends Serializable> {
 
     void addSnapshotInstalledListener(SnapshotInstalledListener listener);
 
+    void initialize();
 }
 

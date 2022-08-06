@@ -6,6 +6,7 @@ import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.log.storage.PersistentLogStorage;
 import au.id.tindall.distalg.raft.log.storage.PersistentSnapshot;
 import au.id.tindall.distalg.raft.util.Closeables;
+import au.id.tindall.distalg.raft.util.IOUtil;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -59,7 +60,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private final Function<Integer, Path> tempSnapshotPathGenerator;
     private final Path currentSnapshotPath;
     private final List<SnapshotInstalledListener> snapshotInstalledListeners;
-    private Snapshot currentSnapshot;
+    private AtomicReference<Snapshot> currentSnapshot = new AtomicReference<>();
     private AtomicInteger nextSnapshotSequence = new AtomicInteger(0);
 
 
@@ -161,21 +162,14 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
 
     private void readFromStateFile() {
         try {
-            int idLength = readIntFrom(START_OF_ID_LENGTH);
-            currentTerm.set(new Term(readIntFrom(START_OF_CURRENT_TERM)));
-            int votedForLength = readIntFrom(START_OF_VOTED_FOR_LENGTH);
+            int idLength = IOUtil.readInteger(fileChannel, START_OF_ID_LENGTH);
+            currentTerm.set(new Term(IOUtil.readInteger(fileChannel, START_OF_CURRENT_TERM)));
+            int votedForLength = IOUtil.readInteger(fileChannel, START_OF_VOTED_FOR_LENGTH);
             id = readIdFrom(START_OF_ID, idLength);
             votedFor.set(readIdFrom(START_OF_ID + idLength, votedForLength));
         } catch (IOException e) {
             throw new RuntimeException("Error reading from state file", e);
         }
-    }
-
-    private int readIntFrom(long startPoint) throws IOException {
-        ByteBuffer intBuffer = ByteBuffer.allocate(4);
-        fileChannel.read(intBuffer, startPoint);
-        intBuffer.flip();
-        return intBuffer.getInt();
     }
 
     private ID readIdFrom(long startPoint, int length) throws IOException {
@@ -193,22 +187,15 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
             ByteBuffer idBytes = idSerializer.serialize(id);
             ID votedForId = votedFor.get();
             ByteBuffer votedForBytes = votedForId != null ? idSerializer.serialize(votedForId) : ByteBuffer.allocate(0);
-            writeIntTo(START_OF_ID_LENGTH, idBytes.capacity());
-            writeIntTo(START_OF_CURRENT_TERM, currentTerm.get().getNumber());
-            writeIntTo(START_OF_VOTED_FOR_LENGTH, votedForBytes.capacity());
+            IOUtil.writeInteger(fileChannel, START_OF_ID_LENGTH, idBytes.capacity());
+            IOUtil.writeInteger(fileChannel, START_OF_CURRENT_TERM, currentTerm.get().getNumber());
+            IOUtil.writeInteger(fileChannel, START_OF_VOTED_FOR_LENGTH, votedForBytes.capacity());
             fileChannel.write(idBytes, START_OF_ID);
             fileChannel.write(votedForBytes, START_OF_ID + idBytes.capacity());
             fileChannel.truncate(START_OF_ID + idBytes.capacity() + votedForBytes.capacity());
         } catch (IOException e) {
             throw new RuntimeException("Error writing to state file");
         }
-    }
-
-    private void writeIntTo(long startPoint, int value) throws IOException {
-        ByteBuffer intBuffer = ByteBuffer.allocate(4);
-        intBuffer.putInt(value);
-        intBuffer.flip();
-        fileChannel.write(intBuffer, startPoint);
     }
 
     @Override
@@ -253,7 +240,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
 
     @Override
     public Optional<Snapshot> getCurrentSnapshot() {
-        return Optional.ofNullable(currentSnapshot);
+        return Optional.ofNullable(currentSnapshot.get());
     }
 
     @Override
@@ -272,13 +259,12 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
             return;
         }
         try {
-            Closeables.closeQuietly(nextSnapshot, currentSnapshot);
+            Closeables.closeQuietly(nextSnapshot, currentSnapshot.getAndSet(null));
             Files.move(((PersistentSnapshot) nextSnapshot).path(), currentSnapshotPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            final PersistentSnapshot load = PersistentSnapshot.load(currentSnapshotPath);
-            logStorage.installSnapshot(load);
-            currentSnapshot = load;
+            currentSnapshot.set(PersistentSnapshot.load(currentSnapshotPath));
+            logStorage.installSnapshot(currentSnapshot.get());
             for (SnapshotInstalledListener listener : snapshotInstalledListeners) {
-                listener.onSnapshotInstalled(currentSnapshot);
+                listener.onSnapshotInstalled(currentSnapshot.get());
             }
         } catch (IOException e) {
             throw new RuntimeException("Error promoting existing snapshot");
@@ -293,5 +279,15 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     @Override
     public void addSnapshotInstalledListener(SnapshotInstalledListener listener) {
         snapshotInstalledListeners.add(listener);
+    }
+
+    @Override
+    public void initialize() {
+        LOGGER.warn("Initialise: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
+        if (Files.exists(currentSnapshotPath)) {
+            LOGGER.warn("Discovered snapshot, attempting to load");
+            setCurrentSnapshot(PersistentSnapshot.load(currentSnapshotPath));
+            LOGGER.warn("After snapshot: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
+        }
     }
 }

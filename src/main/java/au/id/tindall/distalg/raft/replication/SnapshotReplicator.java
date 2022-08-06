@@ -47,15 +47,19 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
             }
             final int nextOffset = lastOffsetConfirmed + 1;
             buffer.clear();
-            int bytesRead = snapshot.readInto(buffer, nextOffset);
-            if (buffer.position() == 0) {
-                LOGGER.warn("Switching to log replication, sent lastIndex: {}, lastTerm: {}", snapshot.getLastIndex(), snapshot.getLastTerm());
-                returnValue.set(ReplicationResult.SwitchToLogReplication);
-                return;
+            try {
+                int bytesRead = snapshot.readInto(buffer, nextOffset);
+                if (buffer.position() == 0) {
+                    LOGGER.debug("Switching to log replication, sent lastIndex: {}, lastTerm: {}", snapshot.getLastIndex(), snapshot.getLastTerm());
+                    returnValue.set(ReplicationResult.SwitchToLogReplication);
+                    return;
+                }
+                cluster.sendInstallSnapshotRequest(term, followerId, snapshot.getLastIndex(), snapshot.getLastTerm(),
+                        snapshot.getLastConfig(), snapshot.snapshotOffset(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
+            } catch (RuntimeException e) {
+                LOGGER.warn("Error sending snapshot chunk", e);
             }
-            cluster.sendInstallSnapshotRequest(term, followerId, snapshot.getLastIndex(), snapshot.getLastTerm(),
-                    snapshot.getLastConfig(), snapshot.snapshotOffset(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
-        }, () -> LOGGER.error("Attempted to send snapshot but there is no current snapshot"));
+        }, () -> LOGGER.warn("Attempted to send snapshot but there is no current snapshot"));
         return returnValue.get();
     }
 

@@ -33,14 +33,14 @@ public class MonotonicCounter implements StateMachine {
     private BigInteger counter = BigInteger.ZERO;
 
     @Override
-    public byte[] apply(byte[] command) {
+    public byte[] apply(int index, byte[] command) {
         BigInteger expected = new BigInteger(command);
         if (!counter.equals(expected)) {
             throw new IllegalStateException(format("Client out of sync! expected %s, state is %s", expected, counter));
         }
         counter = counter.add(BigInteger.ONE);
         if (counter.mod(LOG_EVERY_N_VALUES).equals(BigInteger.ZERO)) {
-            LOGGER.warn("Command successful, new value is {}", counter);
+            LOGGER.warn("Command successful, new value is {} (index={})", counter, index);
         }
         return counter.toByteArray();
     }

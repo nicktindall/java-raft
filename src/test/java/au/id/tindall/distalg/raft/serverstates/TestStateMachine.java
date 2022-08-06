@@ -15,7 +15,7 @@ public class TestStateMachine implements StateMachine {
     }
 
     @Override
-    public byte[] apply(byte[] command) {
+    public byte[] apply(int index, byte[] command) {
         this.appliedCommands.add(command);
         return new byte[]{(byte) appliedCommands.size()};
     }

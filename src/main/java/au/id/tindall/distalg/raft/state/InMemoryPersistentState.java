@@ -95,4 +95,9 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     public void addSnapshotInstalledListener(SnapshotInstalledListener listener) {
         snapshotInstalledListeners.add(listener);
     }
+
+    @Override
+    public void initialize() {
+        // Do nothing
+    }
 }

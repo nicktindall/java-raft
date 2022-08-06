@@ -20,7 +20,7 @@ class MonotonicCounterTest {
     void canCreateHorriblyInefficientSnapshot() {
         final MonotonicCounter monotonicCounter = new MonotonicCounter();
         for (int i = 0; i < 256; i++) {
-            monotonicCounter.apply(BigInteger.valueOf(i).toByteArray());
+            monotonicCounter.apply(i, BigInteger.valueOf(i).toByteArray());
         }
         assertEquals(256, monotonicCounter.getCounter().intValue());
         final byte[] snapshotBytes = monotonicCounter.createSnapshot();

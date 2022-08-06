@@ -88,6 +88,7 @@ public class ServerFactory<ID extends Serializable> {
                 clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory);
         Server<ID> server = new Server<>(persistentState, idServerStateFactory, stateMachine);
         electionScheduler.setServer(server);
+        server.initialize();
         return server;
     }
 }

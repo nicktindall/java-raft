@@ -4,7 +4,7 @@ import au.id.tindall.distalg.raft.state.Snapshot;
 
 public interface StateMachine {
 
-    byte[] apply(byte[] command);
+    byte[] apply(int index, byte[] command);
 
     byte[] createSnapshot();
 

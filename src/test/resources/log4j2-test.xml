@@ -6,8 +6,11 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Root level="warn">
+        <Root level="info">
             <AppenderRef ref="Console"/>
         </Root>
+        <Logger name="au.id.tindall" additivity="false" level="debug">
+            <AppenderRef ref="Console"/>
+        </Logger>
     </Loggers>
 </Configuration>

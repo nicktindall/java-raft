@@ -53,7 +53,7 @@ public class CommandExecutor<ID extends Serializable> implements SnapshotInstall
         if (logEntry instanceof StateMachineCommandEntry) {
             StateMachineCommandEntry stateMachineCommandEntry = (StateMachineCommandEntry) logEntry;
             byte[] result = clientSessionStore.getCommandResult(stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.getClientSequenceNumber())
-                    .orElseGet(() -> this.stateMachine.apply(stateMachineCommandEntry.getCommand()));
+                    .orElseGet(() -> this.stateMachine.apply(logIndex, stateMachineCommandEntry.getCommand()));
             notifyCommandAppliedListeners(logIndex, stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.lastResponseReceived(), stateMachineCommandEntry.getClientSequenceNumber(), result);
             try {
                 creatingSnapshot = true;
