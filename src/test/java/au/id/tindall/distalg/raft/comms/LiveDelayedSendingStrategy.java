@@ -52,7 +52,7 @@ public class LiveDelayedSendingStrategy implements SendingStrategy {
             if (!this.scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS)) {
                 LOGGER.error("Sending executor didn't stop");
             } else {
-                LOGGER.warn("Took {} ms to shutdown", System.currentTimeMillis() - startTime);
+                LOGGER.debug("Took {} ms to shutdown", System.currentTimeMillis() - startTime);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

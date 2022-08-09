@@ -241,10 +241,10 @@ class LiveServerTest {
             while (true) {
                 final Optional<Server<Long>> leader = getLeader();
                 if (leader.isPresent()) {
-                    LOGGER.warn("Adding server {}", newServerId);
+                    LOGGER.info("Adding server {}", newServerId);
                     server.start();
                     final AddServerResponse response = (AddServerResponse) leader.get().handle(new AddServerRequest<>(newServerId)).get();
-                    LOGGER.warn("Server {} added response: {}", newServerId, response.getStatus());
+                    LOGGER.info("Server {} added response: {}", newServerId, response.getStatus());
                     break;
                 }
             }
@@ -259,9 +259,9 @@ class LiveServerTest {
             while (true) {
                 final Optional<Server<Long>> leader = getLeader();
                 if (leader.isPresent()) {
-                    LOGGER.warn("Removing server {}", server.getId());
+                    LOGGER.info("Removing server {}", server.getId());
                     final RemoveServerResponse response = (RemoveServerResponse) leader.get().handle(new RemoveServerRequest<>(server.getId())).get();
-                    LOGGER.warn("Server {} remove response: {}", server.getId(), response.getStatus());
+                    LOGGER.info("Server {} remove response: {}", server.getId(), response.getStatus());
                     server.stop();
                     allServers.remove(server.getId());
                     break;
@@ -298,7 +298,7 @@ class LiveServerTest {
         try {
             Server<Long> currentLeader = getLeader().orElseThrow();
             Long killedServerId = currentLeader.getId();
-            LOGGER.warn("Killing server " + killedServerId);
+            LOGGER.info("Killing server " + killedServerId);
             currentLeader.stop();
             await().atMost(10, SECONDS).until(this::aLeaderIsElected);
 
@@ -306,7 +306,7 @@ class LiveServerTest {
             Server<Long> newCurrentLeader = createServerAndState(killedServerId, ALL_SERVER_IDS);
             allServers.put(killedServerId, newCurrentLeader);
             newCurrentLeader.start();
-            LOGGER.warn("Server " + killedServerId + " restarted");
+            LOGGER.info("Server " + killedServerId + " restarted");
         } catch (Exception e) {
             fail("Killing leader failed!", e);
         }
@@ -316,7 +316,7 @@ class LiveServerTest {
         try {
             Server<Long> currentLeader = getLeader().orElseThrow();
             long currentLeaderId = currentLeader.getId();
-            LOGGER.warn("Telling server {} to transfer leadership", currentLeaderId);
+            LOGGER.info("Telling server {} to transfer leadership", currentLeaderId);
             currentLeader.transferLeadership();
             await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
         } catch (RuntimeException e) {

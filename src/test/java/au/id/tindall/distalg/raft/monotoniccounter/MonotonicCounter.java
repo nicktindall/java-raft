@@ -40,7 +40,7 @@ public class MonotonicCounter implements StateMachine {
         }
         counter = counter.add(BigInteger.ONE);
         if (counter.mod(LOG_EVERY_N_VALUES).equals(BigInteger.ZERO)) {
-            LOGGER.warn("Command successful, new value is {} (index={})", counter, index);
+            LOGGER.info("Command successful, new value is {} (index={})", counter, index);
         }
         return counter.toByteArray();
     }
@@ -83,7 +83,7 @@ public class MonotonicCounter implements StateMachine {
         }
         int valueOffset = temporaryBuffer.getInt(VALUE_OFFSET_OFFSET);
         counter = new BigInteger(Arrays.copyOfRange(snapshotArray, valueOffset, snapshotArray.length));
-        LOGGER.warn("Installed snapshot, new value=" + counter);
+        LOGGER.info("Installed snapshot, new value=" + counter);
     }
 
     private byte[] calculateChecksum(ByteBuffer snapshot) {

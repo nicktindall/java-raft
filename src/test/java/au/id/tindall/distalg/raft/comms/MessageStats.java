@@ -44,7 +44,7 @@ public class MessageStats {
         stringBuilder.append(format("----------------------------------------------\n"));
         stringBuilder.append(format("%-35s %,10d\n", "Total", totalMessages));
         stringBuilder.append(format("%-35s %9d%%\n", "Management Overhead", Math.round(((double) managementOverheadMessageBytes / totalMessageBytes) * 100)));
-        LOGGER.warn(stringBuilder.toString());
+        LOGGER.info(stringBuilder.toString());
     }
 
     private long messageSizeInBytes(RpcMessage<Long> rpcMessage) {
