@@ -46,6 +46,7 @@ public class Snapshotter<ID extends Serializable> {
                 nextSnapshot.writeBytes(startOfSnapshot, snapshot);
                 nextSnapshot.finalise();
                 persistentState.setCurrentSnapshot(nextSnapshot);
+                nextSnapshot.delete();
             } catch (IOException e) {
                 LOGGER.error("Error creating snapshot", e);
             }

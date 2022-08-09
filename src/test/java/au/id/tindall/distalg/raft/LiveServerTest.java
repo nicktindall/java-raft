@@ -136,9 +136,9 @@ class LiveServerTest {
     }
 
     @Test
-    void willElectANewLeader_WhenTheExistingLeaderFails() {
+    void willElectANewLeader_WhenTheExistingLeaderFails() throws InterruptedException {
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
-        Server<Long> oldLeader = getLeader().get();
+        Server<Long> oldLeader = getLeaderWithRetries();
         oldLeader.stop();
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
         oldLeader.start();
@@ -296,7 +296,7 @@ class LiveServerTest {
 
     private void killThenResurrectCurrentLeader() {
         try {
-            Server<Long> currentLeader = getLeader().orElseThrow();
+            Server<Long> currentLeader = getLeaderWithRetries();
             Long killedServerId = currentLeader.getId();
             LOGGER.info("Killing server " + killedServerId);
             currentLeader.stop();
@@ -314,12 +314,12 @@ class LiveServerTest {
 
     private void triggerLeadershipTransfer() {
         try {
-            Server<Long> currentLeader = getLeader().orElseThrow();
+            Server<Long> currentLeader = getLeaderWithRetries();
             long currentLeaderId = currentLeader.getId();
             LOGGER.info("Telling server {} to transfer leadership", currentLeaderId);
             currentLeader.transferLeadership();
             await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | InterruptedException e) {
             fail("Error triggering leadership transfer");
         }
     }
@@ -346,6 +346,19 @@ class LiveServerTest {
         return allServers.values().stream()
                 .filter(server -> server.getState().isPresent() && server.getState().get() == LEADER)
                 .findAny();
+    }
+
+    private Server<Long> getLeaderWithRetries() throws InterruptedException {
+        for (int i = 0; i < 5; i++) {
+            final Optional<Server<Long>> leader = getLeader();
+            if (leader.isPresent()) {
+                return leader.get();
+            } else {
+                LOGGER.warn("Couldn't get leader, retrying...");
+                Thread.sleep(200);
+            }
+        }
+        throw new IllegalStateException("Couldn't get current leader");
     }
 
     private void startServers() {

@@ -15,7 +15,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -26,6 +25,8 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.SYNC;
@@ -260,7 +261,10 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         }
         try {
             Closeables.closeQuietly(nextSnapshot, currentSnapshot.getAndSet(null));
-            Files.move(((PersistentSnapshot) nextSnapshot).path(), currentSnapshotPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(((PersistentSnapshot) nextSnapshot).path(), currentSnapshotPath, ATOMIC_MOVE, REPLACE_EXISTING);
+            if (Files.exists(((PersistentSnapshot) nextSnapshot).path())) {
+                LOGGER.warn("Couldn't delete temporary snapshot");
+            }
             currentSnapshot.set(PersistentSnapshot.load(currentSnapshotPath));
             logStorage.installSnapshot(currentSnapshot.get());
             for (SnapshotInstalledListener listener : snapshotInstalledListeners) {

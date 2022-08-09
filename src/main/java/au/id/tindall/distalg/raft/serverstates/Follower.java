@@ -42,6 +42,10 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
     @Override
     public void leaveState() {
         electionScheduler.stopTimeouts();
+        if (receivingSnapshot != null) {
+            receivingSnapshot.delete();
+            receivingSnapshot = null;
+        }
     }
 
     @Override
@@ -141,7 +145,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
         if (receivingSnapshot.getLastIndex() == installSnapshotRequest.getLastIndex()
                 && receivingSnapshot.getLastTerm().equals(installSnapshotRequest.getLastTerm())) {
-            updateAndPromoteSnapshot(receivingSnapshot, installSnapshotRequest);
+            updateAndPromoteSnapshot(installSnapshotRequest);
         } else {
             sendInstallSnapshotFailedResponse(installSnapshotRequest);
         }
@@ -153,17 +157,18 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
                 installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length);
     }
 
-    private void updateAndPromoteSnapshot(Snapshot nextSnapshot, InstallSnapshotRequest<ID> installSnapshotRequest) {
-        int bytesWritten = nextSnapshot.writeBytes(installSnapshotRequest.getOffset(), installSnapshotRequest.getData());
+    private void updateAndPromoteSnapshot(InstallSnapshotRequest<ID> installSnapshotRequest) {
+        int bytesWritten = receivingSnapshot.writeBytes(installSnapshotRequest.getOffset(), installSnapshotRequest.getData());
         if (installSnapshotRequest.isDone()) {
-            nextSnapshot.finalise();
+            receivingSnapshot.finalise();
             ByteBuffer endOfFirstChunkBytes = ByteBuffer.allocate(50);
             ByteBuffer endBytes = ByteBuffer.allocate(50);
-            nextSnapshot.readInto(endOfFirstChunkBytes, 4050);
-            nextSnapshot.readInto(endBytes, (int) nextSnapshot.getLength() - 50);
-            LOGGER.warn("Received snapshot index={}, term={}, length={}, endOfFirstChunk={}, end={}", nextSnapshot.getLastIndex(), nextSnapshot.getLastTerm(), nextSnapshot.getLength(),
+            receivingSnapshot.readInto(endOfFirstChunkBytes, 4050);
+            receivingSnapshot.readInto(endBytes, (int) receivingSnapshot.getLength() - 50);
+            LOGGER.debug("Received snapshot index={}, term={}, length={}, endOfFirstChunk={}, end={}", receivingSnapshot.getLastIndex(), receivingSnapshot.getLastTerm(), receivingSnapshot.getLength(),
                     hexDump(endOfFirstChunkBytes.array()), hexDump(endBytes.array()));
-            persistentState.setCurrentSnapshot(nextSnapshot);
+            persistentState.setCurrentSnapshot(receivingSnapshot);
+            receivingSnapshot.delete();
             receivingSnapshot = null;
         }
         cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), true,

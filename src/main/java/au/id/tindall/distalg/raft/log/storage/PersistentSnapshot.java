@@ -15,6 +15,7 @@ import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
@@ -160,9 +161,9 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     public void delete() {
         try {
             close();
+            Files.deleteIfExists(path);
         } catch (IOException e) {
-            LOGGER.warn("Error closing fileChannel", e);
-
+            LOGGER.warn("Error deleting snapshot, file may be left", e);
         }
     }
 
