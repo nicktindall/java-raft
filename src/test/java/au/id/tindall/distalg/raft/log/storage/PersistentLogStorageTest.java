@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static au.id.tindall.distalg.raft.log.EntryStatus.AfterEnd;
 import static au.id.tindall.distalg.raft.log.EntryStatus.BeforeStart;
@@ -27,12 +28,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class PersistentLogStorageTest {
 
     public static final Term TERM = new Term(0);
+    private final AtomicInteger entryIndex = new AtomicInteger(1);
 
     private File tempFile;
     private PersistentLogStorage storage;
 
     @BeforeEach
     void setUp() throws IOException {
+        entryIndex.set(1);
         tempFile = File.createTempFile("logFileTest", "append");
         storage = new PersistentLogStorage(tempFile.toPath());
     }
@@ -49,7 +52,7 @@ class PersistentLogStorageTest {
                 new ClientRegistrationEntry(TERM, 456),
                 new ClientRegistrationEntry(TERM, 789)
         );
-        entries.forEach(storage::add);
+        entries.forEach(entry -> storage.add(entryIndex.getAndIncrement(), entry));
         assertThat(storage.getEntries()).usingFieldByFieldElementComparator()
                 .isEqualTo(entries);
     }
@@ -61,10 +64,10 @@ class PersistentLogStorageTest {
                 new ClientRegistrationEntry(TERM, 456),
                 new ClientRegistrationEntry(TERM, 789)
         );
-        entries.forEach(storage::add);
+        entries.forEach(entry -> storage.add(entryIndex.getAndIncrement(), entry));
         storage.truncate(2);
         ClientRegistrationEntry next = new ClientRegistrationEntry(TERM, 111);
-        storage.add(next);
+        storage.add(2, next);
         assertThat(storage.getEntries()).usingFieldByFieldElementComparator()
                 .isEqualTo(List.of(entries.get(0), next));
     }
@@ -76,10 +79,10 @@ class PersistentLogStorageTest {
                 new ClientRegistrationEntry(TERM, 456),
                 new ClientRegistrationEntry(TERM, 789)
         );
-        entries.forEach(storage::add);
+        entries.forEach(entry -> storage.add(entryIndex.getAndIncrement(), entry));
         storage.truncate(1);
         ClientRegistrationEntry next = new ClientRegistrationEntry(TERM, 111);
-        storage.add(next);
+        storage.add(1, next);
         assertThat(storage.getEntries()).usingFieldByFieldElementComparator()
                 .isEqualTo(List.of(next));
     }
@@ -90,13 +93,13 @@ class PersistentLogStorageTest {
                 new ClientRegistrationEntry(TERM, 123),
                 new ClientRegistrationEntry(TERM, 456)
         );
-        entries.forEach(storage::add);
+        entries.forEach(entry -> storage.add(entryIndex.getAndIncrement(), entry));
         storage.reIndex();
         assertThat(storage.getEntries()).usingFieldByFieldElementComparator()
                 .isEqualTo(entries);
 
         LogEntry next = new ClientRegistrationEntry(TERM, 111);
-        storage.add(next);
+        storage.add(entryIndex.getAndIncrement(), next);
         assertThat(storage.getEntries()).usingFieldByFieldElementComparator()
                 .isEqualTo(List.of(entries.get(0), entries.get(1), next));
     }
@@ -107,7 +110,7 @@ class PersistentLogStorageTest {
                 new ClientRegistrationEntry(TERM, 123),
                 new ClientRegistrationEntry(TERM, 456)
         );
-        entries.forEach(storage::add);
+        entries.forEach(entry -> storage.add(entryIndex.getAndIncrement(), entry));
         for (int i = 0; i < 2; i++) {
             assertThat(storage.getEntry(i + 1)).usingRecursiveComparison().isEqualTo(entries.get(i));
         }
@@ -120,7 +123,7 @@ class PersistentLogStorageTest {
                 new ClientRegistrationEntry(TERM, 456),
                 new ClientRegistrationEntry(TERM, 789)
         );
-        entries.forEach(storage::add);
+        entries.forEach(entry -> storage.add(entryIndex.getAndIncrement(), entry));
         assertThat(storage.getEntries()).usingFieldByFieldElementComparator()
                 .isEqualTo(entries);
     }
@@ -133,7 +136,7 @@ class PersistentLogStorageTest {
                 new ClientRegistrationEntry(TERM, 789)
 
         );
-        entries.forEach(storage::add);
+        entries.forEach(entry -> storage.add(entryIndex.getAndIncrement(), entry));
         assertThat(storage.getEntries(1, 3)).usingFieldByFieldElementComparator()
                 .isEqualTo(entries.subList(0, 2));
     }
@@ -155,7 +158,7 @@ class PersistentLogStorageTest {
         }
 
         void populateThenSnapshot(int lastIndex) {
-            entries.forEach(storage::add);
+            entries.forEach(entry -> storage.add(entryIndex.getAndIncrement(), entry));
             storage.installSnapshot(new InMemorySnapshot(lastIndex, TERM, new ConfigurationEntry(TERM, Set.of(1, 2, 3))));
         }
 
@@ -163,7 +166,7 @@ class PersistentLogStorageTest {
         void willReturnCorrectEntriesAfterWholeLogIsSnapshotted() {
             populateThenSnapshot(10);
             final ClientRegistrationEntry entry = new ClientRegistrationEntry(TERM, 99999);
-            storage.add(entry);
+            storage.add(11, entry);
             assertThat(storage.getEntries()).usingFieldByFieldElementComparator().isEqualTo(List.of(entry));
         }
 

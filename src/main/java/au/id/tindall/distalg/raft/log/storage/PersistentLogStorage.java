@@ -58,7 +58,10 @@ public class PersistentLogStorage implements LogStorage {
     }
 
     @Override
-    public void add(LogEntry entry) {
+    public void add(int appendIndex, LogEntry entry) {
+        if (appendIndex != nextIndex.get()) {
+            throw new IllegalArgumentException(format("Attempted to append to index %,d when next index is %,d", appendIndex, nextIndex.get()));
+        }
         entryEndIndex.add(writeEntry(logFileChannel, entry));
     }
 
@@ -67,6 +70,7 @@ public class PersistentLogStorage implements LogStorage {
         try {
             logFileChannel.truncate(startPositionOfEntry(fromIndex));
             entryEndIndex = entryEndIndex.subList(0, fromIndex - getPrevIndex());
+            nextIndex.set(fromIndex);
         } catch (IOException ex) {
             throw new RuntimeException("Error truncating log", ex);
         }
@@ -109,15 +113,18 @@ public class PersistentLogStorage implements LogStorage {
         try {
             Path tempLogFilePath = Path.of(logFilePath.toAbsolutePath() + ".tmp");
             Files.deleteIfExists(tempLogFilePath);
+            final int firstIndexInLog = snapshot.getLastIndex() + 1;
             try (final FileChannel tempFileLogChannel = FileChannel.open(tempLogFilePath, CREATE_NEW, WRITE, READ, SYNC)) {
-                for (int i = snapshot.getLastIndex() + 1; i <= getLastLogIndex(); i++) {
+                nextIndex.set(firstIndexInLog);
+                LOGGER.debug("Truncating {} entries from the start of the log", snapshot.getLastIndex() - prevIndex);
+                for (int i = firstIndexInLog; i <= getLastLogIndex(); i++) {
                     writeEntry(tempFileLogChannel, getEntry(i));
                 }
             }
             closeQuietly(logFileChannel);
             Files.move(tempLogFilePath, logFilePath, ATOMIC_MOVE, REPLACE_EXISTING);
             logFileChannel = FileChannel.open(logFilePath, READ, WRITE, CREATE, SYNC);
-            reIndex();
+            reIndex(firstIndexInLog);
         } catch (IOException e) {
             throw new IllegalStateException("Couldn't truncate log to install snapshot!", e);
         }
@@ -161,15 +168,23 @@ public class PersistentLogStorage implements LogStorage {
     }
 
     public void reIndex() {
-        int nextIndex = 1;
+        reIndex(1);
+    }
+
+    public void reIndex(int firstIndex) {
+        int nextIndex = firstIndex;
         try {
             entryEndIndex = new ArrayList<>();
             entryEndIndex.add(0L);
             logFileChannel.position(0);
+            int prevIndex = 0;
             while (logFileChannel.position() < logFileChannel.size()) {
                 int index = IOUtil.readInteger(logFileChannel);
                 if (nextIndex > 1 && index != nextIndex) {
                     throw new IllegalStateException(format("Corrupt log file detected! (expected sequence %,d, found sequence %,d)", nextIndex, index));
+                }
+                if (prevIndex == 0) {
+                    prevIndex = index - 1;
                 }
                 nextIndex = index + 1;
                 int length = IOUtil.readInteger(logFileChannel);
@@ -177,6 +192,7 @@ public class PersistentLogStorage implements LogStorage {
                 entryEndIndex.add(endIndex);
                 logFileChannel.position(endIndex);
             }
+            this.prevIndex = prevIndex;
             this.nextIndex.set(nextIndex);
         } catch (IOException ex) {
             throw new RuntimeException("Error reading log", ex);

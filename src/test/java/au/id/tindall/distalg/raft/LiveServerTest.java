@@ -99,7 +99,7 @@ class LiveServerTest {
                 MonotonicCounter::new,
                 new ElectionSchedulerFactory<>(testExecutorService, MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
                 MAX_BATCH_SIZE,
-                new HeartbeatReplicationSchedulerFactory(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS),
+                new HeartbeatReplicationSchedulerFactory<>(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS),
                 Duration.ofMillis(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS)
         );
     }
@@ -216,14 +216,18 @@ class LiveServerTest {
 
     private Runnable addOrRemoveAServer(AtomicLong newServerIdCounter) {
         return () -> {
-            if (allServers.size() <= 3) {
-                addNewServer(newServerIdCounter.getAndIncrement());
-            } else {
-                if (ThreadLocalRandom.current().nextBoolean()) {
+            try {
+                if (allServers.size() <= 3) {
                     addNewServer(newServerIdCounter.getAndIncrement());
                 } else {
-                    removeRandomServer();
+                    if (ThreadLocalRandom.current().nextBoolean()) {
+                        addNewServer(newServerIdCounter.getAndIncrement());
+                    } else {
+                        removeRandomServer();
+                    }
                 }
+            } catch (Exception e) {
+                fail("Error occurred adding or removing a server", e);
             }
         };
     }
@@ -291,25 +295,33 @@ class LiveServerTest {
     }
 
     private void killThenResurrectCurrentLeader() {
-        Server<Long> currentLeader = getLeader().orElseThrow();
-        Long killedServerId = currentLeader.getId();
-        LOGGER.warn("Killing server " + killedServerId);
-        currentLeader.stop();
-        await().atMost(10, SECONDS).until(this::aLeaderIsElected);
+        try {
+            Server<Long> currentLeader = getLeader().orElseThrow();
+            Long killedServerId = currentLeader.getId();
+            LOGGER.warn("Killing server " + killedServerId);
+            currentLeader.stop();
+            await().atMost(10, SECONDS).until(this::aLeaderIsElected);
 
-        // Start a new node pointing to the same persistent state files
-        Server<Long> newCurrentLeader = createServerAndState(killedServerId, ALL_SERVER_IDS);
-        allServers.put(killedServerId, newCurrentLeader);
-        newCurrentLeader.start();
-        LOGGER.warn("Server " + killedServerId + " restarted");
+            // Start a new node pointing to the same persistent state files
+            Server<Long> newCurrentLeader = createServerAndState(killedServerId, ALL_SERVER_IDS);
+            allServers.put(killedServerId, newCurrentLeader);
+            newCurrentLeader.start();
+            LOGGER.warn("Server " + killedServerId + " restarted");
+        } catch (Exception e) {
+            fail("Killing leader failed!", e);
+        }
     }
 
     private void triggerLeadershipTransfer() {
-        Server<Long> currentLeader = getLeader().orElseThrow();
-        long currentLeaderId = currentLeader.getId();
-        LOGGER.warn("Telling server {} to transfer leadership", currentLeaderId);
-        currentLeader.transferLeadership();
-        await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
+        try {
+            Server<Long> currentLeader = getLeader().orElseThrow();
+            long currentLeaderId = currentLeader.getId();
+            LOGGER.warn("Telling server {} to transfer leadership", currentLeaderId);
+            currentLeader.transferLeadership();
+            await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
+        } catch (RuntimeException e) {
+            fail("Error triggering leadership transfer");
+        }
     }
 
     private boolean serverIsNoLongerLeader(long serverId) {

@@ -60,8 +60,8 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private final Function<Integer, Path> tempSnapshotPathGenerator;
     private final Path currentSnapshotPath;
     private final List<SnapshotInstalledListener> snapshotInstalledListeners;
-    private AtomicReference<Snapshot> currentSnapshot = new AtomicReference<>();
-    private AtomicInteger nextSnapshotSequence = new AtomicInteger(0);
+    private final AtomicReference<Snapshot> currentSnapshot = new AtomicReference<>();
+    private final AtomicInteger nextSnapshotSequence = new AtomicInteger(0);
 
 
     public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateFilesPrefix, ID serverId) {
@@ -253,7 +253,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     @Override
     public void setCurrentSnapshot(Snapshot nextSnapshot) {
         // no point installing a snapshot if we've already gone past that point
-        if (nextSnapshot.getLastIndex() <= logStorage.getPrevIndex()) {
+        if (currentSnapshot.get() != null && nextSnapshot.getLastIndex() <= logStorage.getPrevIndex()) {
             LOGGER.warn("Not installing snapshot that would not advance us (log.prevLogIndex() == {}, nextSnapshot.getLastLogIndex() == {}",
                     logStorage.getPrevIndex(), nextSnapshot.getLastIndex());
             return;

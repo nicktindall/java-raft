@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.elections;
 
 import au.id.tindall.distalg.raft.Server;
+import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
@@ -19,7 +20,7 @@ public class ElectionScheduler<ID extends Serializable> {
     private Server<ID> server;
     private final ElectionTimeoutGenerator electionTimeoutGenerator;
     private final ScheduledExecutorService scheduledExecutorService;
-    private AtomicReference<ScheduledFuture<?>> nextElectionTimeout;
+    private final AtomicReference<ScheduledFuture<?>> nextElectionTimeout;
     private volatile boolean timeoutsRunning = false;
 
     public ElectionScheduler(ElectionTimeoutGenerator electionTimeoutGenerator, ScheduledExecutorService scheduledExecutorService) {
@@ -61,12 +62,12 @@ public class ElectionScheduler<ID extends Serializable> {
     private void cancelPendingTimeout() {
         Future<?> timeout = nextElectionTimeout.get();
         if (timeout != null) {
-            LOGGER.debug("Cancelling election timeout... ({})",  server.getId());
+            LOGGER.trace("Cancelling election timeout... ({})", server.getId());
             boolean cancel = timeout.cancel(false);
             if (cancel) {
-                LOGGER.debug("Successfully cancelled timeout ({})", server.getId());
+                LOGGER.trace("Successfully cancelled timeout ({})", server.getId());
             } else {
-                LOGGER.debug("Couldn't cancel previous timeout ({})", server.getId());
+                LOGGER.trace("Couldn't cancel previous timeout ({})", server.getId());
             }
             nextElectionTimeout.set(null);
         }
@@ -74,17 +75,20 @@ public class ElectionScheduler<ID extends Serializable> {
 
     private void scheduleElectionTimeout() {
         Long next = electionTimeoutGenerator.next();
-        LOGGER.debug("Scheduling election timeout for {} milliseconds ({})", next, server.getId());
+        LOGGER.trace("Scheduling election timeout for {} milliseconds ({})", next, server.getId());
         nextElectionTimeout.set(scheduledExecutorService.schedule(
                 this::performElectionTimeout,
                 next,
                 MILLISECONDS));
     }
 
+    @SuppressWarnings("unused")
     private void performElectionTimeout() {
-        LOGGER.debug("Election timeout occurred: server {}", server.getId());
-        nextElectionTimeout.set(null);
-        server.electionTimeout();
-        resetTimeout();
+        try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
+            LOGGER.debug("Election timeout occurred: server {}", server.getId());
+            nextElectionTimeout.set(null);
+            server.electionTimeout();
+            resetTimeout();
+        }
     }
 }

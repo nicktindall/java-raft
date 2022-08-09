@@ -12,7 +12,7 @@ import static java.lang.String.format;
 
 public interface LogStorage {
 
-    void add(LogEntry logEntry);
+    void add(int index, LogEntry logEntry);
 
     void truncate(int fromIndex);
 

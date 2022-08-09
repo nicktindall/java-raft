@@ -8,6 +8,7 @@ import au.id.tindall.distalg.raft.state.Snapshot;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.List.copyOf;
 
@@ -23,7 +24,10 @@ public class InMemoryLogStorage implements LogStorage {
     }
 
     @Override
-    public void add(LogEntry logEntry) {
+    public void add(int appendIndex, LogEntry logEntry) {
+        if (toListIndex(appendIndex) != entries.size()) {
+            throw new IllegalStateException(format("Attempting to append at index %,d when next index is %,d", appendIndex, entries.size() + prevIndex));
+        }
         this.entries.add(logEntry);
     }
 

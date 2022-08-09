@@ -108,14 +108,14 @@ public class TestClusterFactory implements ClusterFactory<Long> {
 
     private void dispatch(RpcMessage<Long> message) {
         if (message instanceof BroadcastMessage) {
-            LOGGER.info("Broadcasting {} from Server {}", message.getClass().getSimpleName(), message.getSource());
+            LOGGER.trace("Broadcasting {} from Server {}", message.getClass().getSimpleName(), message.getSource());
             servers.values().forEach(server -> {
                 deliverMessageIfServerIsRunning(message, server);
                 messageStats.recordMessageSent(message);
             });
         } else if (message instanceof UnicastMessage) {
             final Long destinationId = ((UnicastMessage<Long>) message).getDestination();
-            LOGGER.info("Sending {} from Server {} to Server {}", message.getClass().getSimpleName(), message.getSource(), destinationId);
+            LOGGER.trace("Sending {} from Server {} to Server {}", message.getClass().getSimpleName(), message.getSource(), destinationId);
             final Server<Long> server = servers.get(destinationId);
             if (server == null) {
                 LOGGER.warn("Dropped {} message to dead server {}", message.getClass().getSimpleName(), destinationId);
@@ -128,6 +128,7 @@ public class TestClusterFactory implements ClusterFactory<Long> {
         }
     }
 
+    @SuppressWarnings("unused")
     private void deliverMessageIfServerIsRunning(RpcMessage<Long> message, Server<Long> server) {
         try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
             if (server.getState().isPresent()) {

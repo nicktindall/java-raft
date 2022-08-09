@@ -92,7 +92,7 @@ public class Log implements SnapshotInstalledListener {
                     storage.truncate(appendIndex);
                 }
             case AfterEnd:
-                storage.add(entry);
+                storage.add(appendIndex, entry);
                 notifyAppendedListeners(appendIndex);
                 break;
             default:
