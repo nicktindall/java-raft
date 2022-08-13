@@ -127,6 +127,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
             if (receivingSnapshot != null) {
                 if (receivingSnapshot.getLastIndex() != installSnapshotRequest.getLastIndex()
                         || !receivingSnapshot.getLastTerm().equals(installSnapshotRequest.getLastTerm())) {
+                    LOGGER.debug("Started receiving snapshot starting at lastIndex/term {}/{}", installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm());
                     receivingSnapshot.delete();
                     receivingSnapshot = persistentState.createSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig(),
                             installSnapshotRequest.getSnapshotOffset());

@@ -44,6 +44,7 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
         currentSnapshot.ifPresentOrElse(snapshot -> {
             if (sendingANewSnapshot(snapshot)) {
                 resetSendingState(snapshot);
+                LOGGER.debug("Starting to send snapshot with lastIndex/term {}/{}", currentSnapshotLastIndex, currentSnapshotLastTerm);
             }
             final int nextOffset = lastOffsetConfirmed + 1;
             buffer.clear();

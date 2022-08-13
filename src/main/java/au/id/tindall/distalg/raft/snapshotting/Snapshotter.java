@@ -41,7 +41,9 @@ public class Snapshotter<ID extends Serializable> {
             LOGGER.warn("Creating snapshot to index={}, term={}, length={}, endOfFirstChunk={}, end={}", lastIndex, lastTerm, snapshot.length,
                     hexDump(snapshot, 4050, 50), hexDump(snapshot, snapshot.length - 50, 50));
             try (final Snapshot nextSnapshot = persistentState.createSnapshot(lastIndex, lastTerm, lastConfigurationEntry)) {
-                final int startOfSnapshot = nextSnapshot.writeBytes(0, clientSessionStore.serializeSessions());
+                final byte[] chunk = clientSessionStore.serializeSessions();
+                LOGGER.debug("Serialised sessions size = {}", chunk.length);
+                final int startOfSnapshot = nextSnapshot.writeBytes(0, chunk);
                 nextSnapshot.finaliseSessions();
                 nextSnapshot.writeBytes(startOfSnapshot, snapshot);
                 nextSnapshot.finalise();
