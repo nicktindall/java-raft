@@ -59,6 +59,7 @@ class LeaderTest {
 
     private static final long SERVER_ID = 111;
     private static final long OTHER_SERVER_ID = 112;
+    private static final int LAST_RESPONSE_RECEIVED = -1;
     private static final Term PREVIOUS_TERM = new Term(1);
     private static final Term CURRENT_TERM = new Term(2);
     private static final int NEXT_LOG_INDEX = 4;
@@ -337,7 +338,7 @@ class LeaderTest {
 
             @Test
             void willRejectWithNotLeaderAndNoLeaderHint() throws ExecutionException, InterruptedException {
-                assertThat(leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, COMMAND)).get())
+                assertThat(leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND)).get())
                         .usingRecursiveComparison()
                         .isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
             }
@@ -353,9 +354,9 @@ class LeaderTest {
 
             @Test
             void willReturnSessionExpiredResponse() throws ExecutionException, InterruptedException {
-                assertThat(leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, COMMAND)).get())
+                assertThat(leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND)).get())
                         .usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.SESSION_EXPIRED,
-                        null, null));
+                                null, null));
             }
         }
 
@@ -373,17 +374,17 @@ class LeaderTest {
             @Test
             @SuppressWarnings("unchecked")
             void willAppendClientRegistrationLogEntry() {
-                leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, COMMAND));
+                leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND));
 
                 ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
                 verify(log).appendEntries(eq(LAST_LOG_INDEX), captor.capture());
                 assertThat(captor.getValue()).usingFieldByFieldElementComparator().isEqualTo(
-                        singletonList(new StateMachineCommandEntry(CURRENT_TERM, CLIENT_ID, SEQUENCE_NUMBER, COMMAND)));
+                        singletonList(new StateMachineCommandEntry(CURRENT_TERM, CLIENT_ID, LAST_RESPONSE_RECEIVED, SEQUENCE_NUMBER, COMMAND)));
             }
 
             @Test
             void willTriggerReplication() {
-                leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, COMMAND));
+                leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND));
 
                 verify(replicationManager).replicate();
             }
@@ -391,7 +392,7 @@ class LeaderTest {
             @Test
             @SuppressWarnings("unchecked")
             void willRegisterAnOutstandingResponseAndReturnAssociatedPromise() {
-                CompletableFuture<ClientRequestResponse<Long>> result = leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, COMMAND));
+                CompletableFuture<ClientRequestResponse<Long>> result = leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND));
 
                 ArgumentCaptor<PendingClientRequestResponse<?>> captor = ArgumentCaptor.forClass(PendingClientRequestResponse.class);
                 verify(pendingResponseRegistry).registerOutstandingResponse(eq(NEXT_LOG_INDEX), captor.capture());

@@ -32,10 +32,10 @@ class LogReplicatorTest {
     private static final int COMMIT_INDEX = 3;
     private static final int LAST_LOG_INDEX = 4;
     private static final int CLIENT_ID = 123;
-    private static final LogEntry ENTRY_ONE = new StateMachineCommandEntry(new Term(0), CLIENT_ID, 0, "one".getBytes());
-    private static final LogEntry ENTRY_TWO = new StateMachineCommandEntry(new Term(1), CLIENT_ID, 1, "two".getBytes());
-    private static final LogEntry ENTRY_THREE = new StateMachineCommandEntry(new Term(2), CLIENT_ID, 2, "three".getBytes());
-    private static final LogEntry ENTRY_FOUR = new StateMachineCommandEntry(new Term(2), CLIENT_ID, 3, "four".getBytes());
+    private static final LogEntry ENTRY_ONE = new StateMachineCommandEntry(new Term(0), CLIENT_ID, -1, 0, "one".getBytes());
+    private static final LogEntry ENTRY_TWO = new StateMachineCommandEntry(new Term(1), CLIENT_ID, -1, 1, "two".getBytes());
+    private static final LogEntry ENTRY_THREE = new StateMachineCommandEntry(new Term(2), CLIENT_ID, -1, 2, "three".getBytes());
+    private static final LogEntry ENTRY_FOUR = new StateMachineCommandEntry(new Term(2), CLIENT_ID, -1, 3, "four".getBytes());
     private static final int MAX_BATCH_SIZE = 1;
 
     private LogReplicator<Long> logReplicator;
@@ -147,7 +147,7 @@ class LogReplicatorTest {
         @Test
         void willDecrementNextIndexWhenFollowerLastLogIndexIsAfterNextIndex() {
             logReplicator.logFailedResponse(20);
-            assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX -1);
+            assertThat(logReplicator.getNextIndex()).isEqualTo(INITIAL_NEXT_INDEX - 1);
         }
 
         @Test

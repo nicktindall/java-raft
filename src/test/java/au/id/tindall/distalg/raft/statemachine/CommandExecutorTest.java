@@ -56,7 +56,7 @@ class CommandExecutorTest {
             log = new Log();
             commandExecutor.startListeningForCommittedCommands(log);
             commandExecutor.addCommandAppliedEventHandler(commandAppliedEventHandler);
-            log.appendEntries(0, singletonList(new StateMachineCommandEntry(TERM_0, CLIENT_ID, CLIENT_SEQUENCE_NUMBER, COMMAND)));
+            log.appendEntries(0, singletonList(new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, CLIENT_SEQUENCE_NUMBER, COMMAND)));
         }
 
         @Nested
@@ -78,7 +78,7 @@ class CommandExecutorTest {
             void shouldNotifyListenersOfCommandResult_WhenCommandIsDuplicate() {
                 when(clientSessionStore.getCommandResult(CLIENT_ID, CLIENT_SEQUENCE_NUMBER)).thenReturn(Optional.of(RESULT));
                 log.advanceCommitIndex(1);
-                verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, CLIENT_SEQUENCE_NUMBER, RESULT);
+                verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, -1, CLIENT_SEQUENCE_NUMBER, RESULT);
             }
         }
 
@@ -95,7 +95,7 @@ class CommandExecutorTest {
             void shouldNotifyListenersOfCommandResult() {
                 when(stateMachine.apply(COMMAND)).thenReturn(RESULT);
                 log.advanceCommitIndex(1);
-                verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, CLIENT_SEQUENCE_NUMBER, RESULT);
+                verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, -1, CLIENT_SEQUENCE_NUMBER, RESULT);
             }
         }
 

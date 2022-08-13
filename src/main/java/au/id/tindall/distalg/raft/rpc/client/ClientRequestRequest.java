@@ -7,12 +7,14 @@ public class ClientRequestRequest<ID extends Serializable> extends ClientRequest
 
     private final int clientId;
     private final int sequenceNumber;
+    private final int lastResponseReceived;
     private final byte[] command;
 
-    public ClientRequestRequest(ID destinationId, int clientId, int sequenceNumber, byte[] command) {
+    public ClientRequestRequest(ID destinationId, int clientId, int sequenceNumber, int lastResponseReceived, byte[] command) {
         super(destinationId);
         this.clientId = clientId;
         this.sequenceNumber = sequenceNumber;
+        this.lastResponseReceived = lastResponseReceived;
         this.command = Arrays.copyOf(command, command.length);
     }
 
@@ -22,6 +24,10 @@ public class ClientRequestRequest<ID extends Serializable> extends ClientRequest
 
     public int getSequenceNumber() {
         return sequenceNumber;
+    }
+
+    public int getLastResponseReceived() {
+        return lastResponseReceived;
     }
 
     public byte[] getCommand() {

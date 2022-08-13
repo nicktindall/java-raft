@@ -60,7 +60,7 @@ public class MonotonicCounterClient {
     public void increment() throws ExecutionException, InterruptedException {
         int retries = 0;
         while (retries < MAX_RETRIES) {
-            ClientRequestResponse<Long> commandResponse = (ClientRequestResponse<Long>) send(id -> new ClientRequestRequest<Long>(id, clientId, clientSequenceNumber, counterValue.toByteArray())).get();
+            ClientRequestResponse<Long> commandResponse = (ClientRequestResponse<Long>) send(id -> new ClientRequestRequest<Long>(id, clientId, clientSequenceNumber, clientSequenceNumber - 1, counterValue.toByteArray())).get();
             if (commandResponse.getStatus() == ClientRequestStatus.OK) {
                 this.counterValue = new BigInteger(commandResponse.getResponse());
                 clientSequenceNumber++;

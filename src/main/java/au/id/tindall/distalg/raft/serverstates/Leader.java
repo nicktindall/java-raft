@@ -80,7 +80,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
         }
         int logEntryIndex = log.getNextLogIndex();
         StateMachineCommandEntry stateMachineCommandEntry = new StateMachineCommandEntry(persistentState.getCurrentTerm(), clientRequestRequest.getClientId(),
-                clientRequestRequest.getSequenceNumber(), clientRequestRequest.getCommand());
+                clientRequestRequest.getLastResponseReceived(), clientRequestRequest.getSequenceNumber(), clientRequestRequest.getCommand());
         log.appendEntries(log.getLastLogIndex(), singletonList(stateMachineCommandEntry));
         replicationManager.replicate();
         return pendingResponseRegistry.registerOutstandingResponse(logEntryIndex, new PendingClientRequestResponse<>());

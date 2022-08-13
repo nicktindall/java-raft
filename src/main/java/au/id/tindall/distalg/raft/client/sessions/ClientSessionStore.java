@@ -49,9 +49,12 @@ public class ClientSessionStore {
         this.clientSessionCreatedHandlers.forEach(handler -> handler.clientSessionCreated(logIndex, clientId));
     }
 
-    public void recordAppliedCommand(int logIndex, int clientId, int sequenceNumber, byte[] result) {
+    public void recordAppliedCommand(int logIndex, int clientId, int lastResponseReceived, int sequenceNumber, byte[] result) {
         Optional.ofNullable(activeSessions.get(clientId))
-                .ifPresent(session -> session.recordAppliedCommand(logIndex, sequenceNumber, result));
+                .ifPresent(session -> {
+                    session.truncateAppliedCommands(lastResponseReceived);
+                    session.recordAppliedCommand(logIndex, sequenceNumber, result);
+                });
     }
 
     private void expireLeastRecentlyUsedSessionIfFull() {

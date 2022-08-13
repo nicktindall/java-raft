@@ -67,12 +67,23 @@ class ClientSessionStoreTest {
     void recordAppliedCommand_WillPreventSessionBeingExpired() {
         clientSessionStore.createSession(1, 1);
         clientSessionStore.createSession(2, 2);
-        clientSessionStore.recordAppliedCommand(3, 1, 0, "result".getBytes());
+        clientSessionStore.recordAppliedCommand(3, 1, -1, 0, "result".getBytes());
         clientSessionStore.createSession(4, 3);
 
         assertThat(clientSessionStore.hasSession(1)).isTrue();
         assertThat(clientSessionStore.hasSession(2)).isFalse();
         assertThat(clientSessionStore.hasSession(3)).isTrue();
+    }
+
+    @Test
+    void recordAppliedCommand_WillTruncateCommandsToIndex() {
+        clientSessionStore.createSession(10, 1);
+        clientSessionStore.recordAppliedCommand(11, 1, -1, 0, RESULT);
+        clientSessionStore.recordAppliedCommand(12, 1, -1, 1, RESULT);
+        clientSessionStore.recordAppliedCommand(13, 1, 1, 2, RESULT);
+        assertThat(clientSessionStore.getCommandResult(1, 0)).isEmpty();
+        assertThat(clientSessionStore.getCommandResult(1, 1)).isEmpty();
+        assertThat(clientSessionStore.getCommandResult(1, 2)).contains(RESULT);
     }
 
     @Test
@@ -133,7 +144,7 @@ class ClientSessionStoreTest {
         @Test
         void returnsCommandResult_WhenAMatchingCommandWasFound() {
             clientSessionStore.createSession(10, 1);
-            clientSessionStore.recordAppliedCommand(11, 1, 0, RESULT);
+            clientSessionStore.recordAppliedCommand(11, 1, -1, 0, RESULT);
             assertThat(clientSessionStore.getCommandResult(1, 0)).contains(RESULT);
         }
     }

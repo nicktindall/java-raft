@@ -47,6 +47,17 @@ public class ClientSession {
         return Optional.empty();
     }
 
+    public void truncateAppliedCommands(int toIndex) {
+        while (!appliedCommands.isEmpty()) {
+            final AppliedCommand appliedCommand = appliedCommands.peek();
+            if (appliedCommand.getSequenceNumber() <= toIndex) {
+                appliedCommands.removeFirst();
+            } else {
+                break;
+            }
+        }
+    }
+
     static class AppliedCommand {
 
         private final int sequenceNumber;

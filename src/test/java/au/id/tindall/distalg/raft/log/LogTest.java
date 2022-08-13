@@ -28,12 +28,12 @@ class LogTest {
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
     private static final int CLIENT_ID = 123;
-    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 0, "first".getBytes());
-    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 1, "second".getBytes());
-    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 2, "third".getBytes());
-    private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 3, "fourth".getBytes());
-    private static final LogEntry ENTRY_3B = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 2, "alt_third".getBytes());
-    private static final LogEntry ENTRY_4B = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 3, "alt_fourth".getBytes());
+    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, 0, "first".getBytes());
+    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, 1, "second".getBytes());
+    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, 2, "third".getBytes());
+    private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, 3, "fourth".getBytes());
+    private static final LogEntry ENTRY_3B = new StateMachineCommandEntry(TERM_1, CLIENT_ID, -1, 2, "alt_third".getBytes());
+    private static final LogEntry ENTRY_4B = new StateMachineCommandEntry(TERM_1, CLIENT_ID, -1, 3, "alt_fourth".getBytes());
 
     @Mock
     private EntryCommittedEventHandler entryCommittedEventHandler;

@@ -101,14 +101,14 @@ class PendingResponseRegistryTest {
             when(pendingResponse.getResponseFuture()).thenReturn((CompletableFuture) responseFuture);
 
             pendingResponseRegistry.registerOutstandingResponse(LOG_INDEX, pendingResponse);
-            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, CLIENT_ID, SEQUENCE_NUMBER, RESULT);
+            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, CLIENT_ID, -1, SEQUENCE_NUMBER, RESULT);
 
             verify(responseFuture).complete(refEq(new ClientRequestResponse<>(ClientRequestStatus.OK, RESULT, null)));
         }
 
         @Test
         void willDoNothing_WhenThereIsNoResponseRegistered() {
-            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, CLIENT_ID, SEQUENCE_NUMBER, RESULT);
+            commandAppliedEventHandler.handleCommandApplied(LOG_INDEX, CLIENT_ID, -1, SEQUENCE_NUMBER, RESULT);
         }
     }
 

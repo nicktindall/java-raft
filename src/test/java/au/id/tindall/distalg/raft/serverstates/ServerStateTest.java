@@ -47,13 +47,14 @@ class ServerStateTest {
     private static final long OTHER_SERVER_ID = 101;
     private static final long LEADER_ID = 102;
     private static final int CLIENT_ID = 200;
+    private static final int LAST_RESPONSE_RECEIVED = -1;
     private static final Term TERM_0 = new Term(0);
     private static final Term TERM_1 = new Term(1);
     private static final Term TERM_2 = new Term(2);
     private static final Term TERM_3 = new Term(3);
-    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 0, "first".getBytes());
-    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, 1, "second".getBytes());
-    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, CLIENT_ID, 2, "third".getBytes());
+    private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, 0, "first".getBytes());
+    private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, 1, "second".getBytes());
+    private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, CLIENT_ID, -1, 2, "third".getBytes());
 
     @Mock
     private Cluster<Long> cluster;
@@ -171,7 +172,7 @@ class ServerStateTest {
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
             var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
-            CompletableFuture<ClientRequestResponse<Long>> response = serverState.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, 0, "command".getBytes(StandardCharsets.UTF_8)));
+            CompletableFuture<ClientRequestResponse<Long>> response = serverState.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, 0, LAST_RESPONSE_RECEIVED, "command".getBytes(StandardCharsets.UTF_8)));
 
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()

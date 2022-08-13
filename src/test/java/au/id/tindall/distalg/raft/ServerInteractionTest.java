@@ -44,6 +44,7 @@ class ServerInteractionTest {
     private static final byte[] COMMAND = "TheCommand".getBytes();
     private static final int MAX_CLIENT_SESSIONS = 10;
     private static final int MAX_BATCH_SIZE = 10;
+    private static final int LAST_RESPONSE_RECEIVED = -1;
     private static final Set<Long> ALL_SERVER_IDS = Set.of(1L, 2L, 3L);
 
     private Server<Long> server1;
@@ -141,7 +142,7 @@ class ServerInteractionTest {
         queuedSendingStrategy.fullyFlush();
         CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>(server1.getId()));
         queuedSendingStrategy.fullyFlush();
-        assertThat(handle.get()).isEqualToComparingFieldByFieldRecursively(new RegisterClientResponse<>(OK, 1, null));
+        assertThat(handle.get()).usingRecursiveComparison().isEqualTo(new RegisterClientResponse<>(OK, 1, null));
     }
 
     @Test
@@ -172,9 +173,9 @@ class ServerInteractionTest {
         queuedSendingStrategy.fullyFlush();
         server1.handle(new RegisterClientRequest<>(server1.getId()));
         queuedSendingStrategy.fullyFlush();
-        CompletableFuture<? extends ClientResponseMessage> requestResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, COMMAND));
+        CompletableFuture<? extends ClientResponseMessage> requestResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
         queuedSendingStrategy.fullyFlush();
-        assertThat(requestResponse.get()).isEqualToComparingFieldByFieldRecursively(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
+        assertThat(requestResponse.get()).usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
         assertThat(((TestStateMachine) server1.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
         assertThat(((TestStateMachine) server2.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
         assertThat(((TestStateMachine) server3.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
@@ -185,7 +186,7 @@ class ServerInteractionTest {
         server1.electionTimeout();
         queuedSendingStrategy.fullyFlush();
         CompletableFuture<? extends ClientResponseMessage> response = server3.handle(new RegisterClientRequest<>(server3.getId()));
-        assertThat(response.get()).isEqualToComparingFieldByFieldRecursively(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, server1.getId()));
+        assertThat(response.get()).usingRecursiveComparison().isEqualTo(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, server1.getId()));
     }
 
     @Test
@@ -194,11 +195,11 @@ class ServerInteractionTest {
         queuedSendingStrategy.fullyFlush();
         server1.handle(new RegisterClientRequest<>(server1.getId()));
         queuedSendingStrategy.fullyFlush();
-        CompletableFuture<? extends ClientResponseMessage> firstResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, COMMAND));
-        CompletableFuture<? extends ClientResponseMessage> secondResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, COMMAND));
+        CompletableFuture<? extends ClientResponseMessage> firstResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
+        CompletableFuture<? extends ClientResponseMessage> secondResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
         queuedSendingStrategy.fullyFlush();
-        assertThat(firstResponse.get()).isEqualToComparingFieldByFieldRecursively(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
-        assertThat(secondResponse.get()).isEqualToComparingFieldByFieldRecursively(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
+        assertThat(firstResponse.get()).usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
+        assertThat(secondResponse.get()).usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
         assertThat(((TestStateMachine) server1.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
         assertThat(((TestStateMachine) server2.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
         assertThat(((TestStateMachine) server3.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);

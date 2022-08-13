@@ -46,11 +46,11 @@ public class CommandExecutor {
             StateMachineCommandEntry stateMachineCommandEntry = (StateMachineCommandEntry) logEntry;
             byte[] result = clientSessionStore.getCommandResult(stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.getClientSequenceNumber())
                     .orElseGet(() -> this.stateMachine.apply(stateMachineCommandEntry.getCommand()));
-            notifyCommandAppliedListeners(logIndex, stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.getClientSequenceNumber(), result);
+            notifyCommandAppliedListeners(logIndex, stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.lastResponseReceived(), stateMachineCommandEntry.getClientSequenceNumber(), result);
         }
     }
 
-    private void notifyCommandAppliedListeners(int logIndex, int clientId, int sequenceNumber, byte[] result) {
-        this.commandAppliedEventHandlers.forEach(handler -> handler.handleCommandApplied(logIndex, clientId, sequenceNumber, result));
+    private void notifyCommandAppliedListeners(int logIndex, int clientId, int lastResponseReceived, int sequenceNumber, byte[] result) {
+        this.commandAppliedEventHandlers.forEach(handler -> handler.handleCommandApplied(logIndex, clientId, lastResponseReceived, sequenceNumber, result));
     }
 }

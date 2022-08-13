@@ -59,7 +59,7 @@ public class PendingResponseRegistry {
         pendingResponses.clear();
     }
 
-    private void handleCommandApplied(int logIndex, int clientId, int sequenceNumber, byte[] commandResult) {
+    private void handleCommandApplied(int logIndex, int clientId, int lastResponseReceived, int sequenceNumber, byte[] commandResult) {
         removePendingResponse(logIndex).ifPresent(
                 pendingResponse -> pendingResponse.getResponseFuture().complete(new ClientRequestResponse<>(ClientRequestStatus.OK, commandResult, null)));
     }

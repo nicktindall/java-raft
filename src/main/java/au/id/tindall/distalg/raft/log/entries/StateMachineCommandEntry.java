@@ -7,18 +7,24 @@ import java.util.Arrays;
 public class StateMachineCommandEntry extends LogEntry {
 
     private final int clientId;
+    private final int lastResponseReceived;
     private final int clientSequenceNumber;
     private final byte[] command;
 
-    public StateMachineCommandEntry(Term term, int clientId, int clientSequenceNumber, byte[] command) {
+    public StateMachineCommandEntry(Term term, int clientId, int lastResponseReceived, int clientSequenceNumber, byte[] command) {
         super(term);
         this.clientId = clientId;
+        this.lastResponseReceived = lastResponseReceived;
         this.clientSequenceNumber = clientSequenceNumber;
         this.command = Arrays.copyOf(command, command.length);
     }
 
     public int getClientId() {
         return clientId;
+    }
+
+    public int lastResponseReceived() {
+        return lastResponseReceived;
     }
 
     public int getClientSequenceNumber() {
