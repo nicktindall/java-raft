@@ -131,12 +131,16 @@ public class TestClusterFactory implements ClusterFactory<Long> {
     @SuppressWarnings("unused")
     private void deliverMessageIfServerIsRunning(RpcMessage<Long> message, Server<Long> server) {
         try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
-            if (server.getState().isPresent()) {
-                try {
-                    server.handle(message);
-                } catch (NotRunningException ex) {
-                    // Ignore, this can happen sometimes
+            try {
+                if (server.getState().isPresent()) {
+                    try {
+                        server.handle(message);
+                    } catch (NotRunningException ex) {
+                        // Ignore, this can happen sometimes
+                    }
                 }
+            } catch (RuntimeException e) {
+                LOGGER.error("Message sending threw (message={})", message, e);
             }
         }
     }

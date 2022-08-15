@@ -40,7 +40,7 @@ public class LiveDelayedSendingStrategy implements SendingStrategy {
     @Override
     public void send(RpcMessage<Long> message) {
         long nextDelay = minimumMessageDelayMillis + (random.nextInt(maximumMessageDelayMillis - minimumMessageDelayMillis));
-        scheduledExecutorService.schedule(createDispatch(message),
+        scheduledExecutorService.schedule(() -> this.dispatchFunction.accept(message),
                 nextDelay,
                 TimeUnit.MILLISECONDS);
     }
@@ -57,15 +57,5 @@ public class LiveDelayedSendingStrategy implements SendingStrategy {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    private Runnable createDispatch(RpcMessage<Long> message) {
-        return () -> {
-            try {
-                this.dispatchFunction.accept(message);
-            } catch (RuntimeException ex) {
-                LOGGER.error("Message sending threw (message={})", message, ex);
-            }
-        };
     }
 }
