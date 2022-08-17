@@ -79,7 +79,7 @@ public class Log implements SnapshotInstalledListener {
         final EntryStatus entryStatus = hasEntry(appendIndex);
         switch (entryStatus) {
             case BeforeStart:
-                throw new IllegalStateException("Attempt made to truncate prior to the commit index, this is a bug");
+                throwAttemptToAppendBeforeCommitIndexError(appendIndex);
             case Present:
                 if (getEntry(appendIndex).getTerm().equals(entry.getTerm())) {
                     // We already have this entry
@@ -87,7 +87,7 @@ public class Log implements SnapshotInstalledListener {
                 } else {
                     // The entry we have at that index was from a different term
                     if (appendIndex <= this.commitIndex) {
-                        throw new IllegalStateException("Attempt made to truncate prior to commit index, this is a bug");
+                        throwAttemptToAppendBeforeCommitIndexError(appendIndex);
                     }
                     storage.truncate(appendIndex);
                 }
@@ -98,6 +98,11 @@ public class Log implements SnapshotInstalledListener {
             default:
                 throw new IllegalStateException("Unknown entry status: " + entryStatus);
         }
+    }
+
+    private void throwAttemptToAppendBeforeCommitIndexError(int appendIndex) {
+        throw new IllegalStateException(format("Attempt made to truncate prior to commit index, this is a bug. appendIndex=%,d, commitIndex=%,d, prevIndex=%,d",
+                appendIndex, getCommitIndex(), getPrevIndex()));
     }
 
     public boolean containsPreviousEntry(int prevLogIndex, Term prevLogTerm) {

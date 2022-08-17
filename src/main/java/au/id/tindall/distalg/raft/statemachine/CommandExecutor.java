@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.statemachine;
 
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
+import au.id.tindall.distalg.raft.log.EntryAppendedEventHandler;
 import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
@@ -18,27 +19,31 @@ import java.util.List;
 public class CommandExecutor<ID extends Serializable> implements SnapshotInstalledListener {
 
     private final StateMachine stateMachine;
-    private final EntryCommittedEventHandler commandHandler;
+    private final EntryCommittedEventHandler entryCommittedEventHandler;
     private final List<CommandAppliedEventHandler> commandAppliedEventHandlers;
     private final ClientSessionStore clientSessionStore;
     private final Snapshotter<ID> snapshotter;
+    private final EntryAppendedEventHandler entryAppendedEventHandler;
     private boolean creatingSnapshot = false;
 
     public CommandExecutor(StateMachine stateMachine, ClientSessionStore clientSessionStore, Snapshotter<ID> snapshotter) {
         this.stateMachine = stateMachine;
         this.clientSessionStore = clientSessionStore;
         this.commandAppliedEventHandlers = new ArrayList<>();
-        this.commandHandler = this::handleStateMachineCommands;
+        this.entryCommittedEventHandler = this::handleStateMachineCommands;
+        this.entryAppendedEventHandler = this::handleConfigurationEntries;
         this.clientSessionStore.startListeningForAppliedCommands(this);
         this.snapshotter = snapshotter;
     }
 
     public void startListeningForCommittedCommands(Log log) {
-        log.addEntryCommittedEventHandler(this.commandHandler);
+        log.addEntryCommittedEventHandler(this.entryCommittedEventHandler);
+        log.addEntryAppendedEventHandler(this.entryAppendedEventHandler);
     }
 
     public void stopListeningForCommittedCommands(Log log) {
-        log.removeEntryCommittedEventHandler(this.commandHandler);
+        log.removeEntryCommittedEventHandler(this.entryCommittedEventHandler);
+        log.removeEntryAppendedEventHandler(this.entryAppendedEventHandler);
     }
 
     public void addCommandAppliedEventHandler(CommandAppliedEventHandler commandAppliedEventHandler) {
@@ -61,7 +66,11 @@ public class CommandExecutor<ID extends Serializable> implements SnapshotInstall
             } finally {
                 creatingSnapshot = false;
             }
-        } else if (logEntry instanceof ConfigurationEntry) {
+        }
+    }
+
+    private void handleConfigurationEntries(int logIndex, LogEntry logEntry) {
+        if (logEntry instanceof ConfigurationEntry) {
             snapshotter.logConfigurationEntry((ConfigurationEntry) logEntry);
         }
     }

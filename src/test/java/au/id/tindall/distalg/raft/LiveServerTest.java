@@ -219,6 +219,8 @@ class LiveServerTest {
             try {
                 if (allServers.size() <= 3) {
                     addNewServer(newServerIdCounter.getAndIncrement());
+                } else if (allServers.size() >= 8) {
+                    removeRandomServer();
                 } else {
                     if (ThreadLocalRandom.current().nextBoolean()) {
                         addNewServer(newServerIdCounter.getAndIncrement());
