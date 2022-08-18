@@ -14,12 +14,13 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 abstract public class MembershipChange<ID extends Serializable, R extends ClusterMembershipResponse> implements Closeable {
+    protected static final int NOT_SET = Integer.MIN_VALUE;
     private final Log log;
     protected final Configuration<ID> configuration;
     private final PersistentState<ID> persistentState;
     protected final ID serverId;
     protected final CompletableFuture<R> responseFuture;
-    protected int finishedAtIndex = -1;
+    protected int finishedAtIndex = NOT_SET;
     protected boolean finished;
 
     MembershipChange(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState, ID serverId) {
@@ -33,7 +34,7 @@ abstract public class MembershipChange<ID extends Serializable, R extends Cluste
     abstract void start();
 
     void logSuccessResponse(ID serverId, int lastAppendedIndex) {
-        if (finishedAtIndex >= 0) {
+        if (finishedAtIndex != NOT_SET) {
             return;
         }
         final R result = logSuccessResponseInternal(serverId, lastAppendedIndex);
@@ -49,7 +50,7 @@ abstract public class MembershipChange<ID extends Serializable, R extends Cluste
     }
 
     void logFailureResponse(ID serverId) {
-        if (finishedAtIndex >= 0) {
+        if (finishedAtIndex != NOT_SET) {
             return;
         }
         final R result = logFailureResponseInternal(serverId);

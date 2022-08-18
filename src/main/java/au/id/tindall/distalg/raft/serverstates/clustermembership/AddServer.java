@@ -80,7 +80,7 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
 
     @Override
     protected AddServerResponse timeoutIfSlow() {
-        if (finishedAtIndex == -1
+        if (finishedAtIndex == NOT_SET
                 && lastProgressTime != null
                 && lastProgressTime.plus(configuration.getElectionTimeout().multipliedBy(3)).isBefore(timeSource.get())) {
             replicationManager.stopReplicatingTo(serverId);
@@ -98,7 +98,7 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
 
     @Override
     protected AddServerResponse entryCommittedInternal(int index) {
-        if (finishedAtIndex == index) {
+        if (finishedAtIndex != NOT_SET && finishedAtIndex <= index) {
             return AddServerResponse.OK;
         }
         return null;
