@@ -52,6 +52,7 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class LiveServerTest {
+    private static final boolean LONG_RUN_TEST = Boolean.getBoolean("LiveServerTest.longRun");
 
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -62,7 +63,8 @@ class LiveServerTest {
     private static final int DELAY_BETWEEN_HEARTBEATS_MILLISECONDS = 200;
     private static final int MINIMUM_ELECTION_TIMEOUT_MILLISECONDS = 300;
     private static final int MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS = 500;
-    private static final int COUNT_UP_TARGET = 1_000_000;
+    private static final int COUNT_UP_TARGET = LONG_RUN_TEST ? 1_000_000 : 5_000;
+    private static final int TIMEOUT_MINUTES = LONG_RUN_TEST ? 200 : 1;
 
     private static final int MAX_BATCH_SIZE = 20;
     private static final Set<Long> ALL_SERVER_IDS = Set.of(1L, 2L, 3L);
@@ -286,7 +288,7 @@ class LiveServerTest {
     }
 
     private void waitForAllServersToCatchUp() {
-        await().atMost(200, MINUTES).until(
+        await().atMost(TIMEOUT_MINUTES, MINUTES).until(
                 () -> allServers.values().stream().map(this::serverHasCaughtUp).reduce(true, (a, b) -> a && b)
         );
     }
