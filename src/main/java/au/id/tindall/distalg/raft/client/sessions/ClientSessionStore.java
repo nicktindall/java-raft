@@ -8,13 +8,7 @@ import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.state.SnapshotInstalledListener;
 import au.id.tindall.distalg.raft.statemachine.CommandAppliedEventHandler;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
-import org.apache.logging.log4j.Logger;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,11 +17,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.apache.logging.log4j.LogManager.getLogger;
+import static au.id.tindall.distalg.raft.util.SerializationUtil.deserializeObject;
+import static au.id.tindall.distalg.raft.util.SerializationUtil.serializeObject;
 
 public class ClientSessionStore implements SnapshotInstalledListener {
-
-    private static final Logger LOGGER = getLogger();
 
     private static final Comparator<ClientSession> LAST_INTERACTION_COMPARATOR =
             Comparator.comparing(ClientSession::getLastInteractionLogIndex);
@@ -79,7 +72,7 @@ public class ClientSessionStore implements SnapshotInstalledListener {
         }
     }
 
-    public void startListeningForAppliedCommands(CommandExecutor commandExecutor) {
+    public void startListeningForAppliedCommands(CommandExecutor<?> commandExecutor) {
         commandExecutor.addCommandAppliedEventHandler(this.commandAppliedEventHandler);
     }
 
@@ -111,14 +104,7 @@ public class ClientSessionStore implements SnapshotInstalledListener {
     }
 
     public byte[] serializeSessions() {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-            oos.writeObject(activeSessions);
-            return baos.toByteArray();
-        } catch (IOException e) {
-            LOGGER.error("Error serializing sessions, returning empty sessions", e);
-            return new byte[]{};
-        }
+        return serializeObject(activeSessions);
     }
 
     @Override
@@ -128,13 +114,7 @@ public class ClientSessionStore implements SnapshotInstalledListener {
         replaceSessions(byteBuffer.array());
     }
 
-    @SuppressWarnings("unchecked")
     public void replaceSessions(byte[] sessions) {
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(sessions);
-             ObjectInputStream oos = new ObjectInputStream(bais)) {
-            activeSessions = (Map<Integer, ClientSession>) oos.readObject();
-        } catch (ClassNotFoundException | IOException e) {
-            LOGGER.error("Error serializing sessions, proceeding with empty sessions", e);
-        }
+        activeSessions = deserializeObject(sessions);
     }
 }

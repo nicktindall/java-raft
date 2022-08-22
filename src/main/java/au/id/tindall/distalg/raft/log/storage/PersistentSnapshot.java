@@ -7,11 +7,9 @@ import au.id.tindall.distalg.raft.util.IOUtil;
 import org.apache.logging.log4j.Logger;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -21,6 +19,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import static au.id.tindall.distalg.raft.util.SerializationUtil.serializeObject;
 import static org.apache.logging.log4j.status.StatusLogger.getLogger;
 
 public class PersistentSnapshot implements Snapshot, Closeable {
@@ -183,7 +182,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
 
     public static PersistentSnapshot create(Path path, int lastIndex, Term lastTerm, ConfigurationEntry configurationEntry) {
         try {
-            byte[] configEntry = serializeConfigEntry(configurationEntry);
+            byte[] configEntry = serializeObject(configurationEntry);
             ByteBuffer byteBuffer = ByteBuffer.allocate(HEADER_BUFFER_LENGTH);
             byteBuffer.put(ByteBuffer.wrap(HEADER.getBytes(StandardCharsets.UTF_8)));
             byteBuffer.putInt(LAST_INDEX_OFFSET, lastIndex);
@@ -230,16 +229,6 @@ public class PersistentSnapshot implements Snapshot, Closeable {
             return persistentSnapshot;
         } catch (ClassNotFoundException | IOException e) {
             throw new RuntimeException("Error loading snapshot", e);
-        }
-    }
-
-    private static byte[] serializeConfigEntry(ConfigurationEntry configurationEntry) {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-            oos.writeObject(configurationEntry);
-            return baos.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 }

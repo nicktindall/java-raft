@@ -4,6 +4,8 @@ import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
+import au.id.tindall.distalg.raft.statemachine.CommandAppliedEventHandler;
+import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,8 @@ class ClientSessionStoreTest {
     private Log log;
     @Mock
     private ClientSessionCreatedHandler clientSessionCreatedHandler;
+    @Mock
+    private CommandExecutor<?> commandExecutor;
 
     @BeforeEach
     void setUp() {
@@ -110,6 +114,23 @@ class ClientSessionStoreTest {
     }
 
     @Test
+    void shouldStartListeningForAppliedCommands() {
+        final int clientId = 9876;
+        clientSessionStore.createSession(1, clientId);
+        clientSessionStore.startListeningForAppliedCommands(commandExecutor);
+
+        ArgumentCaptor<CommandAppliedEventHandler> argumentCaptor
+                = ArgumentCaptor.forClass(CommandAppliedEventHandler.class);
+        verify(commandExecutor).addCommandAppliedEventHandler(argumentCaptor.capture());
+
+        final CommandAppliedEventHandler handler = argumentCaptor.getValue();
+        handler.handleCommandApplied(13, clientId, -1, 1, RESULT);
+        assertThat(clientSessionStore.getCommandResult(clientId, 1)).contains(RESULT);
+        handler.handleCommandApplied(14, clientId, 1, 2, RESULT);
+        assertThat(clientSessionStore.getCommandResult(clientId, 1)).isEmpty();
+    }
+
+    @Test
     void shouldEmitClientSessionCreatedEvents_WhenClientSessionCreated() {
         clientSessionStore.addClientSessionCreatedHandler(clientSessionCreatedHandler);
 
@@ -147,5 +168,22 @@ class ClientSessionStoreTest {
             clientSessionStore.recordAppliedCommand(11, 1, -1, 0, RESULT);
             assertThat(clientSessionStore.getCommandResult(1, 0)).contains(RESULT);
         }
+    }
+
+    @Test
+    void shouldSerializeAndDeserializeActiveSessions() {
+        clientSessionStore.createSession(1, 1);
+        clientSessionStore.createSession(1, 2);
+
+        clientSessionStore.recordAppliedCommand(1, 1, -1, 1, RESULT);
+        clientSessionStore.recordAppliedCommand(2, 2, -1, 1, RESULT);
+        clientSessionStore.recordAppliedCommand(3, 2, -1, 2, RESULT);
+
+        final ClientSessionStore otherSessionStore = new ClientSessionStore(MAX_SESSIONS);
+        otherSessionStore.replaceSessions(clientSessionStore.serializeSessions());
+
+        assertThat(otherSessionStore.getCommandResult(1, 1)).contains(RESULT);
+        assertThat(otherSessionStore.getCommandResult(2, 1)).contains(RESULT);
+        assertThat(otherSessionStore.getCommandResult(2, 2)).contains(RESULT);
     }
 }
