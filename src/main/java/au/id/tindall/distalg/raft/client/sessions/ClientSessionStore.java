@@ -72,7 +72,7 @@ public class ClientSessionStore implements SnapshotInstalledListener {
         }
     }
 
-    public void startListeningForAppliedCommands(CommandExecutor<?> commandExecutor) {
+    public void startListeningForAppliedCommands(CommandExecutor commandExecutor) {
         commandExecutor.addCommandAppliedEventHandler(this.commandAppliedEventHandler);
     }
 

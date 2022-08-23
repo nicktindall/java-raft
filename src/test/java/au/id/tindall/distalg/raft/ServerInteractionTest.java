@@ -54,9 +54,9 @@ class ServerInteractionTest {
     private QueuedSendingStrategy queuedSendingStrategy;
     private ServerFactory<Long> serverFactory;
     @Mock
-    private ElectionScheduler<Long> electionScheduler;
+    private ElectionScheduler electionScheduler;
     @Mock
-    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
+    private ElectionSchedulerFactory electionSchedulerFactory;
 
     @BeforeEach
     void setUp() {

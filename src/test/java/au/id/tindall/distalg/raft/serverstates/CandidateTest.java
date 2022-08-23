@@ -54,7 +54,7 @@ class CandidateTest {
     @Mock
     private Log log;
     @Mock
-    private ElectionScheduler<Long> electionScheduler;
+    private ElectionScheduler electionScheduler;
     @Mock
     private PersistentState<Long> persistentState;
 

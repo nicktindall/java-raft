@@ -39,14 +39,14 @@ public class ServerFactory<ID extends Serializable> {
     private final int maxClientSessions;
     private final CommandExecutorFactory commandExecutorFactory;
     private final StateMachineFactory stateMachineFactory;
-    private final ElectionSchedulerFactory<ID> electionSchedulerFactory;
+    private final ElectionSchedulerFactory electionSchedulerFactory;
     private final int maxBatchSize;
     private final ReplicationSchedulerFactory<ID> replicationSchedulerFactory;
     private final Duration electionTimeout;
 
     public ServerFactory(ClusterFactory<ID> clusterFactory, LogFactory logFactory, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                          ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
-                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory<ID> electionSchedulerFactory,
+                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory electionSchedulerFactory,
                          int maxBatchSize, ReplicationSchedulerFactory<ID> replicationSchedulerFactory, Duration electionTimeout) {
         this.clusterFactory = clusterFactory;
         this.logFactory = logFactory;
@@ -66,10 +66,10 @@ public class ServerFactory<ID extends Serializable> {
         ClientSessionStore clientSessionStore = clientSessionStoreFactory.create(maxClientSessions);
         clientSessionStore.startListeningForClientRegistrations(log);
         StateMachine stateMachine = stateMachineFactory.createStateMachine();
-        Snapshotter<ID> snapshotter = new Snapshotter<>(log, clientSessionStore, stateMachine, persistentState, new DumbRegularIntervalSnapshotHeuristic());
-        CommandExecutor<ID> commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter);
+        Snapshotter snapshotter = new Snapshotter(log, clientSessionStore, stateMachine, persistentState, new DumbRegularIntervalSnapshotHeuristic());
+        CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter);
         commandExecutor.startListeningForCommittedCommands(log);
-        ElectionScheduler<ID> electionScheduler = electionSchedulerFactory.createElectionScheduler();
+        ElectionScheduler electionScheduler = electionSchedulerFactory.createElectionScheduler();
         Cluster<ID> cluster = clusterFactory.createForNode(persistentState.getId());
         LeadershipTransferFactory<ID> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState);
         LogReplicatorFactory<ID> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize);

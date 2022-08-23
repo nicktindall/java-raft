@@ -11,22 +11,21 @@ import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
 import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.state.SnapshotInstalledListener;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 
-public class CommandExecutor<ID extends Serializable> implements SnapshotInstalledListener {
+public class CommandExecutor implements SnapshotInstalledListener {
 
     private final StateMachine stateMachine;
     private final EntryCommittedEventHandler entryCommittedEventHandler;
     private final List<CommandAppliedEventHandler> commandAppliedEventHandlers;
     private final ClientSessionStore clientSessionStore;
-    private final Snapshotter<ID> snapshotter;
+    private final Snapshotter snapshotter;
     private final EntryAppendedEventHandler entryAppendedEventHandler;
     private boolean creatingSnapshot = false;
 
-    public CommandExecutor(StateMachine stateMachine, ClientSessionStore clientSessionStore, Snapshotter<ID> snapshotter) {
+    public CommandExecutor(StateMachine stateMachine, ClientSessionStore clientSessionStore, Snapshotter snapshotter) {
         this.stateMachine = stateMachine;
         this.clientSessionStore = clientSessionStore;
         this.commandAppliedEventHandlers = new ArrayList<>();

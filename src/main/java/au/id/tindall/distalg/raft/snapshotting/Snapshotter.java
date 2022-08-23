@@ -10,24 +10,23 @@ import au.id.tindall.distalg.raft.statemachine.StateMachine;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.io.Serializable;
 
 import static au.id.tindall.distalg.raft.util.HexUtil.hexDump;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Snapshotter<ID extends Serializable> {
+public class Snapshotter {
 
     private static final Logger LOGGER = getLogger();
 
     private final Log log;
     private final StateMachine stateMachine;
-    private final PersistentState<ID> persistentState;
+    private final PersistentState<?> persistentState;
     private final SnapshotHeuristic snapshotHeuristic;
     private final ClientSessionStore clientSessionStore;
 
     private ConfigurationEntry lastConfigurationEntry;
 
-    public Snapshotter(Log log, ClientSessionStore clientSessionStore, StateMachine stateMachine, PersistentState<ID> persistentState, SnapshotHeuristic snapshotHeuristic) {
+    public Snapshotter(Log log, ClientSessionStore clientSessionStore, StateMachine stateMachine, PersistentState<?> persistentState, SnapshotHeuristic snapshotHeuristic) {
         this.log = log;
         this.clientSessionStore = clientSessionStore;
         this.stateMachine = stateMachine;

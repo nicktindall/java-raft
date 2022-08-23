@@ -43,7 +43,7 @@ class ServerStateFactoryTest {
     @Mock
     private CommandExecutor commandExecutor;
     @Mock
-    private ElectionScheduler<Long> electionScheduler;
+    private ElectionScheduler electionScheduler;
     @Mock
     private PersistentState<Long> persistentState;
     @Mock

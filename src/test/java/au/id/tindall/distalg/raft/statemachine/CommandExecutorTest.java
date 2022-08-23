@@ -33,13 +33,13 @@ class CommandExecutorTest {
     @Mock
     private ClientSessionStore clientSessionStore;
     @Mock
-    private Snapshotter<Long> snapshotter;
+    private Snapshotter snapshotter;
 
-    private CommandExecutor<Long> commandExecutor;
+    private CommandExecutor commandExecutor;
 
     @BeforeEach
     void setUp() {
-        commandExecutor = new CommandExecutor<>(stateMachine, clientSessionStore, snapshotter);
+        commandExecutor = new CommandExecutor(stateMachine, clientSessionStore, snapshotter);
     }
 
     @Test

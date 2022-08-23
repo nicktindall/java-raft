@@ -31,7 +31,7 @@ class ClientSessionStoreTest {
     @Mock
     private ClientSessionCreatedHandler clientSessionCreatedHandler;
     @Mock
-    private CommandExecutor<?> commandExecutor;
+    private CommandExecutor commandExecutor;
 
     @BeforeEach
     void setUp() {

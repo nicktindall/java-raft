@@ -4,7 +4,6 @@ import au.id.tindall.distalg.raft.Server;
 import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -13,11 +12,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class ElectionScheduler<ID extends Serializable> {
+public class ElectionScheduler {
 
     private static final Logger LOGGER = getLogger();
 
-    private Server<ID> server;
+    private Server<?> server;
     private final ElectionTimeoutGenerator electionTimeoutGenerator;
     private final ScheduledExecutorService scheduledExecutorService;
     private final AtomicReference<ScheduledFuture<?>> nextElectionTimeout;
@@ -29,7 +28,7 @@ public class ElectionScheduler<ID extends Serializable> {
         nextElectionTimeout = new AtomicReference<>();
     }
 
-    public void setServer(Server<ID> server) {
+    public void setServer(Server<?> server) {
         this.server = server;
     }
 

@@ -99,7 +99,7 @@ class LiveServerTest {
                 MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(),
                 MonotonicCounter::new,
-                new ElectionSchedulerFactory<>(testExecutorService, MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
+                new ElectionSchedulerFactory(testExecutorService, MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
                 MAX_BATCH_SIZE,
                 new HeartbeatReplicationSchedulerFactory<>(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS),
                 Duration.ofMillis(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS)

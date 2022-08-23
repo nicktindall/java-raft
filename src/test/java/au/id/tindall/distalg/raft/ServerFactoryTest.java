@@ -67,21 +67,21 @@ class ServerFactoryTest {
     @Mock
     private StateMachineFactory stateMachineFactory;
     @Mock
-    private CommandExecutor<Long> commandExecutor;
+    private CommandExecutor commandExecutor;
     @Mock
     private StateMachine stateMachine;
     @Mock
-    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
+    private ElectionSchedulerFactory electionSchedulerFactory;
     @Mock
-    private ElectionScheduler<Long> electionScheduler;
+    private ElectionScheduler electionScheduler;
     @Mock
     private PersistentState<Long> persistentState;
     @Mock
     private LogStorage logStorage;
     @Mock
-    private ReplicationSchedulerFactory replicationSchedulerFactory;
+    private ReplicationSchedulerFactory<Long> replicationSchedulerFactory;
     @Mock
-    private Snapshotter<Long> snapshotter;
+    private Snapshotter snapshotter;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach

@@ -35,11 +35,11 @@ class ElectionSchedulerTest {
     @Mock
     private ScheduledFuture timeoutFuture;
 
-    private ElectionScheduler<Long> electionScheduler;
+    private ElectionScheduler electionScheduler;
 
     @BeforeEach
     void setUp() {
-        electionScheduler = new ElectionScheduler<>(electionTimeoutGenerator, scheduledExecutorService);
+        electionScheduler = new ElectionScheduler(electionTimeoutGenerator, scheduledExecutorService);
         electionScheduler.setServer(server);
     }
 
