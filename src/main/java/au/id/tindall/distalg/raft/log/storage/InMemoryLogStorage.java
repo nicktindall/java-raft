@@ -1,6 +1,5 @@
 package au.id.tindall.distalg.raft.log.storage;
 
-import au.id.tindall.distalg.raft.log.EntryStatus;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.state.Snapshot;
@@ -26,7 +25,7 @@ public class InMemoryLogStorage implements LogStorage {
     @Override
     public void add(int appendIndex, LogEntry logEntry) {
         if (toListIndex(appendIndex) != entries.size()) {
-            throw new IllegalStateException(format("Attempting to append at index %,d when next index is %,d", appendIndex, entries.size() + prevIndex));
+            throw new IllegalArgumentException(format("Attempting to append at index %,d when next index is %,d", appendIndex, entries.size() + prevIndex));
         }
         this.entries.add(logEntry);
     }
@@ -56,7 +55,12 @@ public class InMemoryLogStorage implements LogStorage {
         prevIndex = snapshot.getLastIndex();
         prevTerm = snapshot.getLastTerm();
         if (oldPrevIndex != prevIndex) {
-            entries = entries.subList(prevIndex - oldPrevIndex, entries.size());
+            int firstRemainingIndex = prevIndex - oldPrevIndex;
+            if (firstRemainingIndex <= entries.size()) {
+                entries = entries.subList(firstRemainingIndex, entries.size());
+            } else {
+                entries = new ArrayList<>();
+            }
         }
     }
 
@@ -68,18 +72,6 @@ public class InMemoryLogStorage implements LogStorage {
     @Override
     public Term getPrevTerm() {
         return prevTerm;
-    }
-
-    @Override
-    public EntryStatus hasEntry(int index) {
-        final int listIndex = toListIndex(index);
-        if (listIndex < 0) {
-            return EntryStatus.BeforeStart;
-        } else if (listIndex < entries.size()) {
-            return EntryStatus.Present;
-        } else {
-            return EntryStatus.AfterEnd;
-        }
     }
 
     @Override

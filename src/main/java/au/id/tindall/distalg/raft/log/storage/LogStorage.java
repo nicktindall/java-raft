@@ -36,7 +36,7 @@ public interface LogStorage {
     }
 
     default int getLastLogIndex() {
-        return getFirstLogIndex() + size();
+        return getPrevIndex() + size();
     }
 
     default int getNextLogIndex() {

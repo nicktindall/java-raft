@@ -146,11 +146,6 @@ public class PersistentLogStorage implements LogStorage {
         return entryEndIndex.size() - 1;
     }
 
-    @Override
-    public int getLastLogIndex() {
-        return getPrevIndex() + size();
-    }
-
     private long startPositionOfEntry(int index) {
         return endPositionOfEntry(index - 1);
     }
