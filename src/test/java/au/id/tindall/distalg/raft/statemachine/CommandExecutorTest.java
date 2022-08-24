@@ -91,12 +91,12 @@ class CommandExecutorTest {
             @Test
             void shouldApplyCommandToStateMachine() {
                 log.advanceCommitIndex(1);
-                verify(stateMachine).apply(0, COMMAND);
+                verify(stateMachine).apply(1, COMMAND);
             }
 
             @Test
             void shouldNotifyListenersOfCommandResult() {
-                when(stateMachine.apply(0, COMMAND)).thenReturn(RESULT);
+                when(stateMachine.apply(1, COMMAND)).thenReturn(RESULT);
                 log.advanceCommitIndex(1);
                 verify(commandAppliedEventHandler).handleCommandApplied(1, CLIENT_ID, -1, CLIENT_SEQUENCE_NUMBER, RESULT);
             }

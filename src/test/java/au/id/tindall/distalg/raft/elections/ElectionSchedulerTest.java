@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,6 +40,7 @@ class ElectionSchedulerTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(server.getId()).thenReturn(567L);
         electionScheduler = new ElectionScheduler(electionTimeoutGenerator, scheduledExecutorService);
         electionScheduler.setServer(server);
     }

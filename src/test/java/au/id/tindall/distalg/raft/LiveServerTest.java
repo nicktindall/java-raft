@@ -15,6 +15,8 @@ import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
+import au.id.tindall.distalg.raft.snapshotting.DumbRegularIntervalSnapshotHeuristic;
+import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
 import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
@@ -102,14 +104,15 @@ class LiveServerTest {
                 new ElectionSchedulerFactory(testExecutorService, MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
                 MAX_BATCH_SIZE,
                 new HeartbeatReplicationSchedulerFactory<>(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS),
-                Duration.ofMillis(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS)
+                Duration.ofMillis(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS),
+                Snapshotter::new
         );
     }
 
     private Server<Long> createServerAndState(long id, Set<Long> serverIds) {
         try {
             PersistentState<Long> persistentState = FileBasedPersistentState.createOrOpen(stateFileDirectory.resolve(String.valueOf(id)), id);
-            Server<Long> server = serverFactory.create(persistentState, serverIds);
+            Server<Long> server = serverFactory.create(persistentState, serverIds, new DumbRegularIntervalSnapshotHeuristic());
             allServers.put(id, server);
             return server;
         } catch (IOException e) {

@@ -16,6 +16,7 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.serverstates.TestStateMachine;
+import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
 import au.id.tindall.distalg.raft.state.InMemoryPersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,7 +83,8 @@ class ServerInteractionTest {
                 electionSchedulerFactory,
                 MAX_BATCH_SIZE,
                 id -> new SynchronousReplicationScheduler(),
-                Duration.ZERO
+                Duration.ZERO,
+                Snapshotter::new
         );
     }
 

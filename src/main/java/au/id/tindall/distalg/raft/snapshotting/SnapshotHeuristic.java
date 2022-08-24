@@ -6,5 +6,7 @@ import au.id.tindall.distalg.raft.statemachine.StateMachine;
 
 public interface SnapshotHeuristic {
 
+    SnapshotHeuristic NEVER_SNAPSHOT = (log, stateMachine, currentSnapshot) -> false;
+
     boolean shouldCreateSnapshot(Log log, StateMachine stateMachine, Snapshot currentSnapshot);
 }

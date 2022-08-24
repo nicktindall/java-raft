@@ -18,8 +18,9 @@ import au.id.tindall.distalg.raft.replication.SnapshotReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManagerFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
-import au.id.tindall.distalg.raft.snapshotting.DumbRegularIntervalSnapshotHeuristic;
+import au.id.tindall.distalg.raft.snapshotting.SnapshotHeuristic;
 import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
+import au.id.tindall.distalg.raft.snapshotting.SnapshotterFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
@@ -29,6 +30,8 @@ import au.id.tindall.distalg.raft.statemachine.StateMachineFactory;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Set;
+
+import static au.id.tindall.distalg.raft.snapshotting.SnapshotHeuristic.NEVER_SNAPSHOT;
 
 public class ServerFactory<ID extends Serializable> {
 
@@ -43,11 +46,12 @@ public class ServerFactory<ID extends Serializable> {
     private final int maxBatchSize;
     private final ReplicationSchedulerFactory<ID> replicationSchedulerFactory;
     private final Duration electionTimeout;
+    private final SnapshotterFactory snapshotterFactory;
 
     public ServerFactory(ClusterFactory<ID> clusterFactory, LogFactory logFactory, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                          ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
                          CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory electionSchedulerFactory,
-                         int maxBatchSize, ReplicationSchedulerFactory<ID> replicationSchedulerFactory, Duration electionTimeout) {
+                         int maxBatchSize, ReplicationSchedulerFactory<ID> replicationSchedulerFactory, Duration electionTimeout, SnapshotterFactory snapshotterFactory) {
         this.clusterFactory = clusterFactory;
         this.logFactory = logFactory;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
@@ -59,14 +63,20 @@ public class ServerFactory<ID extends Serializable> {
         this.maxBatchSize = maxBatchSize;
         this.replicationSchedulerFactory = replicationSchedulerFactory;
         this.electionTimeout = electionTimeout;
+        this.snapshotterFactory = snapshotterFactory;
     }
 
     public Server<ID> create(PersistentState<ID> persistentState, Set<ID> initialPeers) {
+        return create(persistentState, initialPeers, NEVER_SNAPSHOT);
+    }
+
+
+    public Server<ID> create(PersistentState<ID> persistentState, Set<ID> initialPeers, SnapshotHeuristic snapshotHeuristic) {
         Log log = logFactory.createLog(persistentState.getLogStorage());
         ClientSessionStore clientSessionStore = clientSessionStoreFactory.create(maxClientSessions);
         clientSessionStore.startListeningForClientRegistrations(log);
         StateMachine stateMachine = stateMachineFactory.createStateMachine();
-        Snapshotter snapshotter = new Snapshotter(log, clientSessionStore, stateMachine, persistentState, new DumbRegularIntervalSnapshotHeuristic());
+        Snapshotter snapshotter = snapshotterFactory.create(log, clientSessionStore, stateMachine, persistentState, snapshotHeuristic);
         CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter);
         commandExecutor.startListeningForCommittedCommands(log);
         ElectionScheduler electionScheduler = electionSchedulerFactory.createElectionScheduler();

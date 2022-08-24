@@ -23,7 +23,7 @@ class FileBasedPersistentStateTest {
     private static final long VOTED_FOR = 456L;
     private static final Term CURRENT_TERM = new Term(9);
     @TempDir
-    private Path tempDir;
+    Path tempDir;
     private Path stateFile;
     private Function<Integer, Path> nextSnapshotPath;
     private int nextSnapshotSequence = 0;

@@ -19,7 +19,9 @@ import au.id.tindall.distalg.raft.replication.SnapshotReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManagerFactory;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
+import au.id.tindall.distalg.raft.snapshotting.SnapshotHeuristic;
 import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
+import au.id.tindall.distalg.raft.snapshotting.SnapshotterFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
@@ -35,6 +37,7 @@ import java.time.Duration;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -81,7 +84,11 @@ class ServerFactoryTest {
     @Mock
     private ReplicationSchedulerFactory<Long> replicationSchedulerFactory;
     @Mock
+    private SnapshotterFactory snapshotterFactory;
+    @Mock
     private Snapshotter snapshotter;
+    @Mock
+    private SnapshotHeuristic snapshotHeuristic;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
@@ -94,14 +101,15 @@ class ServerFactoryTest {
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
         when(electionSchedulerFactory.createElectionScheduler()).thenReturn(electionScheduler);
         when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter)).thenReturn(commandExecutor);
+        when(snapshotterFactory.create(eq(log), eq(clientSessionStore), eq(stateMachine), eq(persistentState), any(SnapshotHeuristic.class))).thenReturn(snapshotter);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT);
+                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT, snapshotterFactory);
     }
 
     @Test
     void createsServersAndTheirDependencies() {
         final Configuration<Long> configuration = new Configuration<>(SERVER_ID, Set.of(SERVER_ID, OTHER_SERVER_ID), ELECTION_TIMEOUT);
-        assertThat(serverFactory.create(persistentState, Set.of(SERVER_ID, OTHER_SERVER_ID))).usingRecursiveComparison().isEqualTo(
+        assertThat(serverFactory.create(persistentState, Set.of(SERVER_ID, OTHER_SERVER_ID), snapshotHeuristic)).usingRecursiveComparison().isEqualTo(
                 new Server<>(
                         persistentState,
                         new ServerStateFactory<>(
