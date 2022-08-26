@@ -4,12 +4,11 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.util.IOUtil;
+import au.id.tindall.distalg.raft.util.SerializationUtil;
 import org.apache.logging.log4j.Logger;
 
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -86,7 +85,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     @Override
     public int readInto(ByteBuffer byteBuffer, int fromOffset) {
         try {
-            return fileChannel.read(byteBuffer, contentsStartOffset + fromOffset);
+            return fileChannel.read(byteBuffer, (long) contentsStartOffset + fromOffset);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to read snapshot", e);
         }
@@ -95,7 +94,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     @Override
     public int writeBytes(int offset, byte[] chunk) {
         try {
-            return fileChannel.write(ByteBuffer.wrap(chunk), contentsStartOffset + offset);
+            return fileChannel.write(ByteBuffer.wrap(chunk), (long) contentsStartOffset + offset);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to write snapshot", e);
         }
@@ -202,6 +201,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
         }
     }
 
+    @SuppressWarnings("java:S2095")
     public static PersistentSnapshot load(Path path) {
         try {
             ByteBuffer buffer = ByteBuffer.allocate(HEADER_BUFFER_LENGTH);
@@ -221,13 +221,11 @@ public class PersistentSnapshot implements Snapshot, Closeable {
             byte[] configBytesArray = new byte[configLength];
             buffer.position(CONFIG_OFFSET);
             buffer.get(configBytesArray);
-            try (final ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(configBytesArray))) {
-                entry = (ConfigurationEntry) ois.readObject();
-            }
+            entry = SerializationUtil.deserializeObject(configBytesArray);
             final PersistentSnapshot persistentSnapshot = new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, entry, buffer.getInt(CONTENTS_START_OFFSET), contentsLength);
             persistentSnapshot.snapshotOffset = buffer.getInt(SNAPSHOT_OFFSET_OFFSET);
             return persistentSnapshot;
-        } catch (ClassNotFoundException | IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException("Error loading snapshot", e);
         }
     }
