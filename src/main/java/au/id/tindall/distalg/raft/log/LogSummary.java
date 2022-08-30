@@ -14,6 +14,8 @@ import java.util.Optional;
  */
 public class LogSummary implements Comparable<LogSummary> {
 
+    public static final LogSummary EMPTY = new LogSummary(Optional.empty(), 0);
+
     private static final int EQUAL = 0;
     private static final int MORE_UP_TO_DATE = -1;
     private static final int LESS_UP_TO_DATE = 1;
