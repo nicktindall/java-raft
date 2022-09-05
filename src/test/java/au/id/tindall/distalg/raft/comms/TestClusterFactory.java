@@ -118,7 +118,7 @@ public class TestClusterFactory implements ClusterFactory<Long> {
             LOGGER.trace("Sending {} from Server {} to Server {}", message.getClass().getSimpleName(), message.getSource(), destinationId);
             final Server<Long> server = servers.get(destinationId);
             if (server == null) {
-                LOGGER.warn("Dropped {} message to dead server {}", message.getClass().getSimpleName(), destinationId);
+                LOGGER.debug("Dropped {} message to dead server {}", message.getClass().getSimpleName(), destinationId);
                 return;
             }
             deliverMessageIfServerIsRunning(message, server);

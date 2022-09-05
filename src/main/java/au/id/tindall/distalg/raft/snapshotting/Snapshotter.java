@@ -37,7 +37,7 @@ public class Snapshotter {
     public void createSnapshotIfReady(int lastIndex, Term lastTerm) {
         if (snapshotHeuristic.shouldCreateSnapshot(log, stateMachine, persistentState.getCurrentSnapshot().orElse(null))) {
             byte[] snapshot = stateMachine.createSnapshot();
-            LOGGER.warn("Creating snapshot to index={}, term={}, length={}, endOfFirstChunk={}, end={}", lastIndex, lastTerm, snapshot.length,
+            LOGGER.debug("Creating snapshot to index={}, term={}, length={}, endOfFirstChunk={}, end={}", lastIndex, lastTerm, snapshot.length,
                     hexDump(snapshot, 4050, 50), hexDump(snapshot, snapshot.length - 50, 50));
             try (final Snapshot nextSnapshot = persistentState.createSnapshot(lastIndex, lastTerm, lastConfigurationEntry)) {
                 final byte[] chunk = clientSessionStore.serializeSessions();

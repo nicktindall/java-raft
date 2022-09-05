@@ -107,7 +107,7 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
                 replicationManager.replicate(installSnapshotResponse.getSource());
             } else {
                 clusterMembershipChangeManager.logSnapshotResponse(installSnapshotResponse.getSource());
-                LOGGER.warn("Follower {} failure snapshot response", installSnapshotResponse.getSource());
+                LOGGER.debug("Follower {} failure snapshot response", installSnapshotResponse.getSource());
             }
         }
         return complete(this);

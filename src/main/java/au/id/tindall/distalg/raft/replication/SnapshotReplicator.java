@@ -74,7 +74,7 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
         if (currentSnapshotLastIndex == lastIndex) {
             lastOffsetConfirmed = Math.max(lastOffset, lastOffsetConfirmed);
         } else {
-            LOGGER.warn("Got a stale InstallSnapshotResponse from {}, ignoring (lastIndex={}, lastOffset={})", followerId, lastIndex, lastOffset);
+            LOGGER.debug("Got a stale InstallSnapshotResponse from {}, ignoring (lastIndex={}, lastOffset={})", followerId, lastIndex, lastOffset);
         }
     }
 

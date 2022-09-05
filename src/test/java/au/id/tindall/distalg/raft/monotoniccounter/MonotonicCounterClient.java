@@ -49,7 +49,7 @@ public class MonotonicCounterClient {
                 this.clientId = response.getClientId().get();
                 return;
             } else {
-                LOGGER.warn("Server responded with {}, retrying", response.getStatus());
+                LOGGER.debug("Server responded with {}, retrying", response.getStatus());
                 retries++;
                 Thread.sleep(100L);
             }
@@ -66,7 +66,7 @@ public class MonotonicCounterClient {
                 clientSequenceNumber++;
                 return;
             } else {
-                LOGGER.warn("Server responded with status {}, retrying", commandResponse.getStatus());
+                LOGGER.debug("Server responded with status {}, retrying", commandResponse.getStatus());
                 retries++;
                 Thread.sleep(100L);
             }

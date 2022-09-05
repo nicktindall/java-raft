@@ -255,7 +255,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     public void setCurrentSnapshot(Snapshot nextSnapshot) {
         // no point installing a snapshot if we've already gone past that point
         if (currentSnapshot.get() != null && nextSnapshot.getLastIndex() <= logStorage.getPrevIndex()) {
-            LOGGER.warn("Not installing snapshot that would not advance us (log.prevLogIndex() == {}, nextSnapshot.getLastLogIndex() == {}",
+            LOGGER.debug("Not installing snapshot that would not advance us (log.prevLogIndex() == {}, nextSnapshot.getLastLogIndex() == {}",
                     logStorage.getPrevIndex(), nextSnapshot.getLastIndex());
             return;
         }

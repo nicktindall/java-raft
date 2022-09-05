@@ -41,7 +41,7 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator<I
         int nextIndexToSend = nextIndex;    // This can change, take a copy
         int prevLogIndex = nextIndexToSend - 1;
         if (log.hasEntry(nextIndexToSend) == EntryStatus.BeforeStart) {
-            LOGGER.warn("Switching to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
+            LOGGER.debug("Switching to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
                     followerId, nextIndexToSend, matchIndex, log.getPrevIndex());
             return ReplicationResult.SwitchToSnapshotReplication;
         }
@@ -53,7 +53,7 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator<I
                     log.getCommitIndex());
             return ReplicationResult.StayInCurrentMode;
         } catch (IndexOutOfBoundsException e) {
-            LOGGER.warn("Concurrent truncation caused switch to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
+            LOGGER.debug("Concurrent truncation caused switch to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
                     followerId, nextIndexToSend, matchIndex, log.getPrevIndex());
             return ReplicationResult.SwitchToSnapshotReplication;
         }
@@ -81,7 +81,7 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator<I
 
     @Override
     public synchronized void logFailedResponse(Integer earliestPossibleMatchIndex) {
-        LOGGER.warn("Got failed response from {}, earliest possible match index: {}", followerId, earliestPossibleMatchIndex);
+        LOGGER.debug("Got failed response from {}, earliest possible match index: {}", followerId, earliestPossibleMatchIndex);
         if (earliestPossibleMatchIndex != null) {
             nextIndex = earliestPossibleMatchIndex;
         }

@@ -361,7 +361,7 @@ class LiveServerTest {
             if (leader.isPresent()) {
                 return leader.get();
             } else {
-                LOGGER.warn("Couldn't get leader, retrying...");
+                LOGGER.debug("Couldn't get leader, retrying...");
                 Thread.sleep(200);
             }
         }

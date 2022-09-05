@@ -71,13 +71,13 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
             final EntryStatus entryStatus = log.hasEntry(appendEntriesRequest.getPrevLogIndex());
             switch (entryStatus) {
                 case AfterEnd:
-                    LOGGER.warn("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, appendPrevTerm={}, log.hasEntry={}", appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(),
+                    LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, appendPrevTerm={}, log.hasEntry={}", appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(),
                             appendEntriesRequest.getPrevLogTerm(), log.hasEntry(appendEntriesRequest.getPrevLogIndex()));
                     cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(log.getLastLogIndex() + 1));
                     return complete(this);
                 case BeforeStart:
                     if (log.getPrevIndex() != appendEntriesRequest.getPrevLogIndex() || !log.getPrevTerm().equals(appendEntriesRequest.getPrevLogTerm())) {
-                        LOGGER.warn("Ignoring append entry: appendPrevIndex={}, appendPrevTerm={}, log.getPrevIndex={}", appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm(),
+                        LOGGER.debug("Ignoring append entry: appendPrevIndex={}, appendPrevTerm={}, log.getPrevIndex={}", appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm(),
                                 log.getPrevIndex());
                         cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(Math.max(log.getLastLogIndex() + 1, log.getPrevIndex() + 1)));
                         return complete(this);
@@ -85,7 +85,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
                     break;
                 case Present:
                     if (!log.containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
-                        LOGGER.warn("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, appendPrevTerm={}, log.hasEntry={}", appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(),
+                        LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, appendPrevTerm={}, log.hasEntry={}", appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(),
                                 appendEntriesRequest.getPrevLogTerm(), log.hasEntry(appendEntriesRequest.getPrevLogIndex()));
                         cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(appendEntriesRequest.getPrevLogIndex()));
                         return complete(this);
@@ -138,7 +138,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
             }
         } else {
             if (receivingSnapshot == null) {
-                LOGGER.warn("Got an InstallSnapshotRequest late, there is no current snapshot, ignoring (offset={}, lastIndex={})",
+                LOGGER.debug("Got an InstallSnapshotRequest late, there is no current snapshot, ignoring (offset={}, lastIndex={})",
                         installSnapshotRequest.getOffset(), installSnapshotRequest.getLastIndex());
                 return complete(this);
             }
