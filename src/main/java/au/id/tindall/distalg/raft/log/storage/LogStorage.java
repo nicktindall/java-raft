@@ -17,7 +17,7 @@ public interface LogStorage {
     void truncate(int fromIndex);
 
     default EntryStatus hasEntry(int index) {
-        if (index < getFirstLogIndex()) {
+        if (index <= getPrevIndex()) {
             return EntryStatus.BeforeStart;
         } else if (index > getLastLogIndex()) {
             return EntryStatus.AfterEnd;

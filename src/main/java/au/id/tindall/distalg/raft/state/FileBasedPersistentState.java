@@ -287,11 +287,13 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
 
     @Override
     public void initialize() {
-        LOGGER.warn("Initialise: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
+        LOGGER.debug("Initialise: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
         if (Files.exists(currentSnapshotPath)) {
-            LOGGER.warn("Discovered snapshot, attempting to load");
+            LOGGER.debug("Discovered snapshot, attempting to load");
             setCurrentSnapshot(PersistentSnapshot.load(currentSnapshotPath));
-            LOGGER.warn("After snapshot: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
+            LOGGER.debug("After snapshot: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
+        } else if (logStorage.getPrevIndex() > 0) {
+            LOGGER.error("prevIndex > 0 (={}), but no current snapshot could be found (currentSnapshotPath={})", logStorage.getPrevIndex(), currentSnapshotPath);
         }
     }
 }

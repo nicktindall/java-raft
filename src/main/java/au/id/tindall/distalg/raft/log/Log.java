@@ -237,7 +237,7 @@ public class Log implements SnapshotInstalledListener {
     @Override
     public void onSnapshotInstalled(Snapshot snapshot) {
         doWrite(() -> {
-            LOGGER.warn("Advancing commit index from {} to {} due to snapshot", commitIndex, snapshot.getLastIndex());
+            LOGGER.debug("Advancing commit index from {} to {} due to snapshot", commitIndex, snapshot.getLastIndex());
             this.commitIndex = Math.max(commitIndex, snapshot.getLastIndex());
             return null;
         });

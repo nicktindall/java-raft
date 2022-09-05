@@ -6,21 +6,26 @@ import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.state.InMemorySnapshot;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static au.id.tindall.distalg.raft.log.EntryStatus.AfterEnd;
 import static au.id.tindall.distalg.raft.log.EntryStatus.BeforeStart;
 import static au.id.tindall.distalg.raft.log.EntryStatus.Present;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -145,8 +150,9 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
                 new ClientRegistrationEntry(TERM, 876)
         );
 
-        List<Integer> params() {
-            return List.of(1, 2, 3, 4, 5);
+        Stream<Arguments> params() {
+            return IntStream.range(1, 6)
+                    .mapToObj(i -> Arguments.of(Named.of("Truncated up to " + i, i)));
         }
 
         void populateThenSnapshot(int lastIndex) {
@@ -160,6 +166,25 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
             final ClientRegistrationEntry entry = new ClientRegistrationEntry(TERM, 99999);
             storage.add(11, entry);
             assertThat(storage.getEntries()).usingFieldByFieldElementComparator().isEqualTo(List.of(entry));
+        }
+
+        @ParameterizedTest
+        @MethodSource("params")
+        void willReturnCorrectEntriesIndividuallyAfterLogIsSnapshotted(int lastIndex) {
+            populateThenSnapshot(lastIndex);
+            IntStream.range(1, lastIndex + 5).forEach(i -> {
+                if (i <= lastIndex) {
+                    assertThatThrownBy(() -> storage.getEntry(i))
+                            .isInstanceOf(IndexOutOfBoundsException.class)
+                            .hasMessage(String.format("Index has been truncated by log compaction (%d <= %d)", i, lastIndex));
+                } else if (i > 5) {
+                    assertThatThrownBy(() -> storage.getEntry(i))
+                            .isInstanceOf(IndexOutOfBoundsException.class)
+                            .hasMessage(String.format("Index is after end of log (%d > 5)", i));
+                } else {
+                    assertThat(storage.getEntry(i)).usingRecursiveComparison().isEqualTo(entries.get(i - 1));
+                }
+            });
         }
 
         @Test
