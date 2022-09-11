@@ -248,10 +248,19 @@ class LiveServerTest {
             while (true) {
                 final Optional<Server<Long>> leader = getLeader();
                 if (leader.isPresent()) {
-                    LOGGER.info("Adding server {}", newServerId);
+                    LOGGER.info("Adding server {}, (new set={})", newServerId, newServersView);
                     server.start();
                     final AddServerResponse response = (AddServerResponse) leader.get().handle(new AddServerRequest<>(newServerId)).get();
-                    LOGGER.info("Server {} added response: {}", newServerId, response.getStatus());
+                    switch (response.getStatus()) {
+                        case TIMEOUT:
+                        case NOT_LEADER:
+                            throw new IllegalStateException("Adding server failed, response: " + response);
+                        case OK:
+                            LOGGER.info("Server {} added response: {}", newServerId, response.getStatus());
+                            break;
+                        default:
+                            throw new IllegalStateException("Unexpected response: " + response);
+                    }
                     break;
                 }
             }

@@ -5,13 +5,18 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
+import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Supplier;
 
+import static org.apache.logging.log4j.LogManager.getLogger;
+
 class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerResponse> {
 
+    private static final Logger LOGGER = getLogger();
     private static final int DEFAULT_NUMBER_OF_CATCHUP_ROUNDS = 10;
 
     private final Log log;
@@ -60,6 +65,7 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
                         return null;
                     } else {
                         replicationManager.stopReplicatingTo(serverId);
+                        LOGGER.debug("Catch up round took too long, timing out");
                         return AddServerResponse.TIMEOUT;
                     }
                 } else {
@@ -80,10 +86,12 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
 
     @Override
     protected AddServerResponse timeoutIfSlow() {
+        final Duration newServerTimeout = configuration.getElectionTimeout().multipliedBy(3);
         if (finishedAtIndex == NOT_SET
                 && lastProgressTime != null
-                && lastProgressTime.plus(configuration.getElectionTimeout().multipliedBy(3)).isBefore(timeSource.get())) {
+                && lastProgressTime.plus(newServerTimeout).isBefore(timeSource.get())) {
             replicationManager.stopReplicatingTo(serverId);
+            LOGGER.debug("No response from server in {}, timing out", newServerTimeout);
             return AddServerResponse.TIMEOUT;
         }
         return null;

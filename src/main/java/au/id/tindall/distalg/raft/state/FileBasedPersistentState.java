@@ -23,8 +23,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
+import static au.id.tindall.distalg.raft.util.FileUtil.deleteFilesMatching;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
@@ -94,19 +94,8 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     private static void deleteAnyTempSnapshots(Path stateFilesPrefix) {
-        try (final Stream<Path> pathStream = Files.find(stateFilesPrefix.getParent(), 1, (path, attr) -> Pattern.matches(stateFilesPrefix.getFileName() + "\\.snapshot\\.\\d+", path.getFileName().toString()))) {
-            pathStream.forEach(FileBasedPersistentState::deleteFileOrWarn);
-        } catch (IOException e) {
-            LOGGER.warn("Error deleting existing snapsots", e);
-        }
-    }
-
-    private static void deleteFileOrWarn(Path path) {
-        try {
-            Files.deleteIfExists(path);
-        } catch (IOException e) {
-            LOGGER.warn("Error deleting " + path, e);
-        }
+        deleteFilesMatching(stateFilesPrefix.getParent(), 1,
+                (path, attr) -> Pattern.matches(stateFilesPrefix.getFileName() + "\\.snapshot\\.\\d+", path.getFileName().toString()));
     }
 
     private static Function<Integer, Path> tempSnapshotPathGenerator(Path stateFilesPrefix) {
