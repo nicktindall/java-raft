@@ -27,8 +27,16 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.platform.launcher.Launcher;
+import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
+import org.junit.platform.launcher.core.LauncherFactory;
+import org.junit.platform.launcher.listeners.LoggingListener;
+import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
+import org.junit.platform.launcher.listeners.TestExecutionSummary;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -52,6 +60,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 
 class LiveServerTest {
     private static final boolean LONG_RUN_TEST = Boolean.getBoolean("LiveServerTest.longRun");
@@ -78,6 +87,24 @@ class LiveServerTest {
     private ScheduledExecutorService testExecutorService;
     @TempDir
     Path stateFileDirectory;
+
+    public static void main(String[] args) {
+        LauncherDiscoveryRequest ldr = LauncherDiscoveryRequestBuilder.request()
+                .selectors(selectClass(LiveServerTest.class))
+                .build();
+        while (true) {
+            final Launcher launcher = LauncherFactory.create();
+            launcher.discover(ldr);
+            final SummaryGeneratingListener summaryGeneratingListener = new SummaryGeneratingListener();
+            launcher.registerTestExecutionListeners(LoggingListener.forJavaUtilLogging(), summaryGeneratingListener);
+            launcher.execute(ldr);
+            final TestExecutionSummary summary = summaryGeneratingListener.getSummary();
+            summary.printTo(new PrintWriter(System.out));
+            if (summary.getFailures().size() > 0) {
+                break;
+            }
+        }
+    }
 
     @BeforeEach
     void setUp() {
