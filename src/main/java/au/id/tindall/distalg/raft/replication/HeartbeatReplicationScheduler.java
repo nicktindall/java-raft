@@ -6,6 +6,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HeartbeatReplicationScheduler<ID extends Serializable> implements ReplicationScheduler {
@@ -49,6 +50,14 @@ public class HeartbeatReplicationScheduler<ID extends Serializable> implements R
         running = false;
         synchronized (replicationScheduled) {
             replicationScheduled.notifyAll();
+        }
+        try {
+            executorService.shutdown();
+            if (!executorService.awaitTermination(3, TimeUnit.SECONDS)) {
+                LOGGER.warn("Executor service didn't stop");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
