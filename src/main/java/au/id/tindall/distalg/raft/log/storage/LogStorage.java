@@ -48,18 +48,14 @@ public interface LogStorage {
      *
      * @return the prevIndex
      */
-    default int getPrevIndex() {
-        return 0;
-    }
+    int getPrevIndex();
 
     /**
      * prevTerm is the term of the last discarded entry (initialized to 0 on first boot)
      *
      * @return the prevTerm
      */
-    default Term getPrevTerm() {
-        return Term.ZERO;
-    }
+    Term getPrevTerm();
 
     void installSnapshot(Snapshot snapshot);
 

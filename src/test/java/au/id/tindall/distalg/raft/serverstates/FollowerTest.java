@@ -7,6 +7,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -99,7 +100,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_0, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.empty());
             verifyNoInteractions(electionScheduler);
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
         @Test
@@ -108,7 +109,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_1), emptyList(), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.of(2));
             verify(electionScheduler).resetTimeout();
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
         @Test
@@ -117,7 +118,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
             verify(electionScheduler).resetTimeout();
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
         @Test
@@ -137,7 +138,7 @@ class FollowerTest {
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
             verify(electionScheduler).resetTimeout();
             assertThat(log.getCommitIndex()).isEqualTo(2);
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
         @Test
@@ -148,7 +149,7 @@ class FollowerTest {
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
             verify(electionScheduler).resetTimeout();
             assertThat(log.getCommitIndex()).isEqualTo(3);
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
         @Test
@@ -157,7 +158,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 1, Optional.of(TERM_0), List.of(ENTRY_2), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(2));
             verify(electionScheduler).resetTimeout();
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
         @Test
@@ -166,7 +167,34 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, NON_LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, NON_LEADER_SERVER_ID, false, Optional.empty());
             verifyNoInteractions(electionScheduler);
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(complete(followerState));
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
+        }
+    }
+
+    @Nested
+    class HandleInstallSnapshotRequest {
+
+        @BeforeEach
+        void setUp() {
+            when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
+        }
+
+        @Test
+        void willThrowIllegalStateException_WhenLeaderTermIsGreaterThanLocalTerm() {
+            Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> followerState.handle(new InstallSnapshotRequest<>(TERM_2, LEADER_SERVER_ID, SERVER_ID, 2, TERM_0, null, 0, 123, "test".getBytes(), false)));
+            verifyNoInteractions(electionScheduler);
+            assertThat(ex.getMessage()).isEqualTo("Received a request from a future term! this should never happen");
+        }
+
+        @Test
+        void willRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
+            Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Result<Long> result = followerState.handle(new InstallSnapshotRequest<>(TERM_0, LEADER_SERVER_ID, SERVER_ID, 2, TERM_0, null, 0, 123, "test".getBytes(), false));
+            verify(cluster).sendInstallSnapshotResponse(TERM_1, LEADER_SERVER_ID, false, 2, 127);
+            verifyNoInteractions(electionScheduler);
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
     }
 }
