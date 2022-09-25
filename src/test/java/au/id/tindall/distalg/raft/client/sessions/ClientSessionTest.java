@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static au.id.tindall.distalg.raft.SerializationUtils.roundTripSerializeDeserialize;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,5 +68,15 @@ class ClientSessionTest {
             clientSession.recordAppliedCommand(124, 0, OTHER_RESULT);
             assertThat(clientSession.getCommandResult(0)).contains(RESULT);
         }
+    }
+
+    @Test
+    void testIsSerializable() {
+        ClientSession session = new ClientSession(123, 456);
+        session.recordAppliedCommand(7891, 1, "test-1".getBytes());
+        session.recordAppliedCommand(7892, 2, "test-2".getBytes());
+        session.recordAppliedCommand(7893, 3, "test-3".getBytes());
+        assertThat(roundTripSerializeDeserialize(session)).usingRecursiveComparison()
+                .isEqualTo(session);
     }
 }
