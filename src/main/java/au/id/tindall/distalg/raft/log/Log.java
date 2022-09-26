@@ -79,15 +79,16 @@ public class Log implements SnapshotInstalledListener {
         final EntryStatus entryStatus = hasEntry(appendIndex);
         switch (entryStatus) {
             case BeforeStart:
-                throwAttemptToAppendBeforeCommitIndexError(appendIndex);
+                throwAttemptToAppendBeforeCommitIndexError(appendIndex, null, entry);
             case Present:
-                if (getEntry(appendIndex).getTerm().equals(entry.getTerm())) {
+                final LogEntry entryAtIndex = getEntry(appendIndex);
+                if (entryAtIndex.getTerm().equals(entry.getTerm())) {
                     // We already have this entry
                     break;
                 } else {
                     // The entry we have at that index was from a different term
                     if (appendIndex <= this.commitIndex) {
-                        throwAttemptToAppendBeforeCommitIndexError(appendIndex);
+                        throwAttemptToAppendBeforeCommitIndexError(appendIndex, entryAtIndex, entry);
                     }
                     storage.truncate(appendIndex);
                 }
@@ -100,9 +101,9 @@ public class Log implements SnapshotInstalledListener {
         }
     }
 
-    private void throwAttemptToAppendBeforeCommitIndexError(int appendIndex) {
-        throw new IllegalStateException(format("Attempt made to truncate prior to commit index, this is a bug. appendIndex=%,d, commitIndex=%,d, prevIndex=%,d",
-                appendIndex, getCommitIndex(), getPrevIndex()));
+    private void throwAttemptToAppendBeforeCommitIndexError(int appendIndex, LogEntry entryAtIndex, LogEntry entry) {
+        throw new IllegalStateException(format("Attempt made to truncate prior to commit index, this is a bug. appendIndex=%,d, commitIndex=%,d, prevIndex=%,d, entryAtIndex=%s, entry=%s",
+                appendIndex, getCommitIndex(), getPrevIndex(), entryAtIndex, entry));
     }
 
     public boolean containsPreviousEntry(int prevLogIndex, Term prevLogTerm) {
