@@ -35,7 +35,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     public void enterState() {
-        LOGGER.debug("Server entering Follower state");
+        LOGGER.debug("Server entering Follower state (leader={}, term={})", currentLeader, persistentState.getCurrentTerm());
         electionScheduler.startTimeouts();
     }
 
@@ -71,7 +71,8 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
             final EntryStatus entryStatus = log.hasEntry(appendEntriesRequest.getPrevLogIndex());
             switch (entryStatus) {
                 case AfterEnd:
-                    LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, appendPrevTerm={}, log.hasEntry={}", appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(),
+                    LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, log.getLastIndex={},appendPrevTerm={}, log.hasEntry={}",
+                            appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(), log.getLastLogIndex(),
                             appendEntriesRequest.getPrevLogTerm(), log.hasEntry(appendEntriesRequest.getPrevLogIndex()));
                     cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(log.getLastLogIndex() + 1));
                     return complete(this);
@@ -85,7 +86,8 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
                     break;
                 case Present:
                     if (!log.containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
-                        LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, appendPrevTerm={}, log.hasEntry={}", appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(),
+                        LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, log.getLastIndex={}, appendPrevTerm={}, log.hasEntry={}",
+                                appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(), log.getLastLogIndex(),
                                 appendEntriesRequest.getPrevLogTerm(), log.hasEntry(appendEntriesRequest.getPrevLogIndex()));
                         cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(appendEntriesRequest.getPrevLogIndex()));
                         return complete(this);

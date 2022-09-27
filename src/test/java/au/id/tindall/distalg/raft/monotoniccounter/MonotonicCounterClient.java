@@ -66,7 +66,7 @@ public class MonotonicCounterClient {
                 clientSequenceNumber++;
                 return;
             } else {
-                LOGGER.debug("Server responded with status {}, retrying", commandResponse.getStatus());
+                LOGGER.debug("Server responded with status {}, retrying (counterValue={})", commandResponse.getStatus(), counterValue);
                 retries++;
                 Thread.sleep(100L);
             }

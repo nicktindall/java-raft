@@ -35,7 +35,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     public void enterState() {
-        LOGGER.debug("Server entering Candidate state");
+        LOGGER.debug("Server entering Candidate state (term={})", persistentState.getCurrentTerm());
         this.electionScheduler.startTimeouts();
     }
 

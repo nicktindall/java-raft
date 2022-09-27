@@ -53,8 +53,6 @@ public class Term implements Serializable, Comparable<Term> {
 
     @Override
     public String toString() {
-        return "Term{" +
-                "number=" + number +
-                '}';
+        return String.valueOf(number);
     }
 }
