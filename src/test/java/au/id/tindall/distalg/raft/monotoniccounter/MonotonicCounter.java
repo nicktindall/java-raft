@@ -29,14 +29,19 @@ public class MonotonicCounter implements StateMachine {
     private static final int MIN_SNAPSHOT_SIZE_BYTES = 600_000;
     private static final int MAX_SNAPSHOT_SIZE_BYTES = 1_000_000;
     private static final BigInteger LOG_EVERY_N_VALUES = BigInteger.valueOf(100L);
+    private int lastIndexApplied = 0;
 
     private BigInteger counter = BigInteger.ZERO;
 
     @Override
     public byte[] apply(int index, byte[] command) {
+        if (index <= lastIndexApplied) {
+            throw new IllegalStateException(format("Attempted to apply index %,d, when last index applied was %,d, this should never happen", index, lastIndexApplied));
+        }
+        lastIndexApplied = index;
         BigInteger expected = new BigInteger(command);
         if (!counter.equals(expected)) {
-            throw new IllegalStateException(format("Client out of sync! expected %s, state is %s", expected, counter));
+            throw new IllegalStateException(format("Client out of sync! expected %s, state is %s (applying index=%,d)", expected, counter, index));
         }
         counter = counter.add(BigInteger.ONE);
         if (counter.mod(LOG_EVERY_N_VALUES).equals(BigInteger.ZERO)) {
@@ -83,7 +88,8 @@ public class MonotonicCounter implements StateMachine {
         }
         int valueOffset = temporaryBuffer.getInt(VALUE_OFFSET_OFFSET);
         counter = new BigInteger(Arrays.copyOfRange(snapshotArray, valueOffset, snapshotArray.length));
-        LOGGER.info("Installed snapshot, new value=" + counter);
+        LOGGER.info("Installed snapshot, new value={}, index={}", counter, snapshot.getLastIndex());
+        lastIndexApplied = snapshot.getLastIndex();
     }
 
     private byte[] calculateChecksum(ByteBuffer snapshot) {
