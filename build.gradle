@@ -1,3 +1,5 @@
+import org.apache.tools.ant.util.TeeOutputStream
+
 plugins {
     id 'java'
     id 'jacoco'
@@ -52,6 +54,10 @@ test {
 
 // Repeat the LiveServerTest (long run) until failure
 task longRunTest(type: JavaExec) {
+    doFirst {
+        standardOutput = new TeeOutputStream(
+                new FileOutputStream("longRunTest.out.txt"), System.out);
+    }
     dependsOn classes
     systemProperties("LiveServerTest.longRun": "true")
     workingDir = file(buildDir)
