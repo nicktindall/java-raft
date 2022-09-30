@@ -21,4 +21,11 @@ public class AddServerResponse extends ClusterMembershipResponse {
     public Status getStatus() {
         return status;
     }
+
+    @Override
+    public String toString() {
+        return "AddServerResponse{" +
+                "status=" + status +
+                '}';
+    }
 }

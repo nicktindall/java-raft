@@ -162,7 +162,8 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     public void enterState() {
-        LOGGER.debug("Server entering Leader state (term={})", persistentState.getCurrentTerm());
+        LOGGER.debug("Server entering Leader state (term={}, lastIndex={}, lastTerm={})",
+                persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm());
         replicationManager.start();
         replicationManager.replicate();
         log.addEntryCommittedEventHandler(clusterMembershipChangeManager);

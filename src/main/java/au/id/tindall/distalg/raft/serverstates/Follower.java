@@ -35,7 +35,8 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     @Override
     public void enterState() {
-        LOGGER.debug("Server entering Follower state (leader={}, term={})", currentLeader, persistentState.getCurrentTerm());
+        LOGGER.debug("Server entering Follower state (leader={}, term={}, lastIndex={}, lastTerm={})",
+                currentLeader, persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm());
         electionScheduler.startTimeouts();
     }
 
