@@ -87,6 +87,7 @@ class CandidateTest {
 
         @BeforeEach
         void setUp() {
+            when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
             candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
             candidateState.enterState();
         }

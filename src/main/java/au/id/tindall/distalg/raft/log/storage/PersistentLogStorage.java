@@ -177,6 +177,9 @@ public class PersistentLogStorage implements LogStorage {
                 if (nextIndex > 1 && index != nextIndex) {
                     throw new IllegalStateException(format("Corrupt log file detected! (expected sequence %,d, found sequence %,d)", nextIndex, index));
                 }
+                if (nextIndex == 1 && index != 1) {
+                    firstIndex = index;
+                }
                 nextIndex = index + 1;
                 int length = IOUtil.readInteger(logFileChannel);
                 long endIndex = logFileChannel.position() + length;

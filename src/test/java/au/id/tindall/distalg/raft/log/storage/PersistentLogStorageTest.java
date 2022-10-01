@@ -1,7 +1,9 @@
 package au.id.tindall.distalg.raft.log.storage;
 
+import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.state.InMemorySnapshot;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,6 +39,22 @@ class PersistentLogStorageTest extends AbstractLogStorageTest<PersistentLogStora
                 .isEqualTo(List.of(entries.get(0), entries.get(1), next));
     }
 
+    @Test
+    void willRestoreFromDiskAfterTruncate() {
+        for (int i = 0; i < 100; i++) {
+            storage.add(i + 1, new ClientRegistrationEntry(Term.ZERO, i + 6));
+        }
+        assertThat(storage.getPrevIndex()).isEqualTo(0);
+        assertThat(storage.getLastLogIndex()).isEqualTo(100);
+
+        storage.installSnapshot(new InMemorySnapshot(35, Term.ZERO, null));
+        assertThat(storage.getPrevIndex()).isEqualTo(35);
+        assertThat(storage.getLastLogIndex()).isEqualTo(100);
+
+        storage = new PersistentLogStorage(tempFile.toPath());
+        assertThat(storage.getPrevIndex()).isEqualTo(35);
+        assertThat(storage.getLastLogIndex()).isEqualTo(100);
+    }
 
     @AfterEach
     void tearDown() {
