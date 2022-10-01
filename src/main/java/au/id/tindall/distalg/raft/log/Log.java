@@ -27,6 +27,7 @@ public class Log implements SnapshotInstalledListener {
     private final ReadWriteLock readWriteLock;
     private final List<EntryCommittedEventHandler> entryCommittedEventHandlers;
     private final List<EntryAppendedEventHandler> entryAppendedEventHandlers;
+    private final List<CommitIndexAdvancedHandler> commitIndexAdvancedHandlers;
     private final LogStorage storage;
     private int commitIndex;
 
@@ -41,6 +42,7 @@ public class Log implements SnapshotInstalledListener {
         commitIndex = 0;
         entryCommittedEventHandlers = new ArrayList<>();
         entryAppendedEventHandlers = new ArrayList<>();
+        commitIndexAdvancedHandlers = new ArrayList<>();
     }
 
     public Optional<Integer> updateCommitIndex(List<Integer> matchIndices, Term currentTerm) {
@@ -180,6 +182,7 @@ public class Log implements SnapshotInstalledListener {
                         .map(i -> i + 1)
                         .forEach(this::notifyCommittedListeners);
                 this.commitIndex = newCommitIndex;
+                notifyCommitIndexAdvancedListener(newCommitIndex);
             }
             return null;
         });
@@ -201,6 +204,14 @@ public class Log implements SnapshotInstalledListener {
         entryAppendedEventHandlers.remove(eventHandler);
     }
 
+    public void addCommitIndexAdvancedEventHandler(CommitIndexAdvancedHandler eventHandler) {
+        commitIndexAdvancedHandlers.add(eventHandler);
+    }
+
+    public void removeCommitIndexAdvancedEventHandler(CommitIndexAdvancedHandler eventHandler) {
+        commitIndexAdvancedHandlers.remove(eventHandler);
+    }
+
     private void notifyCommittedListeners(int committedIndex) {
         final LogEntry entry = getEntry(committedIndex);
         entryCommittedEventHandlers
@@ -210,6 +221,11 @@ public class Log implements SnapshotInstalledListener {
     private void notifyAppendedListeners(int appendedIndex) {
         entryAppendedEventHandlers
                 .forEach(handler -> handler.entryAppended(appendedIndex, getEntry(appendedIndex)));
+    }
+
+    private void notifyCommitIndexAdvancedListener(int appendedIndex) {
+        commitIndexAdvancedHandlers
+                .forEach(handler -> handler.commitIndexAdvanced(appendedIndex));
     }
 
     private void validateIndex(int index) {
@@ -238,8 +254,10 @@ public class Log implements SnapshotInstalledListener {
     @Override
     public void onSnapshotInstalled(Snapshot snapshot) {
         doWrite(() -> {
-            LOGGER.debug("Advancing commit index from {} to {} due to snapshot", commitIndex, snapshot.getLastIndex());
-            this.commitIndex = Math.max(commitIndex, snapshot.getLastIndex());
+            if (snapshot.getLastIndex() > commitIndex) {
+                LOGGER.debug("Advancing commit index from {} to {} due to snapshot", commitIndex, snapshot.getLastIndex());
+                this.commitIndex = snapshot.getLastIndex();
+            }
             return null;
         });
     }

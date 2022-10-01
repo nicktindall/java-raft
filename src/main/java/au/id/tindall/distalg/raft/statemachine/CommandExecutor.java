@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.statemachine;
 
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
+import au.id.tindall.distalg.raft.log.CommitIndexAdvancedHandler;
 import au.id.tindall.distalg.raft.log.EntryAppendedEventHandler;
 import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
@@ -23,6 +24,7 @@ public class CommandExecutor implements SnapshotInstalledListener {
     private final ClientSessionStore clientSessionStore;
     private final Snapshotter snapshotter;
     private final EntryAppendedEventHandler entryAppendedEventHandler;
+    private final CommitIndexAdvancedHandler commitIndexAdvancedHandler;
     private boolean creatingSnapshot = false;
 
     public CommandExecutor(StateMachine stateMachine, ClientSessionStore clientSessionStore, Snapshotter snapshotter) {
@@ -31,6 +33,7 @@ public class CommandExecutor implements SnapshotInstalledListener {
         this.commandAppliedEventHandlers = new ArrayList<>();
         this.entryCommittedEventHandler = this::handleStateMachineCommands;
         this.entryAppendedEventHandler = this::handleConfigurationEntries;
+        this.commitIndexAdvancedHandler = this::handleCommitIndexAdvanced;
         this.clientSessionStore.startListeningForAppliedCommands(this);
         this.snapshotter = snapshotter;
     }
@@ -38,11 +41,13 @@ public class CommandExecutor implements SnapshotInstalledListener {
     public void startListeningForCommittedCommands(Log log) {
         log.addEntryCommittedEventHandler(this.entryCommittedEventHandler);
         log.addEntryAppendedEventHandler(this.entryAppendedEventHandler);
+        log.addCommitIndexAdvancedEventHandler(this.commitIndexAdvancedHandler);
     }
 
     public void stopListeningForCommittedCommands(Log log) {
         log.removeEntryCommittedEventHandler(this.entryCommittedEventHandler);
         log.removeEntryAppendedEventHandler(this.entryAppendedEventHandler);
+        log.removeCommitIndexAdvancedEventHandler(this.commitIndexAdvancedHandler);
     }
 
     public void addCommandAppliedEventHandler(CommandAppliedEventHandler commandAppliedEventHandler) {
@@ -59,12 +64,15 @@ public class CommandExecutor implements SnapshotInstalledListener {
             byte[] result = clientSessionStore.getCommandResult(stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.getClientSequenceNumber())
                     .orElseGet(() -> this.stateMachine.apply(logIndex, stateMachineCommandEntry.getCommand()));
             notifyCommandAppliedListeners(logIndex, stateMachineCommandEntry.getClientId(), stateMachineCommandEntry.lastResponseReceived(), stateMachineCommandEntry.getClientSequenceNumber(), result);
-            try {
-                creatingSnapshot = true;
-                snapshotter.createSnapshotIfReady(logIndex, logEntry.getTerm());
-            } finally {
-                creatingSnapshot = false;
-            }
+        }
+    }
+
+    private void handleCommitIndexAdvanced(int newCommitIndex) {
+        try {
+            creatingSnapshot = true;
+            snapshotter.createSnapshotIfReady(newCommitIndex);
+        } finally {
+            creatingSnapshot = false;
         }
     }
 
