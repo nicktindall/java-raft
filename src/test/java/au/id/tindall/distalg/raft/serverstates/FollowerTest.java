@@ -98,7 +98,7 @@ class FollowerTest {
         void willRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
             Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_0, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
-            verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.empty());
+            verify(cluster).sendAppendEntriesResponse(TERM_0, LEADER_SERVER_ID, false, Optional.empty());
             verifyNoInteractions(electionScheduler);
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
@@ -192,7 +192,7 @@ class FollowerTest {
         void willRejectRequest_WhenLeaderTermIsLessThanLocalTerm() {
             Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new InstallSnapshotRequest<>(TERM_0, LEADER_SERVER_ID, SERVER_ID, 2, TERM_0, null, 0, 123, "test".getBytes(), false));
-            verify(cluster).sendInstallSnapshotResponse(TERM_1, LEADER_SERVER_ID, false, 2, 127);
+            verify(cluster).sendInstallSnapshotResponse(TERM_0, LEADER_SERVER_ID, false, 2, 127);
             verifyNoInteractions(electionScheduler);
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }

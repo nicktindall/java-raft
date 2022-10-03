@@ -56,7 +56,8 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         }
 
         if (messageIsStale(appendEntriesRequest)) {
-            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
+            // we reply using the sender's term or a delayed AppendEntriesRequest can cause the prior leader to follow this node in a leadership transfer scenario
+            cluster.sendAppendEntriesResponse(appendEntriesRequest.getTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }
 
@@ -113,14 +114,16 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         }
 
         if (messageIsStale(installSnapshotRequest)) {
-            cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false,
+            // we reply using the sender's term or a delayed InstallSnapshotRequest can cause the prior leader to follow this node in a leadership transfer scenario
+            cluster.sendInstallSnapshotResponse(installSnapshotRequest.getTerm(), installSnapshotRequest.getLeaderId(), false,
                     installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length);
             return complete(this);
         }
 
         if (!installSnapshotRequest.getSource().equals(currentLeader)) {
             LOGGER.warn("Got an install snapshot request from someone other than the leader?!");
-            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false, empty());
+            cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false, installSnapshotRequest.getLastIndex(),
+                    installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length);
             return complete(this);
         }
 

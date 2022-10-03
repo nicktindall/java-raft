@@ -50,7 +50,8 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     @Override
     protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
         if (messageIsStale(appendEntriesRequest)) {
-            cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
+            // we reply using the sender's term to avoid them following us before the election is decided
+            cluster.sendAppendEntriesResponse(appendEntriesRequest.getTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }
 

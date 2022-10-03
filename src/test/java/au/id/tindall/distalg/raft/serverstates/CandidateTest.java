@@ -204,7 +204,7 @@ class CandidateTest {
             Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
 
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(candidateState));
-            verify(cluster).sendAppendEntriesResponse(TERM_2, OTHER_SERVER_ID, false, Optional.empty());
+            verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, false, Optional.empty());
         }
     }
 
