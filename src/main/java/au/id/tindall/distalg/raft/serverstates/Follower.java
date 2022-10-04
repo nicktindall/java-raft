@@ -62,7 +62,8 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         }
 
         if (!appendEntriesRequest.getSource().equals(currentLeader)) {
-            LOGGER.warn("Got an append entries request from someone other than the leader?!");
+            LOGGER.warn("Got an append entries request from someone other than the leader?! (source={}, leader={}))",
+                    appendEntriesRequest.getSource(), currentLeader);
             cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, empty());
             return complete(this);
         }
@@ -121,7 +122,8 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         }
 
         if (!installSnapshotRequest.getSource().equals(currentLeader)) {
-            LOGGER.warn("Got an install snapshot request from someone other than the leader?!");
+            LOGGER.warn("Got an install snapshot request from someone other than the leader?! (source={}, leader={})",
+                    installSnapshotRequest.getSource(), currentLeader);
             cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false, installSnapshotRequest.getLastIndex(),
                     installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length);
             return complete(this);
