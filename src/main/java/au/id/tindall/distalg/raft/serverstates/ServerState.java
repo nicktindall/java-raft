@@ -110,8 +110,9 @@ public abstract class ServerState<ID extends Serializable> {
     }
 
     protected Result<ID> handle(RequestVoteRequest<ID> requestVote) {
-        if (requestVote.getTerm().isLessThan(persistentState.getCurrentTerm())) {
-            cluster.sendRequestVoteResponse(persistentState.getCurrentTerm(), requestVote.getCandidateId(), false);
+        if (messageIsStale(requestVote)) {
+            // we reply using the sender's term in case we're a candidate, and they interpret the response as an election victory
+            cluster.sendRequestVoteResponse(requestVote.getTerm(), requestVote.getCandidateId(), false);
         } else {
             boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote)
                     && candidatesLogIsAtLeastUpToDateAsMine(requestVote);

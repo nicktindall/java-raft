@@ -95,7 +95,7 @@ class ServerStateTest {
             var serverState = new ServerStateImpl(persistentState, log, cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
 
-            verify(cluster).sendRequestVoteResponse(TERM_3, OTHER_SERVER_ID, false);
+            verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, false);
             verify(persistentState, never()).setVotedFor(anyLong());
         }
 
