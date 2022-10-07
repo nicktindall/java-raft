@@ -281,7 +281,10 @@ class LiveServerTest {
                     switch (response.getStatus()) {
                         case TIMEOUT:
                         case NOT_LEADER:
-                            throw new IllegalStateException("Adding server failed, response: " + response);
+                            LOGGER.error("Adding server failed, response: " + response);
+                            server.stop();
+                            allServers.remove(newServerId);
+                            break;
                         case OK:
                             LOGGER.info("Server {} added response: {}", newServerId, response.getStatus());
                             break;
