@@ -17,9 +17,7 @@ import static org.mockito.Mockito.when;
 class LogReplicatorFactoryTest {
 
     private static final int MAX_BATCH_SIZE = 1234;
-    private static final long FOLLOWER_ID = 9876L;
     private static final Term CURRENT_TERM = new Term(1);
-    private static final int NEXT_LOG_INDEX = 543;
 
     @Mock
     private Log log;
@@ -27,20 +25,21 @@ class LogReplicatorFactoryTest {
     private Cluster<Long> cluster;
     @Mock
     private PersistentState<Long> persistentState;
+    @Mock
+    private ReplicationState<Long> replicationState;
 
     private LogReplicatorFactory<Long> logReplicatorFactory;
 
     @BeforeEach
     void setUp() {
         when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
-        when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE);
     }
 
     @Test
     void willCreateLogReplicator() {
-        assertThat(logReplicatorFactory.createLogReplicator(FOLLOWER_ID))
+        assertThat(logReplicatorFactory.createLogReplicator(replicationState))
                 .usingRecursiveComparison()
-                .isEqualTo(new LogReplicator<>(log, CURRENT_TERM, cluster, FOLLOWER_ID, MAX_BATCH_SIZE, NEXT_LOG_INDEX));
+                .isEqualTo(new LogReplicator<>(log, CURRENT_TERM, cluster, MAX_BATCH_SIZE, replicationState));
     }
 }

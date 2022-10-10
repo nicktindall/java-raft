@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class SnapshotReplicator<ID extends Serializable> implements StateReplicator<ID> {
+public class SnapshotReplicator<ID extends Serializable> implements StateReplicator {
 
     private static final Logger LOGGER = getLogger();
 
@@ -23,18 +23,18 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
 
     private final Term term;
     private final Cluster<ID> cluster;
-    private final ID followerId;
     private final PersistentState<ID> persistentState;
+    private final ReplicationState<ID> replicationState;
 
     private int currentSnapshotLastIndex = -1;
     private Term currentSnapshotLastTerm = null;
     private int lastOffsetConfirmed = -1;
 
-    public SnapshotReplicator(Term term, Cluster<ID> cluster, ID followerId, PersistentState<ID> persistentState) {
+    public SnapshotReplicator(Term term, Cluster<ID> cluster, PersistentState<ID> persistentState, ReplicationState<ID> replicationState) {
         this.term = term;
         this.cluster = cluster;
-        this.followerId = followerId;
         this.persistentState = persistentState;
+        this.replicationState = replicationState;
     }
 
     @Override
@@ -52,10 +52,11 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
                 int bytesRead = snapshot.readInto(buffer, nextOffset);
                 if (buffer.position() == 0) {
                     LOGGER.debug("Switching to log replication, sent lastIndex: {}, lastTerm: {}", snapshot.getLastIndex(), snapshot.getLastTerm());
+                    replicationState.updateIndices(snapshot.getLastIndex(), snapshot.getLastIndex() + 1);
                     returnValue.set(ReplicationResult.SwitchToLogReplication);
                     return;
                 }
-                cluster.sendInstallSnapshotRequest(term, followerId, snapshot.getLastIndex(), snapshot.getLastTerm(),
+                cluster.sendInstallSnapshotRequest(term, replicationState.getFollowerId(), snapshot.getLastIndex(), snapshot.getLastTerm(),
                         snapshot.getLastConfig(), snapshot.snapshotOffset(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
             } catch (RuntimeException e) {
                 LOGGER.warn("Error sending snapshot chunk", e);
@@ -65,34 +66,12 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
     }
 
     @Override
-    public void logSuccessResponse(int lastAppendedIndex) {
-        // Do nothing
-    }
-
-    @Override
     public void logSuccessSnapshotResponse(int lastIndex, int lastOffset) {
         if (currentSnapshotLastIndex == lastIndex) {
             lastOffsetConfirmed = Math.max(lastOffset, lastOffsetConfirmed);
         } else {
-            LOGGER.debug("Got a stale InstallSnapshotResponse from {}, ignoring (lastIndex={}, lastOffset={})", followerId, lastIndex, lastOffset);
+            LOGGER.debug("Got a stale InstallSnapshotResponse from {}, ignoring (lastIndex={}, lastOffset={})", replicationState.getFollowerId(), lastIndex, lastOffset);
         }
-    }
-
-    @Override
-    public int getMatchIndex() {
-        // Assume remote has no state
-        return 0;
-    }
-
-    @Override
-    public int getNextIndex() {
-        // Assume remote has no state
-        return 0;
-    }
-
-    @Override
-    public void logFailedResponse(Integer earliestPossibleMatchIndex) {
-        // Do nothing!
     }
 
     private void resetSendingState(Snapshot snapshot) {

@@ -15,7 +15,7 @@ public class SnapshotReplicatorFactory<ID extends Serializable> {
         this.cluster = cluster;
     }
 
-    public SnapshotReplicator<ID> createSnapshotReplicator(ID followerId) {
-        return new SnapshotReplicator<>(persistentState.getCurrentTerm(), cluster, followerId, persistentState);
+    public SnapshotReplicator<ID> createSnapshotReplicator(ReplicationState<ID> replicationState) {
+        return new SnapshotReplicator<>(persistentState.getCurrentTerm(), cluster, persistentState, replicationState);
     }
 }

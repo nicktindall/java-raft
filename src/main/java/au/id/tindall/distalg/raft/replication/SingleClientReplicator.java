@@ -1,40 +1,35 @@
 package au.id.tindall.distalg.raft.replication;
 
-import org.apache.logging.log4j.Logger;
-
 import java.io.Serializable;
-
-import static org.apache.logging.log4j.status.StatusLogger.getLogger;
 
 public class SingleClientReplicator<ID extends Serializable> {
 
-    private static final Logger LOGGER = getLogger();
-
-    private final ID followerId;
     private final ReplicationScheduler replicationScheduler;
     private final LogReplicatorFactory<ID> logReplicatorFactory;
     private final SnapshotReplicatorFactory<ID> snapshotReplicatorFactory;
-    private StateReplicator<ID> stateReplicator;
+    private final ReplicationState<ID> replicationState;
+    private StateReplicator stateReplicator;
 
-    public SingleClientReplicator(ID followerId, ReplicationScheduler replicationScheduler,
+    public SingleClientReplicator(ReplicationScheduler replicationScheduler,
                                   LogReplicatorFactory<ID> logReplicatorFactory,
-                                  SnapshotReplicatorFactory<ID> snapshotReplicatorFactory) {
-        this.followerId = followerId;
+                                  SnapshotReplicatorFactory<ID> snapshotReplicatorFactory,
+                                  ReplicationState<ID> replicationState) {
         this.replicationScheduler = replicationScheduler;
         this.logReplicatorFactory = logReplicatorFactory;
         this.snapshotReplicatorFactory = snapshotReplicatorFactory;
-        this.stateReplicator = logReplicatorFactory.createLogReplicator(followerId);
+        this.stateReplicator = logReplicatorFactory.createLogReplicator(replicationState);
+        this.replicationState = replicationState;
         replicationScheduler.setSendAppendEntriesRequest(this::sendNexReplicationMessage);
     }
 
     private synchronized void sendNexReplicationMessage() {
         switch (stateReplicator.sendNextReplicationMessage()) {
             case SwitchToLogReplication:
-                stateReplicator = logReplicatorFactory.createLogReplicator(followerId);
+                stateReplicator = logReplicatorFactory.createLogReplicator(replicationState);
                 sendNexReplicationMessage();
                 return;
             case SwitchToSnapshotReplication:
-                stateReplicator = snapshotReplicatorFactory.createSnapshotReplicator(followerId);
+                stateReplicator = snapshotReplicatorFactory.createSnapshotReplicator(replicationState);
                 sendNexReplicationMessage();
                 return;
             default:
@@ -55,7 +50,7 @@ public class SingleClientReplicator<ID extends Serializable> {
     }
 
     public void logSuccessResponse(int lastAppendedIndex) {
-        stateReplicator.logSuccessResponse(lastAppendedIndex);
+        replicationState.logSuccessResponse(lastAppendedIndex);
     }
 
     public void logSuccessSnapshotResponse(int lastIndex, int lastOffset) {
@@ -63,14 +58,14 @@ public class SingleClientReplicator<ID extends Serializable> {
     }
 
     public int getMatchIndex() {
-        return stateReplicator.getMatchIndex();
+        return replicationState.getMatchIndex();
     }
 
     public int getNextIndex() {
-        return stateReplicator.getNextIndex();
+        return replicationState.getNextIndex();
     }
 
     public void logFailedResponse(Integer earliestPossibleMatchIndex) {
-        stateReplicator.logFailedResponse(earliestPossibleMatchIndex);
+        replicationState.logFailedResponse(earliestPossibleMatchIndex);
     }
 }

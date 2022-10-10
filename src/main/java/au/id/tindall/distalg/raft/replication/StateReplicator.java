@@ -1,8 +1,6 @@
 package au.id.tindall.distalg.raft.replication;
 
-import java.io.Serializable;
-
-public interface StateReplicator<ID extends Serializable> {
+public interface StateReplicator {
 
     enum ReplicationResult {
         StayInCurrentMode,
@@ -12,13 +10,5 @@ public interface StateReplicator<ID extends Serializable> {
 
     ReplicationResult sendNextReplicationMessage();
 
-    void logSuccessResponse(int lastAppendedIndex);
-
     void logSuccessSnapshotResponse(int lastIndex, int lastOffset);
-
-    int getMatchIndex();
-
-    int getNextIndex();
-
-    void logFailedResponse(Integer earliestPossibleMatchIndex);
 }

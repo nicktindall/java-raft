@@ -14,47 +14,43 @@ import java.util.Optional;
 import static java.util.Collections.emptyList;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class LogReplicator<ID extends Serializable> implements StateReplicator<ID> {
+public class LogReplicator<ID extends Serializable> implements StateReplicator {
 
     private static final Logger LOGGER = getLogger();
 
     private final Log log;
     private final Term term;
     private final Cluster<ID> cluster;
-    private final ID followerId;
     private final int maxBatchSize;
-    private volatile int matchIndex;
-    private volatile int nextIndex;
+    private final ReplicationState<ID> replicationState;
 
-    public LogReplicator(Log log, Term term, Cluster<ID> cluster, ID followerId, int maxBatchSize, int nextIndex) {
+    public LogReplicator(Log log, Term term, Cluster<ID> cluster, int maxBatchSize, ReplicationState<ID> replicationState) {
         this.log = log;
         this.term = term;
         this.cluster = cluster;
-        this.followerId = followerId;
         this.maxBatchSize = maxBatchSize;
-        this.matchIndex = 0;
-        this.nextIndex = nextIndex;
+        this.replicationState = replicationState;
     }
 
     @Override
     public ReplicationResult sendNextReplicationMessage() {
-        int nextIndexToSend = nextIndex;    // This can change, take a copy
+        int nextIndexToSend = replicationState.getNextIndex();    // This can change, take a copy
         int prevLogIndex = nextIndexToSend - 1;
         if (log.hasEntry(nextIndexToSend) == EntryStatus.BeforeStart) {
             LOGGER.debug("Switching to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
-                    followerId, nextIndexToSend, matchIndex, log.getPrevIndex());
+                    replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
             return ReplicationResult.SwitchToSnapshotReplication;
         }
         try {
             Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
             List<LogEntry> entriesToReplicate = getEntriesToReplicate(log, nextIndexToSend);
-            cluster.sendAppendEntriesRequest(term, followerId,
+            cluster.sendAppendEntriesRequest(term, replicationState.getFollowerId(),
                     prevLogIndex, prevLogTerm, entriesToReplicate,
                     log.getCommitIndex());
             return ReplicationResult.StayInCurrentMode;
         } catch (IndexOutOfBoundsException e) {
             LOGGER.debug("Concurrent truncation caused switch to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
-                    followerId, nextIndexToSend, matchIndex, log.getPrevIndex());
+                    replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
             return ReplicationResult.SwitchToSnapshotReplication;
         }
     }
@@ -74,32 +70,8 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator<I
     }
 
     @Override
-    public synchronized void logSuccessResponse(int lastAppendedIndex) {
-        nextIndex = Math.max(lastAppendedIndex + 1, nextIndex);
-        matchIndex = Math.max(lastAppendedIndex, matchIndex);
-    }
-
-    @Override
-    public synchronized void logFailedResponse(Integer earliestPossibleMatchIndex) {
-        LOGGER.debug("Got failed response from {}, earliest possible match index: {}", followerId, earliestPossibleMatchIndex);
-        if (earliestPossibleMatchIndex != null) {
-            nextIndex = earliestPossibleMatchIndex;
-        }
-    }
-
-    @Override
     public void logSuccessSnapshotResponse(int lastIndex, int lastOffset) {
         // Do nothing
-    }
-
-    @Override
-    public int getMatchIndex() {
-        return matchIndex;
-    }
-
-    @Override
-    public int getNextIndex() {
-        return nextIndex;
     }
 
     private List<LogEntry> getEntriesToReplicate(Log log, int nextIndex) {
@@ -113,9 +85,7 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator<I
     @Override
     public String toString() {
         return "LogReplicator{" +
-                "followerId=" + followerId +
-                ", matchIndex=" + matchIndex +
-                ", nextIndex=" + nextIndex +
+                ", replicationState=" + replicationState +
                 '}';
     }
 }

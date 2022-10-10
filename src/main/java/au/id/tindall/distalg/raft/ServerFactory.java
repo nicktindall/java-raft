@@ -13,6 +13,7 @@ import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationStateFactory;
 import au.id.tindall.distalg.raft.replication.SingleClientReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.SnapshotReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
@@ -84,7 +85,8 @@ public class ServerFactory<ID extends Serializable> {
         LeadershipTransferFactory<ID> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState);
         LogReplicatorFactory<ID> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize);
         SnapshotReplicatorFactory<ID> snapshotReplicatorFactory = new SnapshotReplicatorFactory<>(persistentState, cluster);
-        SingleClientReplicatorFactory<ID> singleClientReplicatorFactory = new SingleClientReplicatorFactory<>(replicationSchedulerFactory, logReplicatorFactory, snapshotReplicatorFactory);
+        ReplicationStateFactory<ID> replicationStateFactory = new ReplicationStateFactory<>(log);
+        SingleClientReplicatorFactory<ID> singleClientReplicatorFactory = new SingleClientReplicatorFactory<>(replicationSchedulerFactory, logReplicatorFactory, snapshotReplicatorFactory, replicationStateFactory);
         final Configuration<ID> configuration = new Configuration<>(persistentState.getId(), initialPeers, electionTimeout);
         log.addEntryAppendedEventHandler(configuration);
         persistentState.addSnapshotInstalledListener(configuration);

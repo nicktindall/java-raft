@@ -21,7 +21,7 @@ public class LogReplicatorFactory<ID extends Serializable> {
         this.maxBatchSize = maxBatchSize;
     }
 
-    public LogReplicator<ID> createLogReplicator(ID followerId) {
-        return new LogReplicator<>(log, persistentState.getCurrentTerm(), cluster, followerId, maxBatchSize, log.getNextLogIndex());
+    public LogReplicator<ID> createLogReplicator(ReplicationState<ID> replicationState) {
+        return new LogReplicator<>(log, persistentState.getCurrentTerm(), cluster, maxBatchSize, replicationState);
     }
 }

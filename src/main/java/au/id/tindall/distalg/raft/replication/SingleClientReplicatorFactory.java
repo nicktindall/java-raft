@@ -7,16 +7,23 @@ public class SingleClientReplicatorFactory<ID extends Serializable> {
     private final ReplicationSchedulerFactory<ID> replicationSchedulerFactory;
     private final LogReplicatorFactory<ID> logReplicatorFactory;
     private final SnapshotReplicatorFactory<ID> snapshotReplicatorFactory;
+    private final ReplicationStateFactory<ID> replicationStateFactory;
 
     public SingleClientReplicatorFactory(ReplicationSchedulerFactory<ID> replicationSchedulerFactory,
                                          LogReplicatorFactory<ID> logReplicatorFactory,
-                                         SnapshotReplicatorFactory<ID> snapshotReplicatorFactory) {
+                                         SnapshotReplicatorFactory<ID> snapshotReplicatorFactory,
+                                         ReplicationStateFactory<ID> replicationStateFactory) {
         this.replicationSchedulerFactory = replicationSchedulerFactory;
         this.logReplicatorFactory = logReplicatorFactory;
         this.snapshotReplicatorFactory = snapshotReplicatorFactory;
+        this.replicationStateFactory = replicationStateFactory;
     }
 
     public SingleClientReplicator<ID> createReplicator(ID serverId, ID followerId) {
-        return new SingleClientReplicator<>(followerId, replicationSchedulerFactory.create(serverId), logReplicatorFactory, snapshotReplicatorFactory);
+        return new SingleClientReplicator<>(
+                replicationSchedulerFactory.create(serverId),
+                logReplicatorFactory,
+                snapshotReplicatorFactory,
+                replicationStateFactory.createReplicationState(followerId));
     }
 }

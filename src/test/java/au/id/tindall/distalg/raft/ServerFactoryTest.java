@@ -14,6 +14,7 @@ import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
+import au.id.tindall.distalg.raft.replication.ReplicationStateFactory;
 import au.id.tindall.distalg.raft.replication.SingleClientReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.SnapshotReplicatorFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
@@ -125,7 +126,8 @@ class ServerFactoryTest {
                                 new ReplicationManagerFactory<>(configuration,
                                         new SingleClientReplicatorFactory<>(replicationSchedulerFactory,
                                                 new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE),
-                                                new SnapshotReplicatorFactory<>(persistentState, cluster))
+                                                new SnapshotReplicatorFactory<>(persistentState, cluster),
+                                                new ReplicationStateFactory<>(log))
                                 ),
                                 new ClusterMembershipChangeManagerFactory<>(log, persistentState, configuration)
                         ),
