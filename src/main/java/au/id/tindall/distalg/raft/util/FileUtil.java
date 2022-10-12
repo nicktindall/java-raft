@@ -7,6 +7,7 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
@@ -60,13 +61,15 @@ public class FileUtil {
 
         @Override
         public FileVisitResult visitFileFailed(Path path, IOException e) {
-            LOGGER.warn("Error visiting " + path, e);
+            if (!(e instanceof NoSuchFileException)) {
+                LOGGER.warn("Error visiting " + path, e);
+            }
             return FileVisitResult.CONTINUE;
         }
 
         @Override
         public FileVisitResult postVisitDirectory(Path path, IOException e) {
-            if (e != null) {
+            if (e != null && !(e instanceof NoSuchFileException)) {
                 LOGGER.warn("Error visiting " + path, e);
             }
             return FileVisitResult.CONTINUE;
