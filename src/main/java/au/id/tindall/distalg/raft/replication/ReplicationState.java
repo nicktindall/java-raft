@@ -11,13 +11,15 @@ public class ReplicationState<ID extends Serializable> {
     private static final Logger LOGGER = getLogger();
 
     private final ID followerId;
+    private final MatchIndexAdvancedListener<ID> matchIndexAdvancedListener;
     private volatile int matchIndex;
     private volatile int nextIndex;
 
-    public ReplicationState(ID followerId, int nextLogIndex) {
+    public ReplicationState(ID followerId, int nextLogIndex, MatchIndexAdvancedListener<ID> matchIndexAdvancedListener) {
         this.followerId = followerId;
         this.matchIndex = 0;
         this.nextIndex = nextLogIndex;
+        this.matchIndexAdvancedListener = matchIndexAdvancedListener;
     }
 
     public ID getFollowerId() {
@@ -32,14 +34,28 @@ public class ReplicationState<ID extends Serializable> {
         return nextIndex;
     }
 
-    public synchronized void updateIndices(int matchIndex, int nextIndex) {
-        this.matchIndex = matchIndex;
-        this.nextIndex = nextIndex;
+    public void updateIndices(int matchIndex, int nextIndex) {
+        int oldMatchIndex;
+        synchronized (this) {
+            oldMatchIndex = this.matchIndex;
+            this.matchIndex = matchIndex;
+            this.nextIndex = nextIndex;
+        }
+        if (oldMatchIndex < matchIndex) {
+            matchIndexAdvancedListener.matchIndexAdvanced(followerId, matchIndex);
+        }
     }
 
-    public synchronized void logSuccessResponse(int lastAppendedIndex) {
-        nextIndex = Math.max(lastAppendedIndex + 1, nextIndex);
-        matchIndex = Math.max(lastAppendedIndex, matchIndex);
+    public void logSuccessResponse(int lastAppendedIndex) {
+        int oldMatchIndex, newMatchIndex;
+        synchronized (this) {
+            oldMatchIndex = matchIndex;
+            nextIndex = Math.max(lastAppendedIndex + 1, nextIndex);
+            matchIndex = newMatchIndex = Math.max(lastAppendedIndex, matchIndex);
+        }
+        if (oldMatchIndex < newMatchIndex) {
+            matchIndexAdvancedListener.matchIndexAdvanced(followerId, newMatchIndex);
+        }
     }
 
     public synchronized void logFailedResponse(Integer earliestPossibleMatchIndex) {

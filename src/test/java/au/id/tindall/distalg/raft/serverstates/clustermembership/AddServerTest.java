@@ -79,7 +79,7 @@ public class AddServerTest {
     }
 
     @Nested
-    class LogSuccessResponse {
+    class MatchIndexAdvanced {
 
         @BeforeEach
         void setUp() {
@@ -88,7 +88,7 @@ public class AddServerTest {
 
         @Test
         void willAdvanceToTheNextRoundWhenCurrentOneIsComplete() {
-            addServer.logSuccessResponseInternal(SERVER_ID, FIRST_ROUND_END);
+            addServer.matchIndexAdvancedInternal(FIRST_ROUND_END);
             assertThat(addServer.isFinished()).isFalse();
             verify(log, times(0)).appendEntries(anyInt(), any());
         }
@@ -98,7 +98,7 @@ public class AddServerTest {
 
             @BeforeEach
             void setUp() {
-                addServer.logSuccessResponse(SERVER_ID, FIRST_ROUND_END);
+                addServer.matchIndexAdvanced(SERVER_ID, FIRST_ROUND_END);
             }
 
             @Nested
@@ -107,7 +107,7 @@ public class AddServerTest {
                 @Test
                 void willFailAdd() {
                     when(timeSource.get()).thenReturn(NOW.plus(Duration.ofSeconds(5)));
-                    addServer.logSuccessResponse(SERVER_ID, SECOND_ROUND_END);
+                    addServer.matchIndexAdvanced(SERVER_ID, SECOND_ROUND_END);
                     assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.TIMEOUT);
                 }
             }
@@ -120,7 +120,7 @@ public class AddServerTest {
                 void willAppendNewConfigToLog() {
                     when(configuration.getServers()).thenReturn(Set.of(OTHER_SERVER_ID1, OTHER_SERVER_ID2));
 
-                    addServer.logSuccessResponse(SERVER_ID, SECOND_ROUND_END);
+                    addServer.matchIndexAdvanced(SERVER_ID, SECOND_ROUND_END);
                     final ArgumentCaptor<List<LogEntry>> logEntryCaptor = ArgumentCaptor.forClass(List.class);
                     verify(log).appendEntries(eq(APPEND_INDEX), logEntryCaptor.capture());
                     assertThat(addServer.finishedAtIndex).isEqualTo(APPEND_INDEX);
@@ -133,7 +133,7 @@ public class AddServerTest {
     }
 
     @Nested
-    class LogFailureResponse {
+    class LogMessageFromFollower {
 
         @BeforeEach
         void setUp() {
@@ -146,7 +146,7 @@ public class AddServerTest {
             @Test
             void willResetInactivityTimeout() {
                 when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(2)));
-                addServer.logFailureResponse(SERVER_ID);
+                addServer.logMessageFromFollower(SERVER_ID);
                 when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(4)));
                 assertThat(addServer.isFinished()).isFalse();
             }
@@ -158,7 +158,7 @@ public class AddServerTest {
             @Test
             void willNotResetInactivityTimeout() {
                 when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(2)));
-                addServer.logFailureResponse(OTHER_SERVER_ID1);
+                addServer.logMessageFromFollower(OTHER_SERVER_ID1);
                 when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(4)));
                 assertThat(addServer.isFinished()).isTrue();
             }
@@ -185,8 +185,8 @@ public class AddServerTest {
         @Test
         void willResolveResponseFutureWhenConfigAppendIndexIsReached() {
             addServer.start();
-            addServer.logSuccessResponse(SERVER_ID, FIRST_ROUND_END);
-            addServer.logSuccessResponse(SERVER_ID, SECOND_ROUND_END);
+            addServer.matchIndexAdvanced(SERVER_ID, FIRST_ROUND_END);
+            addServer.matchIndexAdvanced(SERVER_ID, SECOND_ROUND_END);
 
             assertThat(addServer.getResponseFuture()).isNotCompleted();
             addServer.entryCommitted(APPEND_INDEX);
@@ -196,11 +196,21 @@ public class AddServerTest {
         @Test
         void willNotResolveResponseFutureWhenConfigAppendIndexIsNotReached() {
             addServer.start();
-            addServer.logSuccessResponse(SERVER_ID, FIRST_ROUND_END);
-            addServer.logSuccessResponse(SERVER_ID, SECOND_ROUND_END);
+            addServer.matchIndexAdvanced(SERVER_ID, FIRST_ROUND_END);
+            addServer.matchIndexAdvanced(SERVER_ID, SECOND_ROUND_END);
 
             addServer.entryCommitted(APPEND_INDEX - 1);
             assertThat(addServer.getResponseFuture()).isNotCompleted();
+        }
+    }
+
+    @Nested
+    class Close {
+
+        @Test
+        void willCompleteFutureWithNotLeader() {
+            addServer.close();
+            assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.NOT_LEADER);
         }
     }
 }

@@ -44,6 +44,8 @@ class LogReplicatorTest {
 
     @Mock
     private Cluster<Long> cluster;
+    @Mock
+    private MatchIndexAdvancedListener<Long> matchIndexAdvancedListener;
 
     private Log log;
 
@@ -51,7 +53,7 @@ class LogReplicatorTest {
     void setUp() {
         log = logContaining(ENTRY_ONE, ENTRY_TWO, ENTRY_THREE, ENTRY_FOUR);
         log.advanceCommitIndex(COMMIT_INDEX);
-        logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, INITIAL_NEXT_INDEX));
+        logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, INITIAL_NEXT_INDEX, matchIndexAdvancedListener));
     }
 
     @Nested
@@ -59,7 +61,7 @@ class LogReplicatorTest {
 
         @Test
         void willSendEmptyAppendEntriesRequest_WhenThereAreNoLogEntries() {
-            logReplicator = new LogReplicator<>(logContaining(), CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, 1));
+            logReplicator = new LogReplicator<>(logContaining(), CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, 1, matchIndexAdvancedListener));
             assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(StayInCurrentMode);
             verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, 0, Optional.empty(), emptyList(), 0);
         }
@@ -73,7 +75,7 @@ class LogReplicatorTest {
         @Test
         void shouldSendUpToMaxBatchSizeEntries_WhenFollowerIsLagging() {
             int maxBatchSize = 2;
-            logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, maxBatchSize, new ReplicationState<>(FOLLOWER_ID, LAST_LOG_INDEX - 2));
+            logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, maxBatchSize, new ReplicationState<>(FOLLOWER_ID, LAST_LOG_INDEX - 2, matchIndexAdvancedListener));
             assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(StayInCurrentMode);
             verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX - 3, Optional.of(ENTRY_ONE.getTerm()), List.of(ENTRY_TWO, ENTRY_THREE), COMMIT_INDEX);
         }
@@ -92,14 +94,14 @@ class LogReplicatorTest {
 
             @Test
             void willSwitchToSnapshotReplicationWhenNextIndexHasBeenTruncated() {
-                logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, 2));
+                logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, 2, matchIndexAdvancedListener));
                 assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(SwitchToSnapshotReplication);
                 verifyNoInteractions(cluster);
             }
 
             @Test
             void willSendAppendEntriesEventWhenPrevIndexHasBeenTruncated() {
-                logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, 4));
+                logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, 4, matchIndexAdvancedListener));
                 assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(StayInCurrentMode);
                 verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, 3, Optional.of(ENTRY_THREE.getTerm()),
                         List.of(ENTRY_FOUR), COMMIT_INDEX);

@@ -12,7 +12,7 @@ public class ReplicationStateFactory<ID extends Serializable> {
         this.log = log;
     }
 
-    public ReplicationState<ID> createReplicationState(ID folllowerId) {
-        return new ReplicationState<>(folllowerId, log.getNextLogIndex());
+    public ReplicationState<ID> createReplicationState(ID folllowerId, MatchIndexAdvancedListener<ID> matchIndexAdvancedListener) {
+        return new ReplicationState<>(folllowerId, log.getNextLogIndex(), matchIndexAdvancedListener);
     }
 }

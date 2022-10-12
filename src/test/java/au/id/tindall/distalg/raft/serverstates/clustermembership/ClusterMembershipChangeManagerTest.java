@@ -131,50 +131,50 @@ class ClusterMembershipChangeManagerTest {
     }
 
     @Nested
-    class LogSuccessResponse {
+    class MatchIndexAdvanced {
 
         @Test
         void willDoNothingWhenThereIsNoCurrentChange() {
-            changeManager.logSuccessResponse(123, 456);
+            changeManager.matchIndexAdvanced(123, 456);
         }
 
         @Test
         void willDoNothingWhenTheCurrentChangeIsFinished() {
             changeManager.addServer(NEW_SERVER_ID);
             when(addServer.isFinished()).thenReturn(true);
-            changeManager.logSuccessResponse(123, 456);
-            verify(addServer, never()).logSuccessResponse(123, 456);
+            changeManager.matchIndexAdvanced(123, 456);
+            verify(addServer, never()).matchIndexAdvanced(123, 456);
         }
 
         @Test
         void willDelegateToUnfinishedCurrentChange() {
             changeManager.addServer(NEW_SERVER_ID);
-            changeManager.logSuccessResponse(123, 456);
-            verify(addServer).logSuccessResponse(123, 456);
+            changeManager.matchIndexAdvanced(123, 456);
+            verify(addServer).matchIndexAdvanced(123, 456);
         }
     }
 
     @Nested
-    class LogFailureResponse {
+    class LogMessageFromFollower {
 
         @Test
         void willDoNothingWhenThereIsNoCurrentChange() {
-            changeManager.logFailureResponse(123);
+            changeManager.logMessageFromFollower(123);
         }
 
         @Test
         void willDoNothingWhenTheCurrentChangeIsFinished() {
             changeManager.addServer(NEW_SERVER_ID);
             when(addServer.isFinished()).thenReturn(true);
-            changeManager.logFailureResponse(123);
-            verify(addServer, never()).logFailureResponse(123);
+            changeManager.logMessageFromFollower(123);
+            verify(addServer, never()).logMessageFromFollower(123);
         }
 
         @Test
         void willDelegateToUnfinishedCurrentChange() {
             changeManager.addServer(NEW_SERVER_ID);
-            changeManager.logFailureResponse(123);
-            verify(addServer).logFailureResponse(123);
+            changeManager.logMessageFromFollower(123);
+            verify(addServer).logMessageFromFollower(123);
         }
     }
 

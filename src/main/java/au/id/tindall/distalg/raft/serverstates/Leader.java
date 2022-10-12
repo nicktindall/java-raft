@@ -101,12 +101,11 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
     @Override
     protected Result<ID> handle(InstallSnapshotResponse<ID> installSnapshotResponse) {
         if (messageIsNotStale(installSnapshotResponse)) {
+            clusterMembershipChangeManager.logMessageFromFollower(installSnapshotResponse.getSource());
             if (installSnapshotResponse.isSuccess()) {
-                clusterMembershipChangeManager.logSnapshotResponse(installSnapshotResponse.getSource());
                 replicationManager.logSuccessSnapshotResponse(installSnapshotResponse.getSource(), installSnapshotResponse.getLastIndex(), installSnapshotResponse.getOffset());
                 replicationManager.replicate(installSnapshotResponse.getSource());
             } else {
-                clusterMembershipChangeManager.logSnapshotResponse(installSnapshotResponse.getSource());
                 LOGGER.debug("Follower {} failure snapshot response", installSnapshotResponse.getSource());
             }
         }
@@ -139,18 +138,17 @@ public class Leader<ID extends Serializable> extends ServerState<ID> {
 
     private void handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {
         ID remoteServerId = appendEntriesResponse.getSource();
+        clusterMembershipChangeManager.logMessageFromFollower(remoteServerId);
         if (appendEntriesResponse.isSuccess()) {
             int lastAppendedIndex = appendEntriesResponse.getAppendedIndex()
                     .orElseThrow(() -> new IllegalStateException("Append entries response was success with no appendedIndex"));
             replicationManager.logSuccessResponse(remoteServerId, lastAppendedIndex);
-            clusterMembershipChangeManager.logSuccessResponse(remoteServerId, lastAppendedIndex);
             if (updateCommitIndex()) {
                 replicationManager.replicate();
             } else {
                 replicationManager.replicateIfTrailingIndex(remoteServerId, log.getLastLogIndex());
             }
         } else {
-            clusterMembershipChangeManager.logFailureResponse(remoteServerId);
             replicationManager.logFailedResponse(remoteServerId, appendEntriesResponse.getAppendedIndex().orElse(null));
             replicationManager.replicate(remoteServerId);
         }

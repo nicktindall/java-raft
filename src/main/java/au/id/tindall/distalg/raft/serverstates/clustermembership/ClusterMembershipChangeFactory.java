@@ -33,6 +33,6 @@ public class ClusterMembershipChangeFactory<ID extends Serializable> {
     }
 
     public RemoveServer<ID> createRemoveServer(ID serverToRemove) {
-        return new RemoveServer<>(log, configuration, persistentState, replicationManager, serverToRemove);
+        return new RemoveServer<>(log, configuration, persistentState, replicationManager, serverToRemove, timeSource);
     }
 }

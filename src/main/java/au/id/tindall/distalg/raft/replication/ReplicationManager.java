@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,25 +14,27 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
-public class ReplicationManager<ID extends Serializable> {
+public class ReplicationManager<ID extends Serializable> implements MatchIndexAdvancedListener<ID> {
     private static final Logger LOGGER = LogManager.getLogger();
 
     private final Configuration<ID> configuration;
     private final SingleClientReplicatorFactory<ID> replicatorFactory;
     private Map<ID, SingleClientReplicator<ID>> replicators;
+    private final List<MatchIndexAdvancedListener<ID>> matchIndexAdvancedListeners;
     private boolean started;
 
     public ReplicationManager(Configuration<ID> configuration, SingleClientReplicatorFactory<ID> replicatorFactory) {
         this.configuration = configuration;
         this.replicatorFactory = replicatorFactory;
         this.started = false;
+        this.matchIndexAdvancedListeners = new ArrayList<>();
     }
 
     public void start() {
         assert replicators == null;
         assert !started;
         replicators = new ConcurrentHashMap<>(configuration.getOtherServerIds().stream()
-                .collect(toMap(identity(), followerId -> replicatorFactory.createReplicator(configuration.getLocalId(), followerId))));
+                .collect(toMap(identity(), followerId -> replicatorFactory.createReplicator(configuration.getLocalId(), followerId, this))));
         replicators.values().forEach(SingleClientReplicator::start);
         started = true;
     }
@@ -104,7 +107,7 @@ public class ReplicationManager<ID extends Serializable> {
 
     public void startReplicatingTo(ID followerId) {
         LOGGER.debug("Starting replicating to " + followerId);
-        final SingleClientReplicator<ID> logReplicator = replicatorFactory.createReplicator(configuration.getLocalId(), followerId);
+        final SingleClientReplicator<ID> logReplicator = replicatorFactory.createReplicator(configuration.getLocalId(), followerId, this);
         replicators.put(followerId, logReplicator);
         logReplicator.start();
         logReplicator.replicate();
@@ -115,5 +118,14 @@ public class ReplicationManager<ID extends Serializable> {
         if (replicator != null) {
             replicator.stop();
         }
+    }
+
+    @Override
+    public void matchIndexAdvanced(ID followerId, int newMatchIndex) {
+        matchIndexAdvancedListeners.forEach(l -> l.matchIndexAdvanced(followerId, newMatchIndex));
+    }
+
+    public void addMatchIndexAdvancedListener(MatchIndexAdvancedListener<ID> matchIndexAdvancedListener) {
+        matchIndexAdvancedListeners.add(matchIndexAdvancedListener);
     }
 }

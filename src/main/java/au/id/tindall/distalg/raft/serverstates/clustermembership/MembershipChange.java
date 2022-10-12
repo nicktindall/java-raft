@@ -3,68 +3,70 @@ package au.id.tindall.distalg.raft.serverstates.clustermembership;
 import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
+import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Closeable;
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 abstract public class MembershipChange<ID extends Serializable, R extends ClusterMembershipResponse> implements Closeable {
     protected static final int NOT_SET = Integer.MIN_VALUE;
-    private final Log log;
-    protected final Configuration<ID> configuration;
     private final PersistentState<ID> persistentState;
+    protected final Log log;
+    protected final Configuration<ID> configuration;
     protected final ID serverId;
     protected final CompletableFuture<R> responseFuture;
+    protected final Supplier<Instant> timeSource;
+    protected final ReplicationManager<ID> replicationManager;
+    protected Instant lastProgressTime;
     protected int finishedAtIndex = NOT_SET;
     protected boolean finished;
 
-    MembershipChange(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState, ID serverId) {
+    MembershipChange(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState, ReplicationManager<ID> replicationManager, ID serverId, Supplier<Instant> timeSource) {
         this.log = log;
         this.configuration = configuration;
         this.persistentState = persistentState;
         this.serverId = serverId;
+        this.timeSource = timeSource;
+        this.replicationManager = replicationManager;
         this.responseFuture = new CompletableFuture<>();
     }
 
-    abstract void start();
+    void start() {
+        this.lastProgressTime = timeSource.get();
+        onStart();
+    }
 
-    void logSuccessResponse(ID serverId, int lastAppendedIndex) {
+    protected abstract void onStart();
+
+    void matchIndexAdvanced(ID serverId, int lastAppendedIndex) {
         if (finishedAtIndex != NOT_SET) {
             return;
         }
-        final R result = logSuccessResponseInternal(serverId, lastAppendedIndex);
-        if (result != null) {
-            responseFuture.complete(result);
-            finished = true;
+        if (this.serverId.equals(serverId)) {
+            lastProgressTime = timeSource.get();
+            final R result = matchIndexAdvancedInternal(lastAppendedIndex);
+            if (result != null) {
+                responseFuture.complete(result);
+                finished = true;
+            }
         }
     }
 
-    R logSuccessResponseInternal(ID serverId, int lastAppendedIndex) {
-        // Do nothing by default
-        return null;
-    }
+    protected abstract R matchIndexAdvancedInternal(int lastAppendedIndex);
 
-    void logFailureResponse(ID serverId) {
-        if (finishedAtIndex != NOT_SET) {
-            return;
-        }
-        final R result = logFailureResponseInternal(serverId);
-        if (result != null) {
-            responseFuture.complete(result);
-            finished = true;
+    void logMessageFromFollower(ID followerId) {
+        if (this.serverId.equals(followerId)) {
+            lastProgressTime = timeSource.get();
         }
     }
-
-    R logFailureResponseInternal(ID serverId) {
-        // Do nothing by default
-        return null;
-    }
-
 
     void entryCommitted(int index) {
         final R result = entryCommittedInternal(index);
@@ -76,10 +78,7 @@ abstract public class MembershipChange<ID extends Serializable, R extends Cluste
 
     protected abstract R entryCommittedInternal(int index);
 
-    protected R timeoutIfSlow() {
-        // Only adds timeout
-        return null;
-    }
+    protected abstract R timeoutIfSlow();
 
     CompletableFuture<R> getResponseFuture() {
         return responseFuture;
@@ -111,6 +110,4 @@ abstract public class MembershipChange<ID extends Serializable, R extends Cluste
         ));
         return log.getLastLogIndex();
     }
-
-    public abstract void logSnapshotResponse(ID serverId);
 }

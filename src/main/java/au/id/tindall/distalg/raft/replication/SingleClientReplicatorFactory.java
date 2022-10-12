@@ -19,11 +19,11 @@ public class SingleClientReplicatorFactory<ID extends Serializable> {
         this.replicationStateFactory = replicationStateFactory;
     }
 
-    public SingleClientReplicator<ID> createReplicator(ID serverId, ID followerId) {
+    public SingleClientReplicator<ID> createReplicator(ID serverId, ID followerId, MatchIndexAdvancedListener<ID> matchIndexAdvancedListener) {
         return new SingleClientReplicator<>(
                 replicationSchedulerFactory.create(serverId),
                 logReplicatorFactory,
                 snapshotReplicatorFactory,
-                replicationStateFactory.createReplicationState(followerId));
+                replicationStateFactory.createReplicationState(followerId, matchIndexAdvancedListener));
     }
 }

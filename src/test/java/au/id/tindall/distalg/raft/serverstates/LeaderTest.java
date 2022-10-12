@@ -24,6 +24,7 @@ import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
 import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembershipChangeManager;
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransfer;
 import au.id.tindall.distalg.raft.state.PersistentState;
@@ -41,6 +42,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -182,9 +184,9 @@ class LeaderTest {
             }
 
             @Test
-            void willLogSuccessResponseWithClusterMembershipChangeManager() {
+            void willLogMessageFromFollowerWithClusterMembershipChangeManager() {
                 leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-                verify(clusterMembershipChangeManager).logSuccessResponse(OTHER_SERVER_ID, 5);
+                verify(clusterMembershipChangeManager).logMessageFromFollower(OTHER_SERVER_ID);
             }
 
             @Nested
@@ -257,9 +259,64 @@ class LeaderTest {
             }
 
             @Test
-            void willLogFailureResponseWithClusterMembershipChangeManager() {
+            void willLogMessageFromFollowerWithClusterMembershipChangeManager() {
                 leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
-                verify(clusterMembershipChangeManager).logFailureResponse(OTHER_SERVER_ID);
+                verify(clusterMembershipChangeManager).logMessageFromFollower(OTHER_SERVER_ID);
+            }
+        }
+    }
+
+    @Nested
+    class HandleInstallSnapshotResponse {
+
+        @Nested
+        class WhenResponseIsStale {
+
+            @Test
+            void willIgnoreMessage() {
+                assertThat(leader.handle(new InstallSnapshotResponse<>(PREVIOUS_TERM, OTHER_SERVER_ID, SERVER_ID, true, 123, 456)))
+                        .usingRecursiveComparison()
+                        .isEqualTo(complete(leader));
+                verifyNoMoreInteractions(replicationManager, log);
+            }
+        }
+
+        @Nested
+        class WhenResultIsSuccess {
+
+            @BeforeEach
+            void setUp() {
+                assertThat(leader.handle(new InstallSnapshotResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, 123, 456)))
+                        .usingRecursiveComparison()
+                        .isEqualTo(complete(leader));
+            }
+
+            @Test
+            void willLogMessageFromFollowerWithClusterMembershipChangeManager() {
+                verify(clusterMembershipChangeManager).logMessageFromFollower(OTHER_SERVER_ID);
+            }
+
+            @Test
+            void willNotifyReplicationManagerOfSuccessAndTriggerReplicationToFollower() {
+                final InOrder inOrder = inOrder(replicationManager);
+                inOrder.verify(replicationManager).logSuccessSnapshotResponse(OTHER_SERVER_ID, 123, 456);
+                inOrder.verify(replicationManager).replicate(OTHER_SERVER_ID);
+            }
+        }
+
+        @Nested
+        class WhenResultIsFailure {
+
+            @BeforeEach
+            void setUp() {
+                assertThat(leader.handle(new InstallSnapshotResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, 123, 456)))
+                        .usingRecursiveComparison()
+                        .isEqualTo(complete(leader));
+            }
+
+            @Test
+            void willLogMessageFromFollowerWithClusterMembershipChangeManager() {
+                verify(clusterMembershipChangeManager).logMessageFromFollower(OTHER_SERVER_ID);
             }
         }
     }

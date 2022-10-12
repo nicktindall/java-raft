@@ -3,19 +3,26 @@ package au.id.tindall.distalg.raft.replication;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+@ExtendWith(MockitoExtension.class)
 class ReplicationStateTest {
 
     public static final int INITIAL_NEXT_INDEX = 456;
     public static final long FOLLOWER_ID = 123L;
 
+    @Mock
+    private MatchIndexAdvancedListener<Long> matchIndexAdvancedListener;
+
     private ReplicationState<Long> replicationState;
 
     @BeforeEach
     void setUp() {
-        replicationState = new ReplicationState<>(FOLLOWER_ID, INITIAL_NEXT_INDEX);
+        replicationState = new ReplicationState<>(FOLLOWER_ID, INITIAL_NEXT_INDEX, matchIndexAdvancedListener);
     }
 
     @Nested

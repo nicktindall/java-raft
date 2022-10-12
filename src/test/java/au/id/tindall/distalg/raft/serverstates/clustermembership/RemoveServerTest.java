@@ -8,6 +8,7 @@ import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,14 +17,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class RemoveServerTest {
@@ -43,15 +46,17 @@ public class RemoveServerTest {
     private PersistentState<Integer> persistentState;
     @Mock
     private ReplicationManager<Integer> replicationManager;
+    @Mock
+    private Supplier<Instant> timeSource;
 
     private RemoveServer<Integer> removeServer;
 
     @BeforeEach
     void setUp() {
-        when(configuration.getServers()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID1, OTHER_SERVER_ID2));
-        when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX, APPENDED_LOG_INDEX);
-        when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
-        removeServer = new RemoveServer<>(log, configuration, persistentState, replicationManager, SERVER_ID);
+        lenient().when(configuration.getServers()).thenReturn(Set.of(SERVER_ID, OTHER_SERVER_ID1, OTHER_SERVER_ID2));
+        lenient().when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX, APPENDED_LOG_INDEX);
+        lenient().when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
+        removeServer = new RemoveServer<>(log, configuration, persistentState, replicationManager, SERVER_ID, timeSource);
     }
 
     @SuppressWarnings("unchecked")
@@ -88,6 +93,16 @@ public class RemoveServerTest {
             assertThat(removeServer.getResponseFuture()).isNotCompleted();
             removeServer.entryCommitted(APPENDED_LOG_INDEX);
             assertThat(removeServer.getResponseFuture()).isCompletedWithValue(RemoveServerResponse.OK);
+        }
+    }
+
+    @Nested
+    class Close {
+
+        @Test
+        void willCompleteFutureWithNotLeader() {
+            removeServer.close();
+            Assertions.assertThat(removeServer.getResponseFuture()).isCompletedWithValue(RemoveServerResponse.NOT_LEADER);
         }
     }
 

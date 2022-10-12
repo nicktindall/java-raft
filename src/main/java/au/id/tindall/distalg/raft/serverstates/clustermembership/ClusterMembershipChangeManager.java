@@ -2,6 +2,7 @@ package au.id.tindall.distalg.raft.serverstates.clustermembership;
 
 import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.replication.MatchIndexAdvancedListener;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 
@@ -13,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 
-public class ClusterMembershipChangeManager<ID extends Serializable> implements EntryCommittedEventHandler, Closeable {
+public class ClusterMembershipChangeManager<ID extends Serializable> implements EntryCommittedEventHandler, Closeable, MatchIndexAdvancedListener<ID> {
 
     private final Queue<MembershipChange<ID, ?>> membershipChangeQueue;
     private final ClusterMembershipChangeFactory<ID> clusterMembershipChangeFactory;
@@ -39,15 +40,16 @@ public class ClusterMembershipChangeManager<ID extends Serializable> implements 
         return removeServer.getResponseFuture();
     }
 
-    public void logSuccessResponse(ID remoteServerId, int lastAppendedIndex) {
+    @Override
+    public void matchIndexAdvanced(ID followerId, int newMatchIndex) {
         if (currentMembershipChange != null && !currentMembershipChange.isFinished()) {
-            currentMembershipChange.logSuccessResponse(remoteServerId, lastAppendedIndex);
+            currentMembershipChange.matchIndexAdvanced(followerId, newMatchIndex);
         }
     }
 
-    public void logFailureResponse(ID remoteServerId) {
+    public void logMessageFromFollower(ID followerId) {
         if (currentMembershipChange != null && !currentMembershipChange.isFinished()) {
-            currentMembershipChange.logFailureResponse(remoteServerId);
+            currentMembershipChange.logMessageFromFollower(followerId);
         }
     }
 
@@ -76,11 +78,5 @@ public class ClusterMembershipChangeManager<ID extends Serializable> implements 
             currentMembershipChange = null;
         }
         closeQuietly(membershipChangeQueue);
-    }
-
-    public void logSnapshotResponse(ID serverId) {
-        if (currentMembershipChange != null) {
-            currentMembershipChange.logSnapshotResponse(serverId);
-        }
     }
 }

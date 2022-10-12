@@ -17,69 +17,41 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerResponse> {
 
     private static final Logger LOGGER = getLogger();
-    private static final int DEFAULT_NUMBER_OF_CATCHUP_ROUNDS = 10;
 
-    private final Log log;
-    private final ReplicationManager<ID> replicationManager;
     private final int numberOfCatchUpRounds;
-    private final Supplier<Instant> timeSource;
-    private Instant lastProgressTime;
-
-    private ReplicationCatchUpRound round;
-
-    AddServer(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState,
-              ReplicationManager<ID> replicationManager, ID serverId,
-              Supplier<Instant> timeSource) {
-        this(log, configuration, persistentState, replicationManager, serverId,
-                DEFAULT_NUMBER_OF_CATCHUP_ROUNDS, timeSource);
-    }
+    private ReplicationCatchUpRound currentRound;
 
     AddServer(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState,
               ReplicationManager<ID> replicationManager, ID serverId,
               int numberOfCatchupRounds, Supplier<Instant> timeSource) {
-        super(log, configuration, persistentState, serverId);
-        this.log = log;
-        this.replicationManager = replicationManager;
+        super(log, configuration, persistentState, replicationManager, serverId, timeSource);
         this.numberOfCatchUpRounds = numberOfCatchupRounds;
-        this.timeSource = timeSource;
-        round = new ReplicationCatchUpRound(
+        currentRound = new ReplicationCatchUpRound(
                 1,
                 timeSource.get(),
                 log.getLastLogIndex());
     }
 
     @Override
-    void start() {
+    protected void onStart() {
         replicationManager.startReplicatingTo(serverId);
-        lastProgressTime = timeSource.get();
     }
 
     @Override
-    AddServerResponse logSuccessResponseInternal(ID serverId, int lastAppendedIndex) {
-        if (this.serverId.equals(serverId)) {
-            lastProgressTime = timeSource.get();
-            if (round.isFinishedAtIndex(lastAppendedIndex)) {
-                if (round.isLast()) {
-                    if (round.finishedInTime()) {
-                        finishedAtIndex = addServerToConfig(serverId);
-                        return null;
-                    } else {
-                        replicationManager.stopReplicatingTo(serverId);
-                        LOGGER.debug("Catch up round took too long, timing out");
-                        return AddServerResponse.TIMEOUT;
-                    }
+    protected AddServerResponse matchIndexAdvancedInternal(int lastAppendedIndex) {
+        if (currentRound.isFinishedAtIndex(lastAppendedIndex)) {
+            if (currentRound.isLast()) {
+                if (currentRound.finishedInTime()) {
+                    finishedAtIndex = addServerToConfig(serverId);
+                    return null;
                 } else {
-                    round = round.next();
+                    replicationManager.stopReplicatingTo(serverId);
+                    LOGGER.debug("Catch up round took too long, timing out");
+                    return AddServerResponse.TIMEOUT;
                 }
+            } else {
+                currentRound = currentRound.next();
             }
-        }
-        return null;
-    }
-
-    @Override
-    AddServerResponse logFailureResponseInternal(ID serverId) {
-        if (this.serverId.equals(serverId)) {
-            lastProgressTime = timeSource.get();
         }
         return null;
     }
@@ -95,13 +67,6 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
             return AddServerResponse.TIMEOUT;
         }
         return null;
-    }
-
-    @Override
-    public void logSnapshotResponse(ID serverId) {
-        if (this.serverId.equals(serverId)) {
-            lastProgressTime = timeSource.get();
-        }
     }
 
     @Override

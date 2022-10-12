@@ -39,9 +39,9 @@ class ReplicationManagerTest {
     void setUp() {
         when(configuration.getLocalId()).thenReturn(LOCAL_ID);
         when(configuration.getOtherServerIds()).thenReturn(Set.of(1, 2));
-        when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 1)).thenReturn(logReplicatorOne);
-        when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 2)).thenReturn(logReplicatorTwo);
         replicationManager = new ReplicationManager<>(configuration, singleClientReplicatorFactory);
+        when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 1, replicationManager)).thenReturn(logReplicatorOne);
+        when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 2, replicationManager)).thenReturn(logReplicatorTwo);
     }
 
     @Nested
@@ -50,8 +50,8 @@ class ReplicationManagerTest {
         @Test
         void willCreateAndStartReplicatorsForAllFollowers() {
             replicationManager.start();
-            verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 1);
-            verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 2);
+            verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 1, replicationManager);
+            verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 2, replicationManager);
             verify(logReplicatorOne).start();
             verify(logReplicatorTwo).start();
         }
@@ -79,14 +79,14 @@ class ReplicationManagerTest {
         @BeforeEach
         void setUp() {
             replicationManager.start();
-            when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 3)).thenReturn(logReplicatorThree);
+            when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 3, replicationManager)).thenReturn(logReplicatorThree);
         }
 
         @Test
         void willCreateANewReplicatorAndStartReplicatingToIt() {
             replicationManager.startReplicatingTo(3);
 
-            verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 3);
+            verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 3, replicationManager);
             final InOrder sequence = inOrder(logReplicatorThree);
             sequence.verify(logReplicatorThree).start();
             sequence.verify(logReplicatorThree).replicate();

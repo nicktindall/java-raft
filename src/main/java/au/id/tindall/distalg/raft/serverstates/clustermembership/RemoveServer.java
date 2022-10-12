@@ -7,18 +7,17 @@ import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Serializable;
+import java.time.Instant;
+import java.util.function.Supplier;
 
 public class RemoveServer<ID extends Serializable> extends MembershipChange<ID, RemoveServerResponse> {
 
-    private final ReplicationManager<ID> replicationManager;
-
-    RemoveServer(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState, ReplicationManager<ID> replicationManager, ID serverId) {
-        super(log, configuration, persistentState, serverId);
-        this.replicationManager = replicationManager;
+    RemoveServer(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState, ReplicationManager<ID> replicationManager, ID serverId, Supplier<Instant> timeSource) {
+        super(log, configuration, persistentState, replicationManager, serverId, timeSource);
     }
 
     @Override
-    void start() {
+    protected void onStart() {
         finishedAtIndex = removeServerFromConfig(serverId);
     }
 
@@ -32,8 +31,15 @@ public class RemoveServer<ID extends Serializable> extends MembershipChange<ID, 
     }
 
     @Override
-    public void logSnapshotResponse(ID serverId) {
+    protected RemoveServerResponse timeoutIfSlow() {
+        // Removes don't time out
+        return null;
+    }
+
+    @Override
+    protected RemoveServerResponse matchIndexAdvancedInternal(int lastAppendedIndex) {
         // Do nothing
+        return null;
     }
 
     @Override

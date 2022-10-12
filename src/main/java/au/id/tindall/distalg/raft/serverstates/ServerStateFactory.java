@@ -50,6 +50,7 @@ public class ServerStateFactory<ID extends Serializable> {
     public Leader<ID> createLeader() {
         final ReplicationManager<ID> replicationManager = replicationManagerFactory.createReplicationManager();
         final ClusterMembershipChangeManager<ID> clusterMembershipChangeManager = clusterMembershipChangeManagerFactory.createChangeManager(replicationManager);
+        replicationManager.addMatchIndexAdvancedListener(clusterMembershipChangeManager);
         return new Leader<>(persistentState, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
                 this, replicationManager, clientSessionStore, leadershipTransferFactory.create(replicationManager), clusterMembershipChangeManager);
     }
