@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Supplier;
 
+import static au.id.tindall.distalg.raft.util.TimestampUtil.formatTimestamp;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerResponse> {
@@ -30,6 +31,7 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
                 1,
                 timeSource.get(),
                 log.getLastLogIndex());
+        LOGGER.debug("Catching up new server round={}", currentRound);
     }
 
     @Override
@@ -42,15 +44,18 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
         if (currentRound.isFinishedAtIndex(lastAppendedIndex)) {
             if (currentRound.isLast()) {
                 if (currentRound.finishedInTime()) {
+                    LOGGER.debug("Final catch up round finished, completing change");
                     finishedAtIndex = addServerToConfig(serverId);
                     return null;
                 } else {
                     replicationManager.stopReplicatingTo(serverId);
-                    LOGGER.debug("Catch up round took too long, timing out");
+                    LOGGER.debug("Catch up round took too long, timing out round={}", currentRound);
                     return AddServerResponse.TIMEOUT;
                 }
             } else {
+                ReplicationCatchUpRound lastRound = currentRound;
                 currentRound = currentRound.next();
+                LOGGER.debug("Catch up round finished, starting next last={}, current={}", lastRound, currentRound);
             }
         }
         return null;
@@ -107,6 +112,15 @@ class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerR
 
         public ReplicationCatchUpRound next() {
             return new ReplicationCatchUpRound(number + 1, timeSource.get(), log.getLastLogIndex());
+        }
+
+        @Override
+        public String toString() {
+            return "ReplicationCatchUpRound{" +
+                    "number=" + number +
+                    ", startTime=" + formatTimestamp(startTime) +
+                    ", endIndex=" + endIndex +
+                    '}';
         }
     }
 }
