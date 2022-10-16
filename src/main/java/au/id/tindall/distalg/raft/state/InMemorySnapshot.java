@@ -40,8 +40,19 @@ public class InMemorySnapshot implements Snapshot {
 
     @Override
     public synchronized int readInto(ByteBuffer byteBuffer, int fromOffset) {
+        if (fromOffset > contents.limit()) {
+            return 0;
+        }
         int startPosition = byteBuffer.position();
-        byteBuffer.put(contents.position(fromOffset));
+        contents.position(fromOffset);
+        final int amountToCopy = Math.min(byteBuffer.remaining(), contents.remaining());
+        final int limit0 = contents.limit();
+        try {
+            contents.limit(contents.position() + amountToCopy);
+            byteBuffer.put(contents);
+        } finally {
+            contents.limit(limit0);
+        }
         return byteBuffer.position() - startPosition;
     }
 
