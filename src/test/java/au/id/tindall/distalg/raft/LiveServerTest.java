@@ -93,16 +93,19 @@ class LiveServerTest {
         LauncherDiscoveryRequest ldr = LauncherDiscoveryRequestBuilder.request()
                 .selectors(selectClass(LiveServerTest.class))
                 .build();
-        while (true) {
-            final Launcher launcher = LauncherFactory.create();
-            launcher.discover(ldr);
-            final SummaryGeneratingListener summaryGeneratingListener = new SummaryGeneratingListener();
-            launcher.registerTestExecutionListeners(LoggingListener.forJavaUtilLogging(), summaryGeneratingListener);
-            launcher.execute(ldr);
-            final TestExecutionSummary summary = summaryGeneratingListener.getSummary();
-            summary.printTo(new PrintWriter(System.out));
-            if (summary.getFailures().size() > 0) {
-                break;
+        try (final PrintWriter writer = new PrintWriter(System.out)) {
+            while (true) {
+                final Launcher launcher = LauncherFactory.create();
+                launcher.discover(ldr);
+                final SummaryGeneratingListener summaryGeneratingListener = new SummaryGeneratingListener();
+                launcher.registerTestExecutionListeners(LoggingListener.forJavaUtilLogging(), summaryGeneratingListener);
+                launcher.execute(ldr);
+                final TestExecutionSummary summary = summaryGeneratingListener.getSummary();
+                summary.printTo(writer);
+                if (summary.getFailures().size() > 0) {
+                    summary.printFailuresTo(writer);
+                    break;
+                }
             }
         }
     }
