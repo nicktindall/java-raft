@@ -55,6 +55,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse.Status.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -307,9 +308,13 @@ class LiveServerTest {
                 if (leader.isPresent()) {
                     LOGGER.info("Removing server {}", server.getId());
                     final RemoveServerResponse response = (RemoveServerResponse) leader.get().handle(new RemoveServerRequest<>(server.getId())).get();
-                    LOGGER.info("Server {} remove response: {}", server.getId(), response.getStatus());
-                    server.stop();
-                    allServers.remove(server.getId());
+                    if (response.getStatus() == OK) {
+                        LOGGER.info("Server {} remove succeeded, shutting down", server.getId());
+                        server.stop();
+                        allServers.remove(server.getId());
+                    } else {
+                        LOGGER.error("Server {} remove failed, aborting (status={})", server.getId(), response.getStatus());
+                    }
                     break;
                 }
             }
