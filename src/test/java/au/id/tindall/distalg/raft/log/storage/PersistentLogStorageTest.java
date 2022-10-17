@@ -19,7 +19,13 @@ class PersistentLogStorageTest extends AbstractLogStorageTest<PersistentLogStora
     @Override
     protected PersistentLogStorage createLogStorage() throws IOException {
         tempFile = File.createTempFile("logFileTest", "append");
-        return new PersistentLogStorage(tempFile.toPath());
+        return new PersistentLogStorage(tempFile.toPath(), 0);
+    }
+
+    @Override
+    protected PersistentLogStorage createLogStorageWithTruncationBuffer(int truncationBuffer) throws IOException {
+        tempFile = File.createTempFile("logFileTest", "append");
+        return new PersistentLogStorage(tempFile.toPath(), truncationBuffer);
     }
 
     @Test

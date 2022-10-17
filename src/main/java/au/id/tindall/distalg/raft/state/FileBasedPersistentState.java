@@ -46,6 +46,7 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 public class FileBasedPersistentState<ID extends Serializable> implements PersistentState<ID> {
 
     private static final Logger LOGGER = getLogger();
+    private static final int TRUNCATION_BUFFER = 20;
     private static final long START_OF_ID_LENGTH = 0L;
     private static final long START_OF_CURRENT_TERM = 4L;
     private static final long START_OF_VOTED_FOR_LENGTH = 8L;
@@ -66,7 +67,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
 
 
     public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateFilesPrefix, ID serverId) {
-        PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath(stateFilesPrefix));
+        PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath(stateFilesPrefix), TRUNCATION_BUFFER);
         return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath(stateFilesPrefix),
                 tempSnapshotPathGenerator(stateFilesPrefix), currentSnapshotPath(stateFilesPrefix), new JavaIDSerializer<>(), serverId);
     }
@@ -78,13 +79,13 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         deleteAnyTempSnapshots(stateFilesPrefix);
         Path currentSnapshotPath = currentSnapshotPath(stateFilesPrefix);
         if (Files.exists(logFilePath) && Files.exists(stateFilePath)) {
-            PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
+            PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath, TRUNCATION_BUFFER);
             return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, new JavaIDSerializer<>());
         } else {
             Files.deleteIfExists(logFilePath);
             Files.deleteIfExists(stateFilePath);
             Files.deleteIfExists(currentSnapshotPath);
-            PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
+            PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath, TRUNCATION_BUFFER);
             return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, new JavaIDSerializer<>(), serverId);
         }
     }

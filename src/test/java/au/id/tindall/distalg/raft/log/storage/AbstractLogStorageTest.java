@@ -44,6 +44,8 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
 
     protected abstract L createLogStorage() throws IOException;
 
+    protected abstract L createLogStorageWithTruncationBuffer(int truncationBuffer) throws IOException;
+
     protected int nextEntryIndex() {
         return entryIndex.getAndIncrement();
     }
@@ -238,6 +240,20 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
             for (int i = 1; i < lastIndex + 5; i++) {
                 assertThat(storage.hasEntry(i)).isEqualTo(i <= lastIndex ? BeforeStart : i > 5 ? AfterEnd : Present);
             }
+        }
+
+        @ParameterizedTest
+        @MethodSource("params")
+        void willLeaveTruncationBufferEntriesWhenConfigured(int lastIndex) throws IOException {
+            final int truncationBufferSize = 3;
+            storage = createLogStorageWithTruncationBuffer(truncationBufferSize);
+            populateThenSnapshot(lastIndex);
+            assertThat(storage.getEntries()).usingFieldByFieldElementComparator()
+                    .isEqualTo(entries.subList(Math.max(lastIndex - truncationBufferSize, 0), entries.size()));
+            assertThat(storage.size())
+                    .isEqualTo(Math.min(5, 5 - lastIndex + truncationBufferSize));
+            assertThat(storage.getPrevIndex())
+                    .isEqualTo(Math.max(lastIndex - truncationBufferSize, 0));
         }
     }
 }

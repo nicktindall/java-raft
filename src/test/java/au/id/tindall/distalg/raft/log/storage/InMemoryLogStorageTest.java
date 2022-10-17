@@ -6,4 +6,9 @@ class InMemoryLogStorageTest extends AbstractLogStorageTest<InMemoryLogStorage> 
     protected InMemoryLogStorage createLogStorage() {
         return new InMemoryLogStorage();
     }
+
+    @Override
+    protected InMemoryLogStorage createLogStorageWithTruncationBuffer(int truncationBuffer) {
+        return new InMemoryLogStorage(truncationBuffer);
+    }
 }

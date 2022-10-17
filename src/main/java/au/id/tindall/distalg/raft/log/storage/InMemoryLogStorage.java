@@ -13,12 +13,18 @@ import static java.util.List.copyOf;
 
 public class InMemoryLogStorage implements LogStorage {
 
+    private final int truncationBuffer;
     private List<LogEntry> entries;
 
     private int prevIndex = 0;
     private Term prevTerm = Term.ZERO;
 
     public InMemoryLogStorage() {
+        this(0);
+    }
+
+    public InMemoryLogStorage(int truncationBuffer) {
+        this.truncationBuffer = truncationBuffer;
         this.entries = new ArrayList<>();
     }
 
@@ -52,7 +58,7 @@ public class InMemoryLogStorage implements LogStorage {
     @Override
     public void installSnapshot(Snapshot snapshot) {
         int oldPrevIndex = prevIndex;
-        prevIndex = snapshot.getLastIndex();
+        prevIndex = Math.max(snapshot.getLastIndex() - truncationBuffer, prevIndex);
         prevTerm = snapshot.getLastTerm();
         if (oldPrevIndex != prevIndex) {
             int firstRemainingIndex = prevIndex - oldPrevIndex;

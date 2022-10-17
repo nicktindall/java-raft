@@ -33,22 +33,29 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 public class PersistentLogStorage implements LogStorage {
 
     private static final Logger LOGGER = getLogger();
+    private static final int DEFAULT_TRUNCATION_BUFFER = 20;
 
     private final EntrySerializer entrySerializer;
     private final Path logFilePath;
     private final AtomicInteger nextIndex = new AtomicInteger(1);
+    private final int truncationBuffer;
     private FileChannel logFileChannel;
     private List<Long> entryEndIndex;
     private volatile int prevIndex = 0;
     private Term prevTerm = Term.ZERO;
 
     public PersistentLogStorage(Path logFilePath) {
-        this(logFilePath, JavaEntrySerializer.INSTANCE);
+        this(logFilePath, DEFAULT_TRUNCATION_BUFFER, JavaEntrySerializer.INSTANCE);
     }
 
-    public PersistentLogStorage(Path logFilePath, EntrySerializer entrySerializer) {
+    public PersistentLogStorage(Path logFilePath, int truncationBuffer) {
+        this(logFilePath, truncationBuffer, JavaEntrySerializer.INSTANCE);
+    }
+
+    public PersistentLogStorage(Path logFilePath, int truncationBuffer, EntrySerializer entrySerializer) {
         this.logFilePath = logFilePath;
         this.entrySerializer = entrySerializer;
+        this.truncationBuffer = truncationBuffer;
         try {
             logFileChannel = FileChannel.open(logFilePath, READ, WRITE, CREATE, SYNC);
         } catch (IOException e) {
@@ -104,7 +111,6 @@ public class PersistentLogStorage implements LogStorage {
     @Override
     public synchronized void installSnapshot(Snapshot snapshot) {
         copyTailOfLog(snapshot);
-        prevIndex = snapshot.getLastIndex();
         prevTerm = snapshot.getLastTerm();
     }
 
@@ -113,10 +119,10 @@ public class PersistentLogStorage implements LogStorage {
         try {
             Path tempLogFilePath = Path.of(logFilePath.toAbsolutePath() + ".tmp");
             Files.deleteIfExists(tempLogFilePath);
-            final int firstIndexInLog = snapshot.getLastIndex() + 1;
+            final int firstIndexInLog = Math.max(snapshot.getLastIndex() + 1 - truncationBuffer, getFirstLogIndex());
             try (final FileChannel tempFileLogChannel = FileChannel.open(tempLogFilePath, CREATE_NEW, WRITE, READ, SYNC)) {
                 nextIndex.set(firstIndexInLog);
-                LOGGER.debug("Truncating {} entries from the start of the log", snapshot.getLastIndex() - prevIndex);
+                LOGGER.debug("Truncating {} entries from the start of the log (to index={})", firstIndexInLog - prevIndex - 1, firstIndexInLog);
                 for (int i = firstIndexInLog; i <= getLastLogIndex(); i++) {
                     writeEntry(tempFileLogChannel, getEntry(i));
                 }
@@ -125,6 +131,7 @@ public class PersistentLogStorage implements LogStorage {
             Files.move(tempLogFilePath, logFilePath, ATOMIC_MOVE, REPLACE_EXISTING);
             logFileChannel = FileChannel.open(logFilePath, READ, WRITE, CREATE, SYNC);
             reIndex(firstIndexInLog);
+            prevIndex = firstIndexInLog - 1;
         } catch (IOException e) {
             throw new IllegalStateException("Couldn't truncate log to install snapshot!", e);
         }
