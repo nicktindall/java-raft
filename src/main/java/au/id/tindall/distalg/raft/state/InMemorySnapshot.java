@@ -107,4 +107,8 @@ public class InMemorySnapshot implements Snapshot {
     public long getLength() {
         return contents.array().length;
     }
+
+    public ByteBuffer getContents() {
+        return contents;
+    }
 }

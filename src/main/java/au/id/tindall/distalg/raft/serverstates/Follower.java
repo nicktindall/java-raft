@@ -11,12 +11,10 @@ import au.id.tindall.distalg.raft.state.Snapshot;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.util.Optional;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
-import static au.id.tindall.distalg.raft.util.HexUtil.hexDump;
 import static java.lang.Math.min;
 import static java.util.Optional.empty;
 import static org.apache.logging.log4j.LogManager.getLogger;
@@ -163,19 +161,14 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     private void sendInstallSnapshotFailedResponse(InstallSnapshotRequest<ID> installSnapshotRequest) {
         cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false,
-                installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length);
+                installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length - 1);
     }
 
     private void updateAndPromoteSnapshot(InstallSnapshotRequest<ID> installSnapshotRequest) {
         int bytesWritten = receivingSnapshot.writeBytes(installSnapshotRequest.getOffset(), installSnapshotRequest.getData());
         if (installSnapshotRequest.isDone()) {
             receivingSnapshot.finalise();
-            ByteBuffer endOfFirstChunkBytes = ByteBuffer.allocate(50);
-            ByteBuffer endBytes = ByteBuffer.allocate(50);
-            receivingSnapshot.readInto(endOfFirstChunkBytes, 4050);
-            receivingSnapshot.readInto(endBytes, (int) receivingSnapshot.getLength() - 50);
-            LOGGER.debug("Received snapshot index={}, term={}, length={}, endOfFirstChunk={}, end={}", receivingSnapshot.getLastIndex(), receivingSnapshot.getLastTerm(), receivingSnapshot.getLength(),
-                    hexDump(endOfFirstChunkBytes.array()), hexDump(endBytes.array()));
+            LOGGER.debug("Received snapshot index={}, term={}, length={}", receivingSnapshot.getLastIndex(), receivingSnapshot.getLastTerm(), receivingSnapshot.getLength());
             persistentState.setCurrentSnapshot(receivingSnapshot);
             receivingSnapshot.delete();
             receivingSnapshot = null;
