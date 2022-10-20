@@ -7,6 +7,7 @@ import au.id.tindall.distalg.raft.state.Snapshot;
 import java.util.ArrayList;
 import java.util.List;
 
+import static au.id.tindall.distalg.raft.log.storage.BufferedTruncationCalculator.calculateTruncation;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.List.copyOf;
@@ -57,16 +58,15 @@ public class InMemoryLogStorage implements LogStorage {
 
     @Override
     public void installSnapshot(Snapshot snapshot) {
-        int oldPrevIndex = prevIndex;
-        prevIndex = Math.max(snapshot.getLastIndex() - truncationBuffer, prevIndex);
-        prevTerm = snapshot.getLastTerm();
-        if (oldPrevIndex != prevIndex) {
-            int firstRemainingIndex = prevIndex - oldPrevIndex;
-            if (firstRemainingIndex <= entries.size()) {
-                entries = entries.subList(firstRemainingIndex, entries.size());
+        BufferedTruncationCalculator.TruncationDetails td = calculateTruncation(snapshot, this, truncationBuffer);
+        if (td.getNewPrevIndex() != prevIndex) {
+            if (td.getEntriesToTruncate() < entries.size()) {
+                entries = entries.subList(td.getEntriesToTruncate(), entries.size());
             } else {
                 entries = new ArrayList<>();
             }
+            prevIndex = td.getNewPrevIndex();
+            prevTerm = td.getNewPrevTerm();
         }
     }
 

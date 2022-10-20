@@ -26,7 +26,6 @@ import static au.id.tindall.distalg.raft.log.EntryStatus.BeforeStart;
 import static au.id.tindall.distalg.raft.log.EntryStatus.Present;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 abstract class AbstractLogStorageTest<L extends LogStorage> {
@@ -201,21 +200,21 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
         @MethodSource("params")
         void willCorrectlyReportSize(int lastIndex) {
             populateThenSnapshot(lastIndex);
-            assertEquals(5 - lastIndex, storage.size());
+            assertThat(storage.size()).isEqualTo(5 - lastIndex);
         }
 
         @ParameterizedTest
         @MethodSource("params")
         void willCorrectlyReportFirstLogIndex(int lastIndex) {
             populateThenSnapshot(lastIndex);
-            assertEquals(lastIndex + 1, storage.getFirstLogIndex());
+            assertThat(storage.getFirstLogIndex()).isEqualTo(lastIndex + 1);
         }
 
         @ParameterizedTest
         @MethodSource("params")
         void willCorrectlyReportLastLogIndex(int lastIndex) {
             populateThenSnapshot(lastIndex);
-            assertEquals(5, storage.getLastLogIndex());
+            assertThat(storage.getLastLogIndex()).isEqualTo(5);
         }
 
         @ParameterizedTest
@@ -242,7 +241,7 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
             }
         }
 
-        @ParameterizedTest
+        @ParameterizedTest(name = "truncation with buffer, populated ({0})")
         @MethodSource("params")
         void willLeaveTruncationBufferEntriesWhenConfigured(int lastIndex) throws IOException {
             final int truncationBufferSize = 3;
@@ -254,6 +253,23 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
                     .isEqualTo(Math.min(5, 5 - lastIndex + truncationBufferSize));
             assertThat(storage.getPrevIndex())
                     .isEqualTo(Math.max(lastIndex - truncationBufferSize, 0));
+            assertThat(storage.getLastLogIndex())
+                    .isEqualTo(5);
+            assertThat(storage.getNextLogIndex())
+                    .isEqualTo(6);
+        }
+
+        @ParameterizedTest(name = "truncation with buffer, empty state ({0})")
+        @MethodSource("params")
+        void willLeaveTruncationBufferEntriesWhenConfigured_EmptyInitialSize(int lastIndex) throws IOException {
+            final int truncationBufferSize = 3;
+            storage = createLogStorageWithTruncationBuffer(truncationBufferSize);
+            storage.installSnapshot(new InMemorySnapshot(lastIndex, TERM, new ConfigurationEntry(TERM, Set.of(1, 2, 3))));
+            assertThat(storage.getEntries()).isEmpty();
+            assertThat(storage.size()).isEqualTo(0);
+            assertThat(storage.getPrevIndex()).isEqualTo(lastIndex);
+            assertThat(storage.getLastLogIndex()).isEqualTo(lastIndex);
+            assertThat(storage.getNextLogIndex()).isEqualTo(lastIndex + 1);
         }
     }
 }

@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static au.id.tindall.distalg.raft.log.storage.BufferedTruncationCalculator.calculateTruncation;
 import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
@@ -110,28 +111,27 @@ public class PersistentLogStorage implements LogStorage {
 
     @Override
     public synchronized void installSnapshot(Snapshot snapshot) {
-        copyTailOfLog(snapshot);
-        prevTerm = snapshot.getLastTerm();
-    }
-
-    private void copyTailOfLog(Snapshot snapshot) {
         long startTime = System.nanoTime();
         try {
-            Path tempLogFilePath = Path.of(logFilePath.toAbsolutePath() + ".tmp");
-            Files.deleteIfExists(tempLogFilePath);
-            final int firstIndexInLog = Math.max(snapshot.getLastIndex() + 1 - truncationBuffer, getFirstLogIndex());
-            try (final FileChannel tempFileLogChannel = FileChannel.open(tempLogFilePath, CREATE_NEW, WRITE, READ, SYNC)) {
-                nextIndex.set(firstIndexInLog);
-                LOGGER.debug("Truncating {} entries from the start of the log (to index={})", firstIndexInLog - prevIndex - 1, firstIndexInLog);
-                for (int i = firstIndexInLog; i <= getLastLogIndex(); i++) {
-                    writeEntry(tempFileLogChannel, getEntry(i));
+            BufferedTruncationCalculator.TruncationDetails td = calculateTruncation(snapshot, this, truncationBuffer);
+            int firstIndexInLog = td.getNewPrevIndex() + 1;
+            if (td.getEntriesToTruncate() > 0) {
+                Path tempLogFilePath = Path.of(logFilePath.toAbsolutePath() + ".tmp");
+                Files.deleteIfExists(tempLogFilePath);
+                try (final FileChannel tempFileLogChannel = FileChannel.open(tempLogFilePath, CREATE_NEW, WRITE, READ, SYNC)) {
+                    nextIndex.set(firstIndexInLog);
+                    LOGGER.debug("Truncating {} entries from the start of the log (to index={})", td.getEntriesToTruncate(), firstIndexInLog);
+                    for (int i = firstIndexInLog; i <= getLastLogIndex(); i++) {
+                        writeEntry(tempFileLogChannel, getEntry(i));
+                    }
                 }
+                closeQuietly(logFileChannel);
+                Files.move(tempLogFilePath, logFilePath, ATOMIC_MOVE, REPLACE_EXISTING);
+                logFileChannel = FileChannel.open(logFilePath, READ, WRITE, CREATE, SYNC);
             }
-            closeQuietly(logFileChannel);
-            Files.move(tempLogFilePath, logFilePath, ATOMIC_MOVE, REPLACE_EXISTING);
-            logFileChannel = FileChannel.open(logFilePath, READ, WRITE, CREATE, SYNC);
             reIndex(firstIndexInLog);
-            prevIndex = firstIndexInLog - 1;
+            prevIndex = td.getNewPrevIndex();
+            prevTerm = td.getNewPrevTerm();
         } catch (IOException e) {
             throw new IllegalStateException("Couldn't truncate log to install snapshot!", e);
         }

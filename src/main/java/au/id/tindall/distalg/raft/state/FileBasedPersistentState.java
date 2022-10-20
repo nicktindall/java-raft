@@ -251,9 +251,11 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         }
         try {
             Closeables.closeQuietly(nextSnapshot, currentSnapshot.getAndSet(null));
-            Files.move(((PersistentSnapshot) nextSnapshot).path(), currentSnapshotPath, ATOMIC_MOVE, REPLACE_EXISTING);
-            if (Files.exists(((PersistentSnapshot) nextSnapshot).path())) {
-                LOGGER.warn("Couldn't delete temporary snapshot");
+            if (!(Files.exists(currentSnapshotPath) && Files.isSameFile(((PersistentSnapshot) nextSnapshot).path(), currentSnapshotPath))) {
+                Files.move(((PersistentSnapshot) nextSnapshot).path(), currentSnapshotPath, ATOMIC_MOVE, REPLACE_EXISTING);
+                if (Files.exists(((PersistentSnapshot) nextSnapshot).path())) {
+                    LOGGER.warn("Couldn't delete temporary snapshot");
+                }
             }
             currentSnapshot.set(PersistentSnapshot.load(currentSnapshotPath));
             logStorage.installSnapshot(currentSnapshot.get());
@@ -261,7 +263,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
                 listener.onSnapshotInstalled(currentSnapshot.get());
             }
         } catch (IOException e) {
-            throw new RuntimeException("Error promoting existing snapshot");
+            throw new RuntimeException("Error promoting existing snapshot", e);
         }
     }
 

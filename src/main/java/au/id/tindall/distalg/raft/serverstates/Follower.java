@@ -168,7 +168,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         int bytesWritten = receivingSnapshot.writeBytes(installSnapshotRequest.getOffset(), installSnapshotRequest.getData());
         if (installSnapshotRequest.isDone()) {
             receivingSnapshot.finalise();
-            LOGGER.debug("Received snapshot index={}, term={}, length={}", receivingSnapshot.getLastIndex(), receivingSnapshot.getLastTerm(), receivingSnapshot.getLength());
+            LOGGER.debug("Received snapshot lastIndex={}, lastTerm={}, length={}", receivingSnapshot.getLastIndex(), receivingSnapshot.getLastTerm(), receivingSnapshot.getLength());
             persistentState.setCurrentSnapshot(receivingSnapshot);
             receivingSnapshot.delete();
             receivingSnapshot = null;
