@@ -18,11 +18,14 @@ import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 
+import java.io.Closeable;
 import java.io.Serializable;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-public class Server<ID extends Serializable> {
+import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
+
+public class Server<ID extends Serializable> implements Closeable {
 
     private final PersistentState<ID> persistentState;
     private final ServerStateFactory<ID> serverStateFactory;
@@ -117,5 +120,15 @@ public class Server<ID extends Serializable> {
 
     public StateMachine getStateMachine() {
         return this.stateMachine;
+    }
+
+    @Override
+    public void close() {
+        synchronized (this) {
+            if (state != null) {
+                stop();
+            }
+        }
+        closeQuietly(serverStateFactory);
     }
 }

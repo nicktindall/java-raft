@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.concurrent.Executors;
 
+import static au.id.tindall.distalg.raft.ThreadUtils.pause;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.atLeast;
@@ -65,19 +66,19 @@ class HeartbeatReplicationSchedulerTest {
     class WhenNotRunning {
 
         @Test
-        void willNotSendRegularHeartbeats() throws InterruptedException {
+        void willNotSendRegularHeartbeats() {
             scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, 100, Executors.newSingleThreadExecutor());
             scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
-            Thread.sleep(500L);
+            pause(500L);
             verifyNoInteractions(sendAppendEntriesRequest);
         }
 
         @Test
-        void willNotSendAppendEntriesRequestsOnDemand() throws InterruptedException {
+        void willNotSendAppendEntriesRequestsOnDemand() {
             scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, Long.MAX_VALUE, Executors.newSingleThreadExecutor());
             scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
             scheduler.replicate();
-            Thread.sleep(1000L);
+            pause(1000L);
             verifyNoInteractions(sendAppendEntriesRequest);
         }
     }

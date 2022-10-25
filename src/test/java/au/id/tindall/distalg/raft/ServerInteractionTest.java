@@ -37,6 +37,7 @@ import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,9 +56,9 @@ class ServerInteractionTest {
     private QueuedSendingStrategy queuedSendingStrategy;
     private ServerFactory<Long> serverFactory;
     @Mock
-    private ElectionScheduler electionScheduler;
+    private ElectionScheduler<Long> electionScheduler;
     @Mock
-    private ElectionSchedulerFactory electionSchedulerFactory;
+    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
 
     @BeforeEach
     void setUp() {
@@ -70,7 +71,7 @@ class ServerInteractionTest {
     private void setUpFactories() {
         allServers = new HashMap<>();
         queuedSendingStrategy = new QueuedSendingStrategy();
-        when(electionSchedulerFactory.createElectionScheduler()).thenReturn(electionScheduler);
+        when(electionSchedulerFactory.createElectionScheduler(anyLong())).thenReturn(electionScheduler);
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         serverFactory = new ServerFactory<>(
                 new TestClusterFactory(queuedSendingStrategy, allServers),

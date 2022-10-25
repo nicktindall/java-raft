@@ -20,7 +20,6 @@ import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
 import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
-import au.id.tindall.distalg.raft.threading.NamedThreadFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
@@ -48,15 +47,17 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static au.id.tindall.distalg.raft.ThreadUtils.pause;
 import static au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse.Status.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
+import static au.id.tindall.distalg.raft.threading.NamedThreadFactory.forThreadGroup;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
@@ -112,7 +113,7 @@ class LiveServerTest {
 
     @BeforeEach
     void setUp() {
-        testExecutorService = Executors.newScheduledThreadPool(10, new NamedThreadFactory("test-threads"));
+        testExecutorService = newScheduledThreadPool(10, forThreadGroup("test-threads"));
         setUpFactories();
         for (long serverId : ALL_SERVER_IDS) {
             createServerAndState(serverId, ALL_SERVER_IDS);
@@ -132,7 +133,7 @@ class LiveServerTest {
                 MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(),
                 MonotonicCounter::new,
-                new ElectionSchedulerFactory(testExecutorService, MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
+                new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
                 MAX_BATCH_SIZE,
                 new HeartbeatReplicationSchedulerFactory<>(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS),
                 Duration.ofMillis(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS),
@@ -172,7 +173,7 @@ class LiveServerTest {
     }
 
     @Test
-    void willElectANewLeader_WhenTheExistingLeaderFails() throws InterruptedException {
+    void willElectANewLeader_WhenTheExistingLeaderFails() {
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
         Server<Long> oldLeader = getLeaderWithRetries();
         oldLeader.stop();
@@ -286,7 +287,7 @@ class LiveServerTest {
                         case TIMEOUT:
                         case NOT_LEADER:
                             LOGGER.error("Adding server failed, response: " + response);
-                            server.stop();
+                            server.close();
                             allServers.remove(newServerId);
                             break;
                         case OK:
@@ -313,8 +314,8 @@ class LiveServerTest {
                     final RemoveServerResponse response = (RemoveServerResponse) leader.get().handle(new RemoveServerRequest<>(server.getId())).get();
                     if (response.getStatus() == OK) {
                         LOGGER.info("Server {} remove succeeded, shutting down", server.getId());
-                        server.stop();
                         allServers.remove(server.getId());
+                        server.close();
                     } else {
                         LOGGER.error("Server {} remove failed, aborting (status={})", server.getId(), response.getStatus());
                     }
@@ -353,7 +354,7 @@ class LiveServerTest {
             Server<Long> currentLeader = getLeaderWithRetries();
             Long killedServerId = currentLeader.getId();
             LOGGER.info("Killing server " + killedServerId);
-            currentLeader.stop();
+            currentLeader.close();
             await().atMost(10, SECONDS).until(this::aLeaderIsElected);
 
             // Start a new node pointing to the same persistent state files
@@ -373,7 +374,7 @@ class LiveServerTest {
             LOGGER.info("Telling server {} to transfer leadership", currentLeaderId);
             currentLeader.transferLeadership();
             await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
-        } catch (RuntimeException | InterruptedException e) {
+        } catch (RuntimeException e) {
             fail("Error triggering leadership transfer");
         }
     }
@@ -402,14 +403,14 @@ class LiveServerTest {
                 .findAny();
     }
 
-    private Server<Long> getLeaderWithRetries() throws InterruptedException {
+    private Server<Long> getLeaderWithRetries() {
         for (int i = 0; i < 5; i++) {
             final Optional<Server<Long>> leader = getLeader();
             if (leader.isPresent()) {
                 return leader.get();
             } else {
                 LOGGER.debug("Couldn't get leader, retrying...");
-                Thread.sleep(200);
+                pause(200);
             }
         }
         throw new IllegalStateException("Couldn't get current leader");
@@ -422,7 +423,7 @@ class LiveServerTest {
     private void stopServers() {
         allServers.values().forEach(server -> {
             try {
-                server.stop();
+                server.close();
             } catch (NotRunningException e) {
                 // This is fine, leader killer might have already done the job for us
             }

@@ -238,4 +238,14 @@ class ServerTest {
             }
         }
     }
+
+    @Nested
+    class Close {
+
+        @Test
+        void willCloseServerStateFactory() {
+            server.close();
+            verify(serverStateFactory).close();
+        }
+    }
 }

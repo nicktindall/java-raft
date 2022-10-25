@@ -2,7 +2,6 @@ package au.id.tindall.distalg.raft.util;
 
 import org.apache.logging.log4j.Logger;
 
-import java.io.Closeable;
 import java.util.Collection;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
@@ -18,8 +17,8 @@ public enum Closeables {
                 if (closeable instanceof Collection) {
                     closeQuietly((Collection<?>) closeable);
                 }
-                if (closeable instanceof Closeable) {
-                    ((Closeable) closeable).close();
+                if (closeable instanceof AutoCloseable) {
+                    ((AutoCloseable) closeable).close();
                 }
             } catch (Exception e) {
                 LOGGER.warn("Error closing", e);

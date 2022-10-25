@@ -1,47 +1,49 @@
 package au.id.tindall.distalg.raft.elections;
 
 import au.id.tindall.distalg.raft.Server;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
+import java.time.Instant;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.IntStream;
 
+import static au.id.tindall.distalg.raft.ThreadUtils.pause;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ElectionSchedulerTest {
 
-    private static final long TIMEOUT_MILLIS = 12345L;
+    private static final long TIMEOUT_MILLIS = 100L;
+    private static final long SERVER_ID = 567L;
     @Mock
     private Server<Long> server;
     @Mock
     private ElectionTimeoutGenerator electionTimeoutGenerator;
-    @Mock
-    private ScheduledExecutorService scheduledExecutorService;
-    @Mock
-    private ScheduledFuture timeoutFuture;
+    private AtomicBoolean timeoutOccurred;
 
-    private ElectionScheduler electionScheduler;
+    private ElectionScheduler<Long> electionScheduler;
 
     @BeforeEach
     void setUp() {
-        lenient().when(server.getId()).thenReturn(567L);
-        electionScheduler = new ElectionScheduler(electionTimeoutGenerator, scheduledExecutorService);
+        timeoutOccurred = new AtomicBoolean(false);
+        lenient().when(server.getId()).thenReturn(SERVER_ID);
+        lenient().doAnswer(iom -> {
+            timeoutOccurred.set(true);
+            return null;
+        }).when(server).electionTimeout();
+        lenient().when(electionTimeoutGenerator.next()).thenReturn(TIMEOUT_MILLIS);
+        electionScheduler = new ElectionScheduler<>(SERVER_ID, electionTimeoutGenerator, Instant::now);
         electionScheduler.setServer(server);
     }
 
@@ -50,19 +52,22 @@ class ElectionSchedulerTest {
 
         @BeforeEach
         void setUp() {
-            when(electionTimeoutGenerator.next()).thenReturn(TIMEOUT_MILLIS);
             electionScheduler.startTimeouts();
+        }
+
+        @AfterEach
+        void tearDown() {
+            electionScheduler.stopTimeouts();
         }
 
         @Test
         void willScheduleAnElectionTimeout() {
-            verify(scheduledExecutorService).schedule(any(Runnable.class), eq(TIMEOUT_MILLIS), eq(MILLISECONDS));
+            await().atMost(TIMEOUT_MILLIS * 5, MILLISECONDS).until(() -> timeoutOccurred.get());
         }
 
         @Test
         void willThrowIfTimeoutsAlreadyStarted() {
             assertThatThrownBy(() -> electionScheduler.startTimeouts()).isInstanceOf(IllegalStateException.class);
-            verify(scheduledExecutorService).schedule(any(Runnable.class), eq(TIMEOUT_MILLIS), eq(MILLISECONDS));
         }
     }
 
@@ -70,19 +75,15 @@ class ElectionSchedulerTest {
     class ResetElectionTimeout {
 
         @Test
-        @SuppressWarnings("unchecked")
-        void willCancelExistingTimeoutThenScheduleANewOne() {
-            when(electionTimeoutGenerator.next()).thenReturn(TIMEOUT_MILLIS);
-            when(scheduledExecutorService.schedule(any(Runnable.class), eq(TIMEOUT_MILLIS), eq(MILLISECONDS)))
-                    .thenReturn(timeoutFuture);
-
+        void willPreventTimeoutOccurring() {
             electionScheduler.startTimeouts();
-            reset(scheduledExecutorService);
-
-            electionScheduler.resetTimeout();
-            InOrder sequence = inOrder(timeoutFuture, scheduledExecutorService);
-            sequence.verify(timeoutFuture).cancel(false);
-            sequence.verify(scheduledExecutorService).schedule(any(Runnable.class), eq(TIMEOUT_MILLIS), eq(MILLISECONDS));
+            long endTime = System.currentTimeMillis() + 500;
+            while (System.currentTimeMillis() < endTime) {
+                electionScheduler.resetTimeout();
+                pause(TIMEOUT_MILLIS - 20);
+            }
+            assertThat(timeoutOccurred.get()).isFalse();
+            await().atMost(TIMEOUT_MILLIS * 2, MILLISECONDS).until(() -> timeoutOccurred.get());
         }
 
         @Test
@@ -95,51 +96,22 @@ class ElectionSchedulerTest {
     class StopElectionTimeouts {
 
         @Test
-        @SuppressWarnings("unchecked")
         void willCancelOutstandingTimeout() {
-            when(electionTimeoutGenerator.next()).thenReturn(TIMEOUT_MILLIS);
-            when(scheduledExecutorService.schedule(any(Runnable.class), eq(TIMEOUT_MILLIS), eq(MILLISECONDS)))
-                    .thenReturn(timeoutFuture);
-            electionScheduler.startTimeouts();
-
-            electionScheduler.stopTimeouts();
-            verify(timeoutFuture).cancel(false);
+            IntStream.range(0, 50).forEach((i) -> {
+                electionScheduler.startTimeouts();
+                pause(ThreadLocalRandom.current().nextInt((int) TIMEOUT_MILLIS / 2, (int) TIMEOUT_MILLIS * 2));
+                synchronized (server) {
+                    timeoutOccurred.set(false);
+                    electionScheduler.stopTimeouts();
+                }
+                pause(TIMEOUT_MILLIS);
+                assertThat(timeoutOccurred.get()).isFalse();
+            });
         }
-
 
         @Test
         void willThrowWhenTimeoutsAreNotStarted() {
             assertThatThrownBy(() -> electionScheduler.stopTimeouts()).isInstanceOf(IllegalStateException.class);
-        }
-    }
-
-    @Nested
-    class ElectionTimeout {
-
-        private Runnable timeoutFunction;
-
-        @BeforeEach
-        void setUp() {
-            when(electionTimeoutGenerator.next()).thenReturn(TIMEOUT_MILLIS);
-            when(scheduledExecutorService.schedule(any(Runnable.class), eq(TIMEOUT_MILLIS), eq(MILLISECONDS)))
-                    .thenReturn(timeoutFuture);
-            electionScheduler.startTimeouts();
-            ArgumentCaptor<Runnable> captor = ArgumentCaptor.forClass(Runnable.class);
-            verify(scheduledExecutorService).schedule(captor.capture(), eq(TIMEOUT_MILLIS), eq(MILLISECONDS));
-            timeoutFunction = captor.getValue();
-            reset(scheduledExecutorService);
-        }
-
-        @Test
-        void willCallElectionTimeoutOnTheServer() {
-            timeoutFunction.run();
-            verify(server).electionTimeout();
-        }
-
-        @Test
-        void willScheduleNextTimeout() {
-            timeoutFunction.run();
-            verify(scheduledExecutorService).schedule(any(Runnable.class), eq(TIMEOUT_MILLIS), eq(MILLISECONDS));
         }
     }
 }

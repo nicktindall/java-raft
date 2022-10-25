@@ -75,9 +75,9 @@ class ServerFactoryTest {
     @Mock
     private StateMachine stateMachine;
     @Mock
-    private ElectionSchedulerFactory electionSchedulerFactory;
+    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
     @Mock
-    private ElectionScheduler electionScheduler;
+    private ElectionScheduler<Long> electionScheduler;
     @Mock
     private PersistentState<Long> persistentState;
     @Mock
@@ -100,7 +100,7 @@ class ServerFactoryTest {
         when(clusterFactory.createForNode(eq(SERVER_ID))).thenReturn(cluster);
         when(logFactory.createLog(logStorage)).thenReturn(log);
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
-        when(electionSchedulerFactory.createElectionScheduler()).thenReturn(electionScheduler);
+        when(electionSchedulerFactory.createElectionScheduler(SERVER_ID)).thenReturn(electionScheduler);
         when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter)).thenReturn(commandExecutor);
         when(snapshotterFactory.create(eq(log), eq(clientSessionStore), eq(stateMachine), eq(persistentState), any(SnapshotHeuristic.class))).thenReturn(snapshotter);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,

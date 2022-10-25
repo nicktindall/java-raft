@@ -1,15 +1,15 @@
 package au.id.tindall.distalg.raft.comms;
 
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
-import au.id.tindall.distalg.raft.threading.NamedThreadFactory;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Random;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import static au.id.tindall.distalg.raft.threading.NamedThreadFactory.forThreadGroup;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class LiveDelayedSendingStrategy implements SendingStrategy {
@@ -29,7 +29,7 @@ public class LiveDelayedSendingStrategy implements SendingStrategy {
         this.minimumMessageDelayMillis = minimumMessageDelayMillis;
         this.maximumMessageDelayMillis = maximumMessageDelayMillis;
         this.random = new Random();
-        this.scheduledExecutorService = Executors.newScheduledThreadPool(10, new NamedThreadFactory("dispatch"));
+        this.scheduledExecutorService = newScheduledThreadPool(10, forThreadGroup("dispatch"));
     }
 
     @Override

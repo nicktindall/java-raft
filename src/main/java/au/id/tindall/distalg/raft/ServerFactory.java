@@ -43,7 +43,7 @@ public class ServerFactory<ID extends Serializable> {
     private final int maxClientSessions;
     private final CommandExecutorFactory commandExecutorFactory;
     private final StateMachineFactory stateMachineFactory;
-    private final ElectionSchedulerFactory electionSchedulerFactory;
+    private final ElectionSchedulerFactory<ID> electionSchedulerFactory;
     private final int maxBatchSize;
     private final ReplicationSchedulerFactory<ID> replicationSchedulerFactory;
     private final Duration electionTimeout;
@@ -51,7 +51,7 @@ public class ServerFactory<ID extends Serializable> {
 
     public ServerFactory(ClusterFactory<ID> clusterFactory, LogFactory logFactory, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                          ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
-                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory electionSchedulerFactory,
+                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory<ID> electionSchedulerFactory,
                          int maxBatchSize, ReplicationSchedulerFactory<ID> replicationSchedulerFactory, Duration electionTimeout, SnapshotterFactory snapshotterFactory) {
         this.clusterFactory = clusterFactory;
         this.logFactory = logFactory;
@@ -80,7 +80,7 @@ public class ServerFactory<ID extends Serializable> {
         Snapshotter snapshotter = snapshotterFactory.create(log, clientSessionStore, stateMachine, persistentState, snapshotHeuristic);
         CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter);
         commandExecutor.startListeningForCommittedCommands(log);
-        ElectionScheduler electionScheduler = electionSchedulerFactory.createElectionScheduler();
+        ElectionScheduler<ID> electionScheduler = electionSchedulerFactory.createElectionScheduler(persistentState.getId());
         Cluster<ID> cluster = clusterFactory.createForNode(persistentState.getId());
         LeadershipTransferFactory<ID> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState);
         LogReplicatorFactory<ID> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize);

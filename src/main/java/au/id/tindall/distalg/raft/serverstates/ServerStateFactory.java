@@ -14,9 +14,12 @@ import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTran
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 
+import java.io.Closeable;
 import java.io.Serializable;
 
-public class ServerStateFactory<ID extends Serializable> {
+import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
+
+public class ServerStateFactory<ID extends Serializable> implements Closeable {
 
     private final Log log;
     private final Cluster<ID> cluster;
@@ -69,5 +72,10 @@ public class ServerStateFactory<ID extends Serializable> {
 
     public ClientSessionStore getClientSessionStore() {
         return clientSessionStore;
+    }
+
+    @Override
+    public void close() {
+        closeQuietly(electionScheduler);
     }
 }
