@@ -11,7 +11,6 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 
-import static au.id.tindall.distalg.raft.util.HexUtil.hexDump;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Snapshotter {
@@ -38,8 +37,7 @@ public class Snapshotter {
         if (snapshotHeuristic.shouldCreateSnapshot(log, stateMachine, persistentState.getCurrentSnapshot().orElse(null))) {
             byte[] snapshot = stateMachine.createSnapshot();
             Term termAtIndex = persistentState.getLogStorage().getEntry(committedIndex).getTerm();
-            LOGGER.debug("Creating snapshot to index={}, term={}, length={}, endOfFirstChunk={}, end={}", committedIndex, termAtIndex, snapshot.length,
-                    hexDump(snapshot, 4050, 50), hexDump(snapshot, snapshot.length - 50, 50));
+            LOGGER.debug("Creating snapshot to index={}, term={}, length={}", committedIndex, termAtIndex, snapshot.length);
             try (final Snapshot nextSnapshot = persistentState.createSnapshot(committedIndex, termAtIndex, lastConfigurationEntry)) {
                 final byte[] chunk = clientSessionStore.serializeSessions();
                 LOGGER.debug("Serialised sessions size = {}", chunk.length);
