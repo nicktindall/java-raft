@@ -59,6 +59,7 @@ task longRunTest(type: JavaExec) {
                 new FileOutputStream("longRunTest.out.txt"), System.out);
     }
     dependsOn classes
+    jvmArgs("-XX:+FlightRecorder", "-XX:StartFlightRecording=disk=true,maxsize=4GB,filename=" + project.projectDir + "/longRunTest.jfr", "-Xlog:jfr=debug")
     systemProperties("LiveServerTest.longRun": "true")
     workingDir = file(buildDir)
     classpath = sourceSets.test.runtimeClasspath

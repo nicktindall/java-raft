@@ -77,7 +77,7 @@ public class LeadershipTransfer<ID extends Serializable> {
 
     private void abortTransferIfTimeoutHasBeenExceeded() {
         if (transferStartTime != null && transferStartTime.plus(LEADERSHIP_TRANSFER_TIMEOUT).isBefore(currentInstant())) {
-            LOGGER.debug("Leadership transfer timeout exceeded, aborting");
+            LOGGER.warn("Leadership transfer timeout exceeded, aborting");
             transferTarget = null;
             transferStartTime = null;
         }
