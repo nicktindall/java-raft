@@ -242,6 +242,23 @@ class ServerTest {
     @Nested
     class Close {
 
+        @Nested
+        class WhenServerIsRunning {
+
+            @BeforeEach
+            void setUp() {
+                when(serverStateFactory.createInitialState()).thenReturn(serverState);
+                server.start();
+                reset(serverState);
+            }
+
+            @Test
+            void willStopServerThenClose() {
+                server.close();
+                verify(serverState).leaveState();
+            }
+        }
+
         @Test
         void willCloseServerStateFactory() {
             server.close();
