@@ -27,6 +27,7 @@ import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
 import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
 import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
+import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
 import java.util.Optional;
@@ -35,8 +36,11 @@ import java.util.concurrent.CompletableFuture;
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static java.lang.String.format;
+import static org.apache.logging.log4j.LogManager.getLogger;
 
 public abstract class ServerState<ID extends Serializable> {
+
+    private static final Logger LOGGER = getLogger();
 
     protected final PersistentState<ID> persistentState;
     protected final Cluster<ID> cluster;
@@ -64,6 +68,8 @@ public abstract class ServerState<ID extends Serializable> {
 
     public Result<ID> handle(RpcMessage<ID> message) {
         if (message.getTerm().isGreaterThan(persistentState.getCurrentTerm())) {
+            LOGGER.debug("Received a message from a future term, transitioning from {} to {} state, message={}",
+                    getServerStateType(), ServerStateType.FOLLOWER, message);
             persistentState.setCurrentTerm(message.getTerm());
             return incomplete(serverStateFactory.createFollower(message.getSource()));
         }
