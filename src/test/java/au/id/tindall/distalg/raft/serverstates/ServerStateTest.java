@@ -244,7 +244,8 @@ class ServerStateTest {
 
         @Override
         public ServerStateType getServerStateType() {
-            throw new UnsupportedOperationException("This is going away at some point I reckon");
+            // Just return something it's used in a log message
+            return ServerStateType.LEADER;
         }
     }
 }
