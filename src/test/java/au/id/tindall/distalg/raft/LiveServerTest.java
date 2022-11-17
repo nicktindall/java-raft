@@ -36,9 +36,13 @@ import org.junit.platform.launcher.listeners.TestExecutionSummary;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +56,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static au.id.tindall.distalg.raft.ThreadUtils.pause;
 import static au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse.Status.OK;
@@ -182,9 +187,14 @@ class LiveServerTest {
     }
 
     @Test
-    void willProgressWithNoFailures() throws ExecutionException, InterruptedException {
-        countUp();
-        waitForAllServersToCatchUp();
+    void willProgressWithNoFailures() {
+        try {
+            countUp();
+            waitForAllServersToCatchUp();
+        } catch (Exception ex) {
+            printThreadDump();
+            fail(ex);
+        }
     }
 
     @Test
@@ -192,7 +202,8 @@ class LiveServerTest {
         Future<?> counterClientThread = testExecutorService.submit(() -> {
             try {
                 countUp();
-            } catch (ExecutionException | InterruptedException ex) {
+            } catch (Exception ex) {
+                printThreadDump();
                 fail(ex);
             }
         });
@@ -213,7 +224,8 @@ class LiveServerTest {
         Future<?> counterClientThread = testExecutorService.submit(() -> {
             try {
                 countUp();
-            } catch (ExecutionException | InterruptedException ex) {
+            } catch (Exception ex) {
+                printThreadDump();
                 fail(ex);
             }
         });
@@ -234,7 +246,8 @@ class LiveServerTest {
         Future<?> counterClientThread = testExecutorService.submit(() -> {
             try {
                 countUp();
-            } catch (ExecutionException | InterruptedException ex) {
+            } catch (Exception ex) {
+                printThreadDump();
                 fail(ex);
             }
         });
@@ -428,5 +441,12 @@ class LiveServerTest {
                 // This is fine, leader killer might have already done the job for us
             }
         });
+    }
+
+    private void printThreadDump() {
+        ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+        ThreadInfo[] infos = bean.dumpAllThreads(true, true);
+        System.out.println(Arrays.stream(infos).map(Object::toString)
+                .collect(Collectors.joining()));
     }
 }
