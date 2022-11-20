@@ -20,6 +20,9 @@ public enum Closeables {
                 if (closeable instanceof AutoCloseable) {
                     ((AutoCloseable) closeable).close();
                 }
+            } catch (InterruptedException e) {
+                LOGGER.warn("Interrupted closing", e);
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 LOGGER.warn("Error closing", e);
             }

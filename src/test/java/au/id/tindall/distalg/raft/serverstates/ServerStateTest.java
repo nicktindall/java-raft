@@ -18,6 +18,8 @@ import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
+import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -233,6 +235,30 @@ class ServerStateTest {
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
                     .isEqualTo(RemoveServerResponse.NOT_LEADER);
+        }
+    }
+
+    @Nested
+    class HandleInstallSnapshotRequest {
+
+        @Test
+        void willDoNothing() {
+            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+
+            assertThat(serverState.handle(new InstallSnapshotRequest<>(TERM_0, LEADER_ID, SERVER_ID, 999, TERM_2, null, 101010, 1234, "Hello".getBytes(), true)))
+                    .usingRecursiveComparison().isEqualTo(complete(serverState));
+        }
+    }
+
+    @Nested
+    class HandleInstallSnapshotResponse {
+
+        @Test
+        void willDoNothing() {
+            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+
+            assertThat(serverState.handle(new InstallSnapshotResponse<>(TERM_0, LEADER_ID, SERVER_ID, true, 999, 1)))
+                    .usingRecursiveComparison().isEqualTo(complete(serverState));
         }
     }
 

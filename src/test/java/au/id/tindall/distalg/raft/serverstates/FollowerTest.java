@@ -54,7 +54,7 @@ class FollowerTest {
     @Mock
     private ServerStateFactory<Long> serverStateFactory;
     @Mock
-    private ElectionScheduler electionScheduler;
+    private ElectionScheduler<Long> electionScheduler;
     @Mock
     private PersistentState<Long> persistentState;
 
