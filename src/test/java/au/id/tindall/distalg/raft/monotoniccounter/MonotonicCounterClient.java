@@ -58,9 +58,10 @@ public class MonotonicCounterClient {
         throw new IllegalStateException("Couldn't register client!");
     }
 
-    public void increment() throws ExecutionException, InterruptedException {
+    public void increment(Runnable failureChecker) throws ExecutionException, InterruptedException {
         int retries = 0;
         while (retries < MAX_RETRIES) {
+            failureChecker.run();
             ClientRequestResponse<Long> commandResponse = (ClientRequestResponse<Long>) send(id -> new ClientRequestRequest<Long>(id, clientId, clientSequenceNumber, clientSequenceNumber - 1, counterValue.toByteArray())).get();
             if (commandResponse.getStatus() == ClientRequestStatus.OK) {
                 this.counterValue = new BigInteger(commandResponse.getResponse());

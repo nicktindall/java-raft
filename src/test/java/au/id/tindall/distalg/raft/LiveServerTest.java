@@ -56,6 +56,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static au.id.tindall.distalg.raft.ThreadUtils.pause;
@@ -92,6 +93,7 @@ class LiveServerTest {
     private ServerFactory<Long> serverFactory;
     private LiveDelayedSendingStrategy liveDelayedSendingStrategy;
     private ScheduledExecutorService testExecutorService;
+    private AtomicReference<RuntimeException> testFailure;
     @TempDir
     Path stateFileDirectory;
 
@@ -118,6 +120,7 @@ class LiveServerTest {
 
     @BeforeEach
     void setUp() {
+        testFailure = new AtomicReference<>();
         testExecutorService = newScheduledThreadPool(10, forThreadGroup("test-threads"));
         setUpFactories();
         for (long serverId : ALL_SERVER_IDS) {
@@ -279,7 +282,7 @@ class LiveServerTest {
                     }
                 }
             } catch (Exception e) {
-                fail("Error occurred adding or removing a server", e);
+                testFailure.set(new RuntimeException("Error occurred adding or removing a server", e));
             }
         };
     }
@@ -376,7 +379,7 @@ class LiveServerTest {
             newCurrentLeader.start();
             LOGGER.info("Server " + killedServerId + " restarted");
         } catch (Exception e) {
-            fail("Killing leader failed!", e);
+            testFailure.set(new RuntimeException("Killing leader failed!", e));
         }
     }
 
@@ -388,7 +391,7 @@ class LiveServerTest {
             currentLeader.transferLeadership();
             await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
         } catch (RuntimeException e) {
-            fail("Error triggering leadership transfer");
+            testFailure.set(new RuntimeException("Error triggering leadership transfer", e));
         }
     }
 
@@ -398,11 +401,18 @@ class LiveServerTest {
                 .isPresent();
     }
 
-    private void countUp() throws ExecutionException, InterruptedException {
+    private void countUp() throws Exception {
         MonotonicCounterClient counterClient = new MonotonicCounterClient(allServers);
         counterClient.register();
         for (int i = 0; i < COUNT_UP_TARGET; i++) {
-            counterClient.increment();
+            counterClient.increment(this::checkFailed);
+        }
+    }
+
+    private void checkFailed() {
+        final RuntimeException exception = testFailure.get();
+        if (exception != null) {
+            throw exception;
         }
     }
 
