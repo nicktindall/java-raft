@@ -2,7 +2,6 @@ package au.id.tindall.distalg.raft.serverstates;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
-import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
@@ -23,24 +22,22 @@ public class ServerStateFactory<ID extends Serializable> implements Closeable {
 
     private final Log log;
     private final Cluster<ID> cluster;
-    private final Configuration<ID> configuration;
     private final PendingResponseRegistryFactory pendingResponseRegistryFactory;
     private final ClientSessionStore clientSessionStore;
     private final CommandExecutor commandExecutor;
-    private final ElectionScheduler electionScheduler;
+    private final ElectionScheduler<ID> electionScheduler;
     private final PersistentState<ID> persistentState;
     private final LeadershipTransferFactory<ID> leadershipTransferFactory;
     private final ReplicationManagerFactory<ID> replicationManagerFactory;
     private final ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory;
 
-    public ServerStateFactory(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, Configuration<ID> configuration, PendingResponseRegistryFactory pendingResponseRegistryFactory,
-                              ClientSessionStore clientSessionStore, CommandExecutor commandExecutor, ElectionScheduler electionScheduler,
+    public ServerStateFactory(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
+                              ClientSessionStore clientSessionStore, CommandExecutor commandExecutor, ElectionScheduler<ID> electionScheduler,
                               LeadershipTransferFactory<ID> leadershipTransferFactory, ReplicationManagerFactory<ID> replicationManagerFactory,
                               ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory) {
         this.persistentState = persistentState;
         this.log = log;
         this.cluster = cluster;
-        this.configuration = configuration;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
         this.clientSessionStore = clientSessionStore;
         this.commandExecutor = commandExecutor;

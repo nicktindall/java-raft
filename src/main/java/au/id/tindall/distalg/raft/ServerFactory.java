@@ -96,7 +96,7 @@ public class ServerFactory<ID extends Serializable> {
         ReplicationManagerFactory<ID> replicationManagerFactory = new ReplicationManagerFactory<>(configuration, singleClientReplicatorFactory);
         ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory = new ClusterMembershipChangeManagerFactory<>(log,
                 persistentState, configuration);
-        final ServerStateFactory<ID> idServerStateFactory = new ServerStateFactory<>(persistentState, log, cluster, configuration, pendingResponseRegistryFactory,
+        final ServerStateFactory<ID> idServerStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
                 clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory);
         Server<ID> server = new Server<>(persistentState, idServerStateFactory, stateMachine);
         electionScheduler.setServer(server);

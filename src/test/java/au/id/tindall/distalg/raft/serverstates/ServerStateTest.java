@@ -84,7 +84,7 @@ class ServerStateTest {
             var serverState = new ServerStateImpl(persistentState, log, cluster, serverStateFactory, LEADER_ID);
             Result<Long> result = serverState.handle(rpcMessage);
 
-            assertThat(result).isEqualToComparingFieldByFieldRecursively(incomplete(follower));
+            assertThat(result).usingRecursiveComparison().isEqualTo(incomplete(follower));
         }
     }
 

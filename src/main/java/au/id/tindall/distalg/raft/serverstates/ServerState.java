@@ -118,13 +118,17 @@ public abstract class ServerState<ID extends Serializable> {
     protected Result<ID> handle(RequestVoteRequest<ID> requestVote) {
         if (messageIsStale(requestVote)) {
             // we reply using the sender's term in case we're a candidate, and they interpret the response as an election victory
+            LOGGER.debug("Rejecting stale vote request from {} (requestTerm={}, myTerm={})",
+                    requestVote.getCandidateId(), requestVote.getTerm(), persistentState.getCurrentTerm());
             cluster.sendRequestVoteResponse(requestVote.getTerm(), requestVote.getCandidateId(), false);
         } else {
-            boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote)
-                    && candidatesLogIsAtLeastUpToDateAsMine(requestVote);
+            final boolean haveNotVotedOrHaveAlreadyVotedForCandidate = haveNotVotedOrHaveAlreadyVotedForCandidate(requestVote);
+            boolean grantVote = haveNotVotedOrHaveAlreadyVotedForCandidate && candidatesLogIsAtLeastUpToDateAsMine(requestVote);
             if (grantVote) {
                 persistentState.setVotedFor(requestVote.getCandidateId());
             }
+            LOGGER.debug("Responding to vote request from {} (requestTerm={}, myTerm={}, haveNotVotedOrHaveAlreadyVotedForCandidate={}, granted={})",
+                    requestVote.getCandidateId(), requestVote.getTerm(), persistentState.getCurrentTerm(), haveNotVotedOrHaveAlreadyVotedForCandidate, grantVote);
             cluster.sendRequestVoteResponse(persistentState.getCurrentTerm(), requestVote.getCandidateId(), grantVote);
         }
         return complete(this);

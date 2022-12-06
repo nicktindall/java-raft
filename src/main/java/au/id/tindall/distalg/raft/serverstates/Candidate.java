@@ -25,9 +25,9 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     private static final Logger LOGGER = getLogger();
 
     private final Set<ID> receivedVotes;
-    private final ElectionScheduler electionScheduler;
+    private final ElectionScheduler<ID> electionScheduler;
 
-    public Candidate(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ElectionScheduler electionScheduler) {
+    public Candidate(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ElectionScheduler<ID> electionScheduler) {
         super(persistentState, log, cluster, serverStateFactory, null);
         this.electionScheduler = electionScheduler;
         receivedVotes = new HashSet<>();

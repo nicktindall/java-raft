@@ -3,7 +3,6 @@ package au.id.tindall.distalg.raft.serverstates;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
-import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
@@ -43,7 +42,7 @@ class ServerStateFactoryTest {
     @Mock
     private CommandExecutor commandExecutor;
     @Mock
-    private ElectionScheduler electionScheduler;
+    private ElectionScheduler<Long> electionScheduler;
     @Mock
     private PersistentState<Long> persistentState;
     @Mock
@@ -55,8 +54,6 @@ class ServerStateFactoryTest {
     @Mock
     private ReplicationManager<Long> replicationManager;
     @Mock
-    private Configuration<Long> configuration;
-    @Mock
     private ClusterMembershipChangeManagerFactory<Long> clusterMembershipChangeManagerFactory;
 
     @Mock
@@ -64,7 +61,7 @@ class ServerStateFactoryTest {
 
     @BeforeEach
     void setUp() {
-        serverStateFactory = new ServerStateFactory<>(persistentState, log, cluster, configuration, pendingResponseRegistryFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory,
+        serverStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory,
                 replicationManagerFactory, clusterMembershipChangeManagerFactory);
     }
 

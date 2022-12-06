@@ -117,7 +117,6 @@ class ServerFactoryTest {
                                 persistentState,
                                 log,
                                 cluster,
-                                configuration,
                                 pendingResponseRegistryFactory,
                                 clientSessionStore,
                                 commandExecutor,

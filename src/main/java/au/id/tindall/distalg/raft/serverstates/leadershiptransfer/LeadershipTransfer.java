@@ -62,6 +62,7 @@ public class LeadershipTransfer<ID extends Serializable> {
         selectNewTargetIfTimeoutHasBeenExceededAndThereAreOthersAvailable();
         if (transferTarget.isUpToDate()
                 && transferTarget.minimumIntervalBetweenTimeoutNowMessagesHasPassed()) {
+            LOGGER.debug("Telling {} to timeout now", transferTarget);
             cluster.sendTimeoutNowRequest(persistentState.getCurrentTerm(), transferTarget.id);
             transferTarget.lastTimeoutMessageSent = currentInstant();
         }
@@ -69,6 +70,7 @@ public class LeadershipTransfer<ID extends Serializable> {
 
     private void selectNewTargetIfTimeoutHasBeenExceededAndThereAreOthersAvailable() {
         if (transferTarget.hasTimedOut()) {
+            LOGGER.debug("Leadership transfer to {} has timed out, selecting new target", transferTarget);
             if (cluster.getOtherMemberIds().size() > 1) {
                 selectLeadershipTransferTarget(singleton(transferTarget.id));
             }
@@ -89,6 +91,7 @@ public class LeadershipTransfer<ID extends Serializable> {
                 .min((replicator1, replicator2) -> replicationManager.getMatchIndex(replicator2) - replicationManager.getMatchIndex(replicator1))
                 .orElseThrow(() -> new IllegalStateException("No followers to transfer to!"));
         transferTarget = new TransferTarget(targetId);
+        LOGGER.debug("Selected {} as new leadership transfer target", transferTarget);
     }
 
     private Instant currentInstant() {
@@ -115,6 +118,15 @@ public class LeadershipTransfer<ID extends Serializable> {
 
         public boolean isUpToDate() {
             return replicationManager.getMatchIndex(id) == persistentState.getLogStorage().getLastLogIndex();
+        }
+
+        @Override
+        public String toString() {
+            return "TransferTarget{" +
+                    "id=" + id +
+                    ", selectedAt=" + selectedAt +
+                    ", lastTimeoutMessageSent=" + lastTimeoutMessageSent +
+                    '}';
         }
     }
 }
