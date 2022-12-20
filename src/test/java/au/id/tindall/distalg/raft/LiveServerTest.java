@@ -2,8 +2,9 @@ package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
-import au.id.tindall.distalg.raft.comms.LiveDelayedSendingStrategy;
+import au.id.tindall.distalg.raft.comms.DelayedMultipathSendingStrategy;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
+import au.id.tindall.distalg.raft.driver.SingleThreadedServerDriver;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.LogFactory;
@@ -59,10 +60,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import static au.id.tindall.distalg.raft.ThreadUtils.pause;
 import static au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse.Status.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static au.id.tindall.distalg.raft.threading.NamedThreadFactory.forThreadGroup;
+import static au.id.tindall.distalg.raft.util.ThreadUtil.pause;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -75,8 +76,8 @@ class LiveServerTest {
 
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private static final int MINIMUM_MESSAGE_DELAY = 1;
-    private static final int MAXIMUM_MESSAGE_DELAY = 5;
+    private static final int MINIMUM_MESSAGE_DELAY_MICROS = 350;
+    private static final int MAXIMUM_MESSAGE_DELAY_MICROS = 1500;
 
     private static final int MAX_CLIENT_SESSIONS = 10;
     private static final int DELAY_BETWEEN_HEARTBEATS_MILLISECONDS = 200;
@@ -87,11 +88,12 @@ class LiveServerTest {
 
     private static final int MAX_BATCH_SIZE = 20;
     private static final Set<Long> ALL_SERVER_IDS = Set.of(1L, 2L, 3L);
+    private static final float PACKET_DROP_PROBABILITY = 0.001f;    // 0.1% which is quite high
 
     private TestClusterFactory clusterFactory;
     private Map<Long, Server<Long>> allServers;
     private ServerFactory<Long> serverFactory;
-    private LiveDelayedSendingStrategy liveDelayedSendingStrategy;
+    private DelayedMultipathSendingStrategy delayedMultipathSendingStrategy;
     private ScheduledExecutorService testExecutorService;
     private AtomicReference<RuntimeException> testFailure;
     @TempDir
@@ -131,8 +133,8 @@ class LiveServerTest {
 
     private void setUpFactories() {
         allServers = new ConcurrentHashMap<>();
-        liveDelayedSendingStrategy = new LiveDelayedSendingStrategy(MINIMUM_MESSAGE_DELAY, MAXIMUM_MESSAGE_DELAY);
-        clusterFactory = new TestClusterFactory(liveDelayedSendingStrategy, allServers);
+        delayedMultipathSendingStrategy = new DelayedMultipathSendingStrategy(PACKET_DROP_PROBABILITY, MINIMUM_MESSAGE_DELAY_MICROS, MAXIMUM_MESSAGE_DELAY_MICROS);
+        clusterFactory = new TestClusterFactory(delayedMultipathSendingStrategy, allServers);
         serverFactory = new ServerFactory<>(
                 clusterFactory,
                 new LogFactory(),
@@ -163,7 +165,7 @@ class LiveServerTest {
     @AfterEach
     void tearDown() {
         stopServers();
-        liveDelayedSendingStrategy.stop();
+        delayedMultipathSendingStrategy.clear();
         clusterFactory.logStats();
         testExecutorService.shutdown();
         try {
@@ -186,7 +188,7 @@ class LiveServerTest {
         Server<Long> oldLeader = getLeaderWithRetries();
         oldLeader.stop();
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
-        oldLeader.start();
+        oldLeader.start(new SingleThreadedServerDriver());
     }
 
     @Test
@@ -297,7 +299,7 @@ class LiveServerTest {
                 final Optional<Server<Long>> leader = getLeader();
                 if (leader.isPresent()) {
                     LOGGER.info("Adding server {}, (new set={})", newServerId, newServersView);
-                    server.start();
+                    server.start(new SingleThreadedServerDriver());
                     final AddServerResponse response = (AddServerResponse) leader.get().handle(new AddServerRequest<>(newServerId)).get();
                     switch (response.getStatus()) {
                         case TIMEOUT:
@@ -376,7 +378,7 @@ class LiveServerTest {
             // Start a new node pointing to the same persistent state files
             Server<Long> newCurrentLeader = createServerAndState(killedServerId, ALL_SERVER_IDS);
             allServers.put(killedServerId, newCurrentLeader);
-            newCurrentLeader.start();
+            newCurrentLeader.start(new SingleThreadedServerDriver());
             LOGGER.info("Server " + killedServerId + " restarted");
         } catch (Exception e) {
             testFailure.set(new RuntimeException("Killing leader failed!", e));
@@ -406,6 +408,7 @@ class LiveServerTest {
         counterClient.register();
         for (int i = 0; i < COUNT_UP_TARGET; i++) {
             counterClient.increment(this::checkFailed);
+            delayedMultipathSendingStrategy.expire();
         }
     }
 
@@ -440,7 +443,7 @@ class LiveServerTest {
     }
 
     private void startServers() {
-        allServers.values().forEach(Server::start);
+        allServers.values().forEach(s -> s.start(new SingleThreadedServerDriver()));
     }
 
     private void stopServers() {

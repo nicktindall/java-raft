@@ -19,8 +19,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
-import static au.id.tindall.distalg.raft.ThreadUtils.pause;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
+import static au.id.tindall.distalg.raft.util.ThreadUtil.pause;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 /**

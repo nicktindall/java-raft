@@ -98,7 +98,7 @@ public class ServerFactory<ID extends Serializable> {
                 persistentState, configuration);
         final ServerStateFactory<ID> idServerStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
                 clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory);
-        Server<ID> server = new Server<>(persistentState, idServerStateFactory, stateMachine);
+        Server<ID> server = new Server<>(persistentState, idServerStateFactory, stateMachine, cluster);
         electionScheduler.setServer(server);
         server.initialize();
         return server;

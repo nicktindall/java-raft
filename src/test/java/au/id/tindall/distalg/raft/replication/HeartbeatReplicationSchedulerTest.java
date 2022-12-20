@@ -10,7 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.concurrent.Executors;
 
-import static au.id.tindall.distalg.raft.ThreadUtils.pause;
+import static au.id.tindall.distalg.raft.util.ThreadUtil.pause;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.atLeast;

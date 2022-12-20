@@ -130,7 +130,8 @@ class ServerFactoryTest {
                                 ),
                                 new ClusterMembershipChangeManagerFactory<>(log, persistentState, configuration)
                         ),
-                        stateMachine)
+                        stateMachine,
+                        cluster)
         );
     }
 

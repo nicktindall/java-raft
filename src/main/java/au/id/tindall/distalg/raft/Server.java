@@ -1,6 +1,9 @@
 package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
+import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.driver.NoOpServerDriver;
+import au.id.tindall.distalg.raft.driver.ServerDriver;
 import au.id.tindall.distalg.raft.exceptions.AlreadyRunningException;
 import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Log;
@@ -30,25 +33,44 @@ public class Server<ID extends Serializable> implements Closeable {
     private final PersistentState<ID> persistentState;
     private final ServerStateFactory<ID> serverStateFactory;
     private final StateMachine stateMachine;
+    private final Cluster<ID> cluster;
     private ServerState<ID> state;
+    private ServerDriver serverDriver;
 
-    public Server(PersistentState<ID> persistentState, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine) {
+    public Server(PersistentState<ID> persistentState, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine, Cluster<ID> cluster) {
         this.persistentState = persistentState;
         this.serverStateFactory = serverStateFactory;
         this.stateMachine = stateMachine;
+        this.cluster = cluster;
+    }
+
+    public synchronized boolean poll() {
+        final Optional<RpcMessage<ID>> poll = cluster.poll();
+        poll.ifPresent(this::handle);
+        return poll.isPresent();
     }
 
     public synchronized void start() {
+        start(NoOpServerDriver.INSTANCE);
+    }
+
+    public synchronized void start(ServerDriver serverDriver) {
         if (state != null) {
             throw new AlreadyRunningException("Can't start, server is already started!");
         }
+        if (this.serverDriver != null) {
+            closeQuietly(this.serverDriver);
+        }
+        this.serverDriver = serverDriver;
         updateState(serverStateFactory.createInitialState());
+        serverDriver.start(this);
     }
 
     public synchronized void stop() {
         if (state == null) {
             throw new NotRunningException("Can't stop, server is not started");
         }
+        serverDriver.stop();
         updateState(null);
     }
 
@@ -129,6 +151,6 @@ public class Server<ID extends Serializable> implements Closeable {
                 stop();
             }
         }
-        closeQuietly(serverStateFactory);
+        closeQuietly(serverStateFactory, serverDriver);
     }
 }

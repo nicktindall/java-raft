@@ -1,7 +1,6 @@
 package au.id.tindall.distalg.raft.comms;
 
 import au.id.tindall.distalg.raft.Server;
-import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
@@ -15,7 +14,6 @@ import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
 import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
-import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
 
 import java.util.List;
@@ -37,7 +35,6 @@ public class TestClusterFactory implements ClusterFactory<Long> {
     public TestClusterFactory(SendingStrategy sendingStrategy, Map<Long, Server<Long>> servers) {
         this.sendingStrategy = sendingStrategy;
         this.servers = servers;
-        this.sendingStrategy.setDispatchFunction(this::dispatch);
         this.messageStats = new MessageStats();
     }
 
@@ -67,37 +64,42 @@ public class TestClusterFactory implements ClusterFactory<Long> {
 
             @Override
             public void sendAppendEntriesRequest(Term currentTerm, Long destinationId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entriesToReplicate, int commitIndex) {
-                sendingStrategy.send(new AppendEntriesRequest<>(currentTerm, localId, destinationId, prevLogIndex, prevLogTerm, entriesToReplicate, commitIndex));
+                dispatch(new AppendEntriesRequest<>(currentTerm, localId, destinationId, prevLogIndex, prevLogTerm, entriesToReplicate, commitIndex));
             }
 
             @Override
             public void sendAppendEntriesResponse(Term currentTerm, Long destinationId, boolean success, Optional<Integer> appendedIndex) {
-                sendingStrategy.send(new AppendEntriesResponse<>(currentTerm, localId, destinationId, success, appendedIndex));
+                dispatch(new AppendEntriesResponse<>(currentTerm, localId, destinationId, success, appendedIndex));
             }
 
             @Override
             public void sendRequestVoteRequest(Term currentTerm, int lastLogIndex, Optional<Term> lastLogTerm) {
-                sendingStrategy.send(new RequestVoteRequest<>(currentTerm, localId, lastLogIndex, lastLogTerm));
+                dispatch(new RequestVoteRequest<>(currentTerm, localId, lastLogIndex, lastLogTerm));
             }
 
             @Override
             public void sendRequestVoteResponse(Term currentTerm, Long destinationId, boolean granted) {
-                sendingStrategy.send(new RequestVoteResponse<>(currentTerm, localId, destinationId, granted));
+                dispatch(new RequestVoteResponse<>(currentTerm, localId, destinationId, granted));
             }
 
             @Override
             public void sendTimeoutNowRequest(Term currentTerm, Long destinationId) {
-                sendingStrategy.send(new TimeoutNowMessage<>(currentTerm, localId, destinationId));
+                dispatch(new TimeoutNowMessage<>(currentTerm, localId, destinationId));
             }
 
             @Override
             public void sendInstallSnapshotResponse(Term currentTerm, Long destinationId, boolean success, int lastIndex, int endOffset) {
-                sendingStrategy.send(new InstallSnapshotResponse<>(currentTerm, localId, destinationId, success, lastIndex, endOffset));
+                dispatch(new InstallSnapshotResponse<>(currentTerm, localId, destinationId, success, lastIndex, endOffset));
             }
 
             @Override
             public void sendInstallSnapshotRequest(Term currentTerm, Long destinationId, int lastIndex, Term lastTerm, ConfigurationEntry lastConfiguration, int snapshotOffset, int offset, byte[] data, boolean done) {
-                sendingStrategy.send(new InstallSnapshotRequest<>(currentTerm, localId, destinationId, lastIndex, lastTerm, lastConfiguration, snapshotOffset, offset, data, done));
+                dispatch(new InstallSnapshotRequest<>(currentTerm, localId, destinationId, lastIndex, lastTerm, lastConfiguration, snapshotOffset, offset, data, done));
+            }
+
+            @Override
+            public Optional<RpcMessage<Long>> poll() {
+                return Optional.ofNullable(sendingStrategy.poll(localId));
             }
         };
     }
@@ -110,38 +112,16 @@ public class TestClusterFactory implements ClusterFactory<Long> {
         if (message instanceof BroadcastMessage) {
             LOGGER.trace("Broadcasting {} from Server {}", message.getClass().getSimpleName(), message.getSource());
             servers.values().forEach(server -> {
-                deliverMessageIfServerIsRunning(message, server);
+                sendingStrategy.send(server.getId(), message);
                 messageStats.recordMessageSent(message);
             });
         } else if (message instanceof UnicastMessage) {
             final Long destinationId = ((UnicastMessage<Long>) message).getDestination();
             LOGGER.trace("Sending {} from Server {} to Server {}", message.getClass().getSimpleName(), message.getSource(), destinationId);
-            final Server<Long> server = servers.get(destinationId);
-            if (server == null) {
-                LOGGER.debug("Dropped {} message to dead server {}", message.getClass().getSimpleName(), destinationId);
-                return;
-            }
-            deliverMessageIfServerIsRunning(message, server);
+            sendingStrategy.send(destinationId, message);
             messageStats.recordMessageSent(message);
         } else {
             throw new IllegalStateException("Unknown message type: " + message.getClass().getName());
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private void deliverMessageIfServerIsRunning(RpcMessage<Long> message, Server<Long> server) {
-        try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
-            try {
-                if (server.getState().isPresent()) {
-                    try {
-                        server.handle(message);
-                    } catch (NotRunningException ex) {
-                        // Ignore, this can happen sometimes
-                    }
-                }
-            } catch (RuntimeException e) {
-                LOGGER.error("Message sending threw (message={})", message, e);
-            }
         }
     }
 }

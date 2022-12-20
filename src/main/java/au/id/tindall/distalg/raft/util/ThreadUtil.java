@@ -1,9 +1,10 @@
-package au.id.tindall.distalg.raft;
+package au.id.tindall.distalg.raft.util;
 
-public class ThreadUtils {
+public enum ThreadUtil {
+    ;
 
     /**
-     * Pause with a runtime exception on interrupt
+     * Pause, restoring interrupt if interrupted
      *
      * @param milliseconds
      */
@@ -12,7 +13,6 @@ public class ThreadUtils {
             Thread.sleep(milliseconds);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted pausing", e);
         }
     }
 }

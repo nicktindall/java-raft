@@ -99,7 +99,7 @@ class ServerInteractionTest {
     @Test
     void singleElectionTimeout_WillResultInUnanimousLeaderElection() {
         server1.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(LEADER);
         assertThat(server2.getState()).contains(FOLLOWER);
         assertThat(server3.getState()).contains(FOLLOWER);
@@ -110,9 +110,9 @@ class ServerInteractionTest {
         server1.electionTimeout();
         server2.electionTimeout();
         server3.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         server2.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(FOLLOWER);
         assertThat(server2.getState()).contains(LEADER);
         assertThat(server3.getState()).contains(FOLLOWER);
@@ -123,7 +123,7 @@ class ServerInteractionTest {
         server1.electionTimeout();
         server2.electionTimeout();
         server3.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(CANDIDATE);
         assertThat(server2.getState()).contains(CANDIDATE);
         assertThat(server3.getState()).contains(CANDIDATE);
@@ -133,7 +133,7 @@ class ServerInteractionTest {
     void concurrentElectionTimeout_WillElectALeader_WhenAQuorumIsReached() {
         server1.electionTimeout();
         server3.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(LEADER);
         assertThat(server2.getState()).contains(FOLLOWER);
         assertThat(server3.getState()).contains(FOLLOWER);
@@ -142,18 +142,18 @@ class ServerInteractionTest {
     @Test
     void clientRegistrationRequest_WillReplicateClientRegistrationToAllServers() throws ExecutionException, InterruptedException {
         server1.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>(server1.getId()));
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(handle.get()).usingRecursiveComparison().isEqualTo(new RegisterClientResponse<>(OK, 1, null));
     }
 
     @Test
     public void commitIndicesWillAdvanceAsLogEntriesAreDistributed() {
         server1.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         server1.handle(new RegisterClientRequest<>(server1.getId()));
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getLog().getCommitIndex()).isEqualTo(1);
         assertThat(server2.getLog().getCommitIndex()).isEqualTo(1);
         assertThat(server3.getLog().getCommitIndex()).isEqualTo(1);
@@ -162,9 +162,9 @@ class ServerInteractionTest {
     @Test
     void clientSessionsAreCreatedAsRegistrationsAreDistributed() {
         server1.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         server1.handle(new RegisterClientRequest<>(server1.getId()));
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getClientSessionStore().hasSession(1)).isTrue();
         assertThat(server2.getClientSessionStore().hasSession(1)).isTrue();
         assertThat(server3.getClientSessionStore().hasSession(1)).isTrue();
@@ -173,11 +173,11 @@ class ServerInteractionTest {
     @Test
     void clientRequestRequest_WillCauseStateMachinesToBeUpdated() throws ExecutionException, InterruptedException {
         server1.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         server1.handle(new RegisterClientRequest<>(server1.getId()));
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         CompletableFuture<? extends ClientResponseMessage> requestResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(requestResponse.get()).usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
         assertThat(((TestStateMachine) server1.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
         assertThat(((TestStateMachine) server2.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
@@ -187,7 +187,7 @@ class ServerInteractionTest {
     @Test
     void followers_WillReturnCorrectLeaderHintAfterElection() throws ExecutionException, InterruptedException {
         server1.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         CompletableFuture<? extends ClientResponseMessage> response = server3.handle(new RegisterClientRequest<>(server3.getId()));
         assertThat(response.get()).usingRecursiveComparison().isEqualTo(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, server1.getId()));
     }
@@ -195,12 +195,12 @@ class ServerInteractionTest {
     @Test
     void duplicateCommands_WillOnlyExecuteOnce() throws ExecutionException, InterruptedException {
         server1.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         server1.handle(new RegisterClientRequest<>(server1.getId()));
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         CompletableFuture<? extends ClientResponseMessage> firstResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
         CompletableFuture<? extends ClientResponseMessage> secondResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(firstResponse.get()).usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
         assertThat(secondResponse.get()).usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
         assertThat(((TestStateMachine) server1.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
@@ -211,12 +211,12 @@ class ServerInteractionTest {
     @Test
     void transferLeadership_WillTransferLeadershipToAnotherServer() {
         server1.electionTimeout();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(LEADER);
         assertThat(server2.getState()).contains(FOLLOWER);
         assertThat(server3.getState()).contains(FOLLOWER);
         server1.transferLeadership();
-        queuedSendingStrategy.fullyFlush();
+        queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(FOLLOWER);
     }
 }

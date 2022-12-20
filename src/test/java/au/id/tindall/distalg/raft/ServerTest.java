@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft;
 
+import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
@@ -48,12 +49,14 @@ class ServerTest {
     private Follower<Long> serverState;
     @Mock
     private PersistentState<Long> persistentState;
+    @Mock
+    private Cluster<Long> cluster;
 
     private Server<Long> server;
 
     @BeforeEach
     void setUp() {
-        server = new Server<>(persistentState, serverStateFactory, stateMachine);
+        server = new Server<>(persistentState, serverStateFactory, stateMachine, cluster);
     }
 
     @Nested

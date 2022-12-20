@@ -28,7 +28,7 @@ public class MonotonicCounter implements StateMachine {
     private static final int VALUE_OFFSET_OFFSET = 0;
     private static final int MIN_SNAPSHOT_SIZE_BYTES = 600_000;
     private static final int MAX_SNAPSHOT_SIZE_BYTES = 1_000_000;
-    private static final BigInteger LOG_EVERY_N_VALUES = BigInteger.valueOf(100L);
+    private static final BigInteger LOG_EVERY_N_VALUES = BigInteger.valueOf(2_000L);
     private int lastIndexApplied = 0;
 
     private BigInteger counter = BigInteger.ZERO;
