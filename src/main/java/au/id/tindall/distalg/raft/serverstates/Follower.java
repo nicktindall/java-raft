@@ -4,6 +4,7 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.EntryStatus;
 import au.id.tindall.distalg.raft.log.Log;
+import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
 import au.id.tindall.distalg.raft.state.PersistentState;
@@ -23,10 +24,12 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     private static final Logger LOGGER = getLogger();
 
-    private final ElectionScheduler electionScheduler;
+    private final ElectionScheduler<ID> electionScheduler;
     private Snapshot receivingSnapshot;
+    private Term lastReceivedSnapshotLastTerm;
+    private long lastReceivedSnapshotLastIndex;
 
-    public Follower(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader, ElectionScheduler electionScheduler) {
+    public Follower(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader, ElectionScheduler<ID> electionScheduler) {
         super(persistentState, log, cluster, serverStateFactory, currentLeader);
         this.electionScheduler = electionScheduler;
     }
@@ -144,8 +147,15 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
             }
         } else {
             if (receivingSnapshot == null) {
-                LOGGER.debug("Got an InstallSnapshotRequest late, there is no current snapshot, ignoring (offset={}, lastIndex={})",
-                        installSnapshotRequest.getOffset(), installSnapshotRequest.getLastIndex());
+                if (installSnapshotRequest.getLastIndex() == lastReceivedSnapshotLastIndex
+                        && installSnapshotRequest.getLastTerm().equals(lastReceivedSnapshotLastTerm)) {
+                    LOGGER.debug("Got an InstallSnapshotRequest late, acknowledging it");
+                    cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), true, installSnapshotRequest.getLastIndex(),
+                            installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length);
+                } else {
+                    LOGGER.warn("Got InstallSnapshotRequest for an unknown snapshot. Ignoring (offset={}, lastIndex={})",
+                            installSnapshotRequest.getOffset(), installSnapshotRequest.getLastIndex());
+                }
                 return complete(this);
             }
         }
@@ -173,6 +183,8 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
             receivingSnapshot.delete();
             receivingSnapshot = null;
         }
+        lastReceivedSnapshotLastIndex = installSnapshotRequest.getLastIndex();
+        lastReceivedSnapshotLastTerm = installSnapshotRequest.getLastTerm();
         cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), true,
                 installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + bytesWritten - 1);
     }
