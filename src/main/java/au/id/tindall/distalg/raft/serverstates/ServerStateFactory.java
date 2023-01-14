@@ -25,14 +25,14 @@ public class ServerStateFactory<ID extends Serializable> implements Closeable {
     private final PendingResponseRegistryFactory pendingResponseRegistryFactory;
     private final ClientSessionStore clientSessionStore;
     private final CommandExecutor commandExecutor;
-    private final ElectionScheduler<ID> electionScheduler;
+    private final ElectionScheduler electionScheduler;
     private final PersistentState<ID> persistentState;
     private final LeadershipTransferFactory<ID> leadershipTransferFactory;
     private final ReplicationManagerFactory<ID> replicationManagerFactory;
     private final ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory;
 
     public ServerStateFactory(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
-                              ClientSessionStore clientSessionStore, CommandExecutor commandExecutor, ElectionScheduler<ID> electionScheduler,
+                              ClientSessionStore clientSessionStore, CommandExecutor commandExecutor, ElectionScheduler electionScheduler,
                               LeadershipTransferFactory<ID> leadershipTransferFactory, ReplicationManagerFactory<ID> replicationManagerFactory,
                               ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory) {
         this.persistentState = persistentState;

@@ -24,12 +24,12 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     private static final Logger LOGGER = getLogger();
 
-    private final ElectionScheduler<ID> electionScheduler;
+    private final ElectionScheduler electionScheduler;
     private Snapshot receivingSnapshot;
     private Term lastReceivedSnapshotLastTerm;
     private long lastReceivedSnapshotLastIndex;
 
-    public Follower(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader, ElectionScheduler<ID> electionScheduler) {
+    public Follower(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader, ElectionScheduler electionScheduler) {
         super(persistentState, log, cluster, serverStateFactory, currentLeader);
         this.electionScheduler = electionScheduler;
     }

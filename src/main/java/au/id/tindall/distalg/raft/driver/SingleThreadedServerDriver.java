@@ -45,7 +45,9 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
         Thread.currentThread().setName("server-" + server.getId() + "-driver");
         try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
             while (running.get() && !Thread.currentThread().isInterrupted()) {
-                if (!server.poll()) {
+                boolean receivedAMessage = server.poll();
+                boolean timedOut = server.timeoutNowIfDue();
+                if (!(receivedAMessage || timedOut)) {
                     long startTime = System.currentTimeMillis();
                     pauseMicros(300);
                     final long pauseTime = System.currentTimeMillis() - startTime;

@@ -14,7 +14,7 @@ public class ElectionSchedulerFactory<ID extends Serializable> {
         this.maximumElectionTimeoutMilliseconds = maximumElectionTimeoutMilliseconds;
     }
 
-    public ElectionScheduler<ID> createElectionScheduler(ID serverId) {
-        return new ElectionScheduler<>(serverId, new ElectionTimeoutGenerator(new Random(), minimumElectionTimeoutMilliseconds, maximumElectionTimeoutMilliseconds), Instant::now);
+    public ElectionScheduler createElectionScheduler() {
+        return new ElectionScheduler(new ElectionTimeoutGenerator(new Random(), minimumElectionTimeoutMilliseconds, maximumElectionTimeoutMilliseconds), Instant::now);
     }
 }

@@ -80,7 +80,7 @@ public class ServerFactory<ID extends Serializable> {
         Snapshotter snapshotter = snapshotterFactory.create(log, clientSessionStore, stateMachine, persistentState, snapshotHeuristic);
         CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter);
         commandExecutor.startListeningForCommittedCommands(log);
-        ElectionScheduler<ID> electionScheduler = electionSchedulerFactory.createElectionScheduler(persistentState.getId());
+        ElectionScheduler electionScheduler = electionSchedulerFactory.createElectionScheduler();
         Cluster<ID> cluster = clusterFactory.createForNode(persistentState.getId());
         LeadershipTransferFactory<ID> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState);
         LogReplicatorFactory<ID> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize);
@@ -98,8 +98,7 @@ public class ServerFactory<ID extends Serializable> {
                 persistentState, configuration);
         final ServerStateFactory<ID> idServerStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
                 clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory);
-        Server<ID> server = new Server<>(persistentState, idServerStateFactory, stateMachine, cluster);
-        electionScheduler.setServer(server);
+        Server<ID> server = new Server<>(persistentState, idServerStateFactory, stateMachine, cluster, electionScheduler);
         server.initialize();
         return server;
     }

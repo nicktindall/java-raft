@@ -4,6 +4,7 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.driver.NoOpServerDriver;
 import au.id.tindall.distalg.raft.driver.ServerDriver;
+import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.exceptions.AlreadyRunningException;
 import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Log;
@@ -20,6 +21,7 @@ import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
+import org.apache.logging.log4j.Logger;
 
 import java.io.Closeable;
 import java.io.Serializable;
@@ -27,27 +29,41 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
+import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Server<ID extends Serializable> implements Closeable {
+
+    private static final Logger LOGGER = getLogger();
 
     private final PersistentState<ID> persistentState;
     private final ServerStateFactory<ID> serverStateFactory;
     private final StateMachine stateMachine;
     private final Cluster<ID> cluster;
+    private final ElectionScheduler electionScheduler;
     private ServerState<ID> state;
     private ServerDriver serverDriver;
 
-    public Server(PersistentState<ID> persistentState, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine, Cluster<ID> cluster) {
+    public Server(PersistentState<ID> persistentState, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine, Cluster<ID> cluster, ElectionScheduler electionScheduler) {
         this.persistentState = persistentState;
         this.serverStateFactory = serverStateFactory;
         this.stateMachine = stateMachine;
         this.cluster = cluster;
+        this.electionScheduler = electionScheduler;
     }
 
     public synchronized boolean poll() {
         final Optional<RpcMessage<ID>> poll = cluster.poll();
         poll.ifPresent(this::handle);
         return poll.isPresent();
+    }
+
+    public synchronized boolean timeoutNowIfDue() {
+        if (electionScheduler.shouldTimeout()) {
+            LOGGER.debug("Election timeout occurred: server {}", persistentState.getId());
+            electionTimeout();
+            return true;
+        }
+        return false;
     }
 
     public synchronized void start() {
@@ -115,7 +131,7 @@ public class Server<ID extends Serializable> implements Closeable {
         }
     }
 
-    public synchronized void electionTimeout() {
+    private void electionTimeout() {
         handle(new TimeoutNowMessage<>(persistentState.getCurrentTerm(), persistentState.getId(), persistentState.getId()));
     }
 

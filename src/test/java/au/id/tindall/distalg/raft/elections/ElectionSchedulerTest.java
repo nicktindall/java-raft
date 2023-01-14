@@ -1,6 +1,5 @@
 package au.id.tindall.distalg.raft.elections;
 
-import au.id.tindall.distalg.raft.Server;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -10,41 +9,27 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.IntStream;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMillis;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ElectionSchedulerTest {
 
     private static final long TIMEOUT_MILLIS = 100L;
-    private static final long SERVER_ID = 567L;
-    @Mock
-    private Server<Long> server;
+    private static final Instant CURRENT_TIME = Instant.now();
     @Mock
     private ElectionTimeoutGenerator electionTimeoutGenerator;
-    private AtomicBoolean timeoutOccurred;
 
-    private ElectionScheduler<Long> electionScheduler;
+    private final AtomicReference<Instant> currentTime = new AtomicReference<>(CURRENT_TIME);
+    private ElectionScheduler electionScheduler;
 
     @BeforeEach
     void setUp() {
-        timeoutOccurred = new AtomicBoolean(false);
-        lenient().when(server.getId()).thenReturn(SERVER_ID);
-        lenient().doAnswer(iom -> {
-            timeoutOccurred.set(true);
-            return null;
-        }).when(server).electionTimeout();
+        electionScheduler = new ElectionScheduler(electionTimeoutGenerator, currentTime::get);
         lenient().when(electionTimeoutGenerator.next()).thenReturn(TIMEOUT_MILLIS);
-        electionScheduler = new ElectionScheduler<>(SERVER_ID, electionTimeoutGenerator, Instant::now);
-        electionScheduler.setServer(server);
     }
 
     @Nested
@@ -62,7 +47,10 @@ class ElectionSchedulerTest {
 
         @Test
         void willScheduleAnElectionTimeout() {
-            await().atMost(TIMEOUT_MILLIS * 5, MILLISECONDS).until(() -> timeoutOccurred.get());
+            currentTime.set(currentTime.get().plusMillis(TIMEOUT_MILLIS - 1));
+            assertThat(electionScheduler.shouldTimeout()).isFalse();
+            currentTime.set(currentTime.get().plusMillis(2));
+            assertThat(electionScheduler.shouldTimeout()).isTrue();
         }
 
         @Test
@@ -77,13 +65,10 @@ class ElectionSchedulerTest {
         @Test
         void willPreventTimeoutOccurring() {
             electionScheduler.startTimeouts();
-            long endTime = System.currentTimeMillis() + 500;
-            while (System.currentTimeMillis() < endTime) {
-                electionScheduler.resetTimeout();
-                pauseMillis(TIMEOUT_MILLIS - 20);
-            }
-            assertThat(timeoutOccurred.get()).isFalse();
-            await().atMost(TIMEOUT_MILLIS * 2, MILLISECONDS).until(() -> timeoutOccurred.get());
+            currentTime.set(currentTime.get().plusMillis(TIMEOUT_MILLIS));
+            assertThat(electionScheduler.shouldTimeout()).isTrue();
+            electionScheduler.resetTimeout();
+            assertThat(electionScheduler.shouldTimeout()).isFalse();
         }
 
         @Test
@@ -97,16 +82,11 @@ class ElectionSchedulerTest {
 
         @Test
         void willCancelOutstandingTimeout() {
-            IntStream.range(0, 50).forEach((i) -> {
-                electionScheduler.startTimeouts();
-                pauseMillis(ThreadLocalRandom.current().nextInt((int) TIMEOUT_MILLIS / 2, (int) TIMEOUT_MILLIS * 2));
-                synchronized (server) {
-                    timeoutOccurred.set(false);
-                    electionScheduler.stopTimeouts();
-                }
-                pauseMillis(TIMEOUT_MILLIS);
-                assertThat(timeoutOccurred.get()).isFalse();
-            });
+            electionScheduler.startTimeouts();
+            currentTime.set(currentTime.get().plusMillis(TIMEOUT_MILLIS));
+            assertThat(electionScheduler.shouldTimeout()).isTrue();
+            electionScheduler.stopTimeouts();
+            assertThat(electionScheduler.shouldTimeout()).isFalse();
         }
 
         @Test

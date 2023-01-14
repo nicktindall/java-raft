@@ -37,7 +37,6 @@ import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,7 +55,7 @@ class ServerInteractionTest {
     private QueuedSendingStrategy queuedSendingStrategy;
     private ServerFactory<Long> serverFactory;
     @Mock
-    private ElectionScheduler<Long> electionScheduler;
+    private ElectionScheduler electionScheduler;
     @Mock
     private ElectionSchedulerFactory<Long> electionSchedulerFactory;
 
@@ -71,7 +70,8 @@ class ServerInteractionTest {
     private void setUpFactories() {
         allServers = new HashMap<>();
         queuedSendingStrategy = new QueuedSendingStrategy();
-        when(electionSchedulerFactory.createElectionScheduler(anyLong())).thenReturn(electionScheduler);
+        when(electionScheduler.shouldTimeout()).thenReturn(true);
+        when(electionSchedulerFactory.createElectionScheduler()).thenReturn(electionScheduler);
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
         serverFactory = new ServerFactory<>(
                 new TestClusterFactory(queuedSendingStrategy, allServers),
@@ -98,7 +98,7 @@ class ServerInteractionTest {
 
     @Test
     void singleElectionTimeout_WillResultInUnanimousLeaderElection() {
-        server1.electionTimeout();
+        server1.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(LEADER);
         assertThat(server2.getState()).contains(FOLLOWER);
@@ -107,11 +107,11 @@ class ServerInteractionTest {
 
     @Test
     void singleElectionTimeout_WillResultInLeaderElection_AfterSplitElection() {
-        server1.electionTimeout();
-        server2.electionTimeout();
-        server3.electionTimeout();
+        server1.timeoutNowIfDue();
+        server2.timeoutNowIfDue();
+        server3.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
-        server2.electionTimeout();
+        server2.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(FOLLOWER);
         assertThat(server2.getState()).contains(LEADER);
@@ -120,9 +120,9 @@ class ServerInteractionTest {
 
     @Test
     void concurrentElectionTimeout_WillResultInNoLeaderElection_WhenNoQuorumIsReached() {
-        server1.electionTimeout();
-        server2.electionTimeout();
-        server3.electionTimeout();
+        server1.timeoutNowIfDue();
+        server2.timeoutNowIfDue();
+        server3.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(CANDIDATE);
         assertThat(server2.getState()).contains(CANDIDATE);
@@ -131,8 +131,8 @@ class ServerInteractionTest {
 
     @Test
     void concurrentElectionTimeout_WillElectALeader_WhenAQuorumIsReached() {
-        server1.electionTimeout();
-        server3.electionTimeout();
+        server1.timeoutNowIfDue();
+        server3.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(LEADER);
         assertThat(server2.getState()).contains(FOLLOWER);
@@ -141,7 +141,7 @@ class ServerInteractionTest {
 
     @Test
     void clientRegistrationRequest_WillReplicateClientRegistrationToAllServers() throws ExecutionException, InterruptedException {
-        server1.electionTimeout();
+        server1.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>(server1.getId()));
         queuedSendingStrategy.fullyFlush(allServers);
@@ -150,7 +150,7 @@ class ServerInteractionTest {
 
     @Test
     public void commitIndicesWillAdvanceAsLogEntriesAreDistributed() {
-        server1.electionTimeout();
+        server1.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         server1.handle(new RegisterClientRequest<>(server1.getId()));
         queuedSendingStrategy.fullyFlush(allServers);
@@ -161,7 +161,7 @@ class ServerInteractionTest {
 
     @Test
     void clientSessionsAreCreatedAsRegistrationsAreDistributed() {
-        server1.electionTimeout();
+        server1.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         server1.handle(new RegisterClientRequest<>(server1.getId()));
         queuedSendingStrategy.fullyFlush(allServers);
@@ -172,7 +172,7 @@ class ServerInteractionTest {
 
     @Test
     void clientRequestRequest_WillCauseStateMachinesToBeUpdated() throws ExecutionException, InterruptedException {
-        server1.electionTimeout();
+        server1.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         server1.handle(new RegisterClientRequest<>(server1.getId()));
         queuedSendingStrategy.fullyFlush(allServers);
@@ -186,7 +186,7 @@ class ServerInteractionTest {
 
     @Test
     void followers_WillReturnCorrectLeaderHintAfterElection() throws ExecutionException, InterruptedException {
-        server1.electionTimeout();
+        server1.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         CompletableFuture<? extends ClientResponseMessage> response = server3.handle(new RegisterClientRequest<>(server3.getId()));
         assertThat(response.get()).usingRecursiveComparison().isEqualTo(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, server1.getId()));
@@ -194,7 +194,7 @@ class ServerInteractionTest {
 
     @Test
     void duplicateCommands_WillOnlyExecuteOnce() throws ExecutionException, InterruptedException {
-        server1.electionTimeout();
+        server1.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         server1.handle(new RegisterClientRequest<>(server1.getId()));
         queuedSendingStrategy.fullyFlush(allServers);
@@ -210,7 +210,7 @@ class ServerInteractionTest {
 
     @Test
     void transferLeadership_WillTransferLeadershipToAnotherServer() {
-        server1.electionTimeout();
+        server1.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         assertThat(server1.getState()).contains(LEADER);
         assertThat(server2.getState()).contains(FOLLOWER);

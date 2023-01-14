@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
@@ -29,6 +30,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -51,12 +54,14 @@ class ServerTest {
     private PersistentState<Long> persistentState;
     @Mock
     private Cluster<Long> cluster;
+    @Mock
+    private ElectionScheduler electionScheduler;
 
     private Server<Long> server;
 
     @BeforeEach
     void setUp() {
-        server = new Server<>(persistentState, serverStateFactory, stateMachine, cluster);
+        server = new Server<>(persistentState, serverStateFactory, stateMachine, cluster, electionScheduler);
     }
 
     @Nested
@@ -112,23 +117,33 @@ class ServerTest {
     }
 
     @Nested
-    class ElectionTimeout {
+    class TimeoutNowIfDue {
 
         @BeforeEach
         void setUp() {
-            when(persistentState.getCurrentTerm()).thenReturn(TERM_0);
-            when(serverStateFactory.createInitialState()).thenReturn(serverState);
-            when(persistentState.getId()).thenReturn(SERVER_ID);
+            lenient().when(persistentState.getCurrentTerm()).thenReturn(TERM_0);
+            lenient().when(serverStateFactory.createInitialState()).thenReturn(serverState);
+            lenient().when(persistentState.getId()).thenReturn(SERVER_ID);
             server.start();
         }
 
         @Test
         @SuppressWarnings({"ConstantConditions", "unchecked"})
-        void willDispatchInitiateElectionMessageWithCurrentTerm() {
+        void willDispatchInitiateElectionMessageWithCurrentTerm_WhenTimeoutIsDue() {
+            when(electionScheduler.shouldTimeout()).thenReturn(true);
             when(serverState.handle(any(UnicastMessage.class))).thenReturn(complete(serverState));
-            server.electionTimeout();
+            server.timeoutNowIfDue();
 
             verify(serverState).handle(refEq(new TimeoutNowMessage<>(TERM_0, SERVER_ID)));
+        }
+
+        @Test
+        @SuppressWarnings({"ConstantConditions", "unchecked"})
+        void willDoNothing_WhenTimeoutIsNotDue() {
+            when(electionScheduler.shouldTimeout()).thenReturn(false);
+            server.timeoutNowIfDue();
+
+            verify(serverState, never()).handle(any(TimeoutNowMessage.class));
         }
     }
 
