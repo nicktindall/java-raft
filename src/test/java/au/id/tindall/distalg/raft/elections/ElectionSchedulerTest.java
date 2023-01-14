@@ -14,7 +14,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
-import static au.id.tindall.distalg.raft.util.ThreadUtil.pause;
+import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
@@ -80,7 +80,7 @@ class ElectionSchedulerTest {
             long endTime = System.currentTimeMillis() + 500;
             while (System.currentTimeMillis() < endTime) {
                 electionScheduler.resetTimeout();
-                pause(TIMEOUT_MILLIS - 20);
+                pauseMillis(TIMEOUT_MILLIS - 20);
             }
             assertThat(timeoutOccurred.get()).isFalse();
             await().atMost(TIMEOUT_MILLIS * 2, MILLISECONDS).until(() -> timeoutOccurred.get());
@@ -99,12 +99,12 @@ class ElectionSchedulerTest {
         void willCancelOutstandingTimeout() {
             IntStream.range(0, 50).forEach((i) -> {
                 electionScheduler.startTimeouts();
-                pause(ThreadLocalRandom.current().nextInt((int) TIMEOUT_MILLIS / 2, (int) TIMEOUT_MILLIS * 2));
+                pauseMillis(ThreadLocalRandom.current().nextInt((int) TIMEOUT_MILLIS / 2, (int) TIMEOUT_MILLIS * 2));
                 synchronized (server) {
                     timeoutOccurred.set(false);
                     electionScheduler.stopTimeouts();
                 }
-                pause(TIMEOUT_MILLIS);
+                pauseMillis(TIMEOUT_MILLIS);
                 assertThat(timeoutOccurred.get()).isFalse();
             });
         }

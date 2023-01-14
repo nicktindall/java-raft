@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static au.id.tindall.distalg.raft.util.ThreadUtil.pause;
+import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMicros;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runnable {
@@ -46,7 +46,12 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
         try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
             while (running.get() && !Thread.currentThread().isInterrupted()) {
                 if (!server.poll()) {
-                    pause(1);
+                    long startTime = System.currentTimeMillis();
+                    pauseMicros(300);
+                    final long pauseTime = System.currentTimeMillis() - startTime;
+                    if (pauseTime > 20) {
+                        LOGGER.warn("Pause went for {}ms", pauseTime);
+                    }
                 }
             }
         }

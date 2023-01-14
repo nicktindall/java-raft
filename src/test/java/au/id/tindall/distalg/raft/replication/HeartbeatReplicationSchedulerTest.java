@@ -10,7 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.concurrent.Executors;
 
-import static au.id.tindall.distalg.raft.util.ThreadUtil.pause;
+import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMillis;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.atLeast;
@@ -69,7 +69,7 @@ class HeartbeatReplicationSchedulerTest {
         void willNotSendRegularHeartbeats() {
             scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, 100, Executors.newSingleThreadExecutor());
             scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
-            pause(500L);
+            pauseMillis(500L);
             verifyNoInteractions(sendAppendEntriesRequest);
         }
 
@@ -78,7 +78,7 @@ class HeartbeatReplicationSchedulerTest {
             scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, Long.MAX_VALUE, Executors.newSingleThreadExecutor());
             scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
             scheduler.replicate();
-            pause(1000L);
+            pauseMillis(1000L);
             verifyNoInteractions(sendAppendEntriesRequest);
         }
     }

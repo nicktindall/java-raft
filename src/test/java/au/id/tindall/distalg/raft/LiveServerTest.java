@@ -63,7 +63,7 @@ import java.util.stream.Collectors;
 import static au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse.Status.OK;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static au.id.tindall.distalg.raft.threading.NamedThreadFactory.forThreadGroup;
-import static au.id.tindall.distalg.raft.util.ThreadUtil.pause;
+import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMillis;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -436,7 +436,7 @@ class LiveServerTest {
                 return leader.get();
             } else {
                 LOGGER.debug("Couldn't get leader, retrying...");
-                pause(200);
+                pauseMillis(200);
             }
         }
         throw new IllegalStateException("Couldn't get current leader");

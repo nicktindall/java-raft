@@ -20,7 +20,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
-import static au.id.tindall.distalg.raft.util.ThreadUtil.pause;
+import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMillis;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 /**
@@ -52,7 +52,7 @@ public class MonotonicCounterClient {
             } else {
                 LOGGER.debug("Server responded with {}, retrying", response.getStatus());
                 retries++;
-                pause(100L);
+                pauseMillis(100);
             }
         }
         throw new IllegalStateException("Couldn't register client!");
@@ -70,7 +70,7 @@ public class MonotonicCounterClient {
             } else {
                 LOGGER.debug("Server responded with status {}, retrying (counterValue={})", commandResponse.getStatus(), counterValue);
                 retries++;
-                pause(100L);
+                pauseMillis(100L);
             }
         }
         throw new RuntimeException("Maximum retries exceeded!");
