@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -18,10 +17,17 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runnable {
 
+    enum LifeCycle {
+        Initialised,
+        Started,
+        Stopped,
+        Closed
+    }
+
     private static final Logger LOGGER = getLogger();
     private static final AtomicInteger UNCLOSED_COUNTER = new AtomicInteger(0);
     private final ExecutorService executorService;
-    private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicReference<LifeCycle> lifeCycle = new AtomicReference<>(LifeCycle.Initialised);
     private final AtomicReference<Future<?>> future;
     private Server<?> server;
 
@@ -34,9 +40,11 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
 
     @Override
     public void start(Server<?> server) {
-        if (running.compareAndSet(false, true)) {
+        if (lifeCycle.compareAndSet(LifeCycle.Initialised, LifeCycle.Started)) {
             this.server = server;
             future.set(executorService.submit(this));
+        } else {
+            LOGGER.debug("Couldn't start, in state {}", lifeCycle.get());
         }
     }
 
@@ -44,7 +52,7 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
     public void run() {
         Thread.currentThread().setName("server-" + server.getId() + "-driver");
         try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
-            while (running.get() && !Thread.currentThread().isInterrupted()) {
+            while (lifeCycle.get() == LifeCycle.Started && !Thread.currentThread().isInterrupted()) {
                 boolean receivedAMessage = server.poll();
                 boolean timedOut = server.timeoutNowIfDue();
                 if (!(receivedAMessage || timedOut)) {
@@ -61,19 +69,27 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
 
     @Override
     public void stop() {
-        if (running.compareAndSet(true, false)) {
+        if (lifeCycle.compareAndSet(LifeCycle.Initialised, LifeCycle.Stopped)
+                || lifeCycle.compareAndSet(LifeCycle.Started, LifeCycle.Stopped)) {
 //            try {
 //                future.get().get();
 //            } catch (InterruptedException | ExecutionException e) {
 //                throw new RuntimeException(e);
 //            }
+        } else {
+            LOGGER.debug("Couldn't stop, in state {}", lifeCycle.get());
         }
     }
 
     @Override
     public void close() throws IOException {
-        executorService.shutdown();
-        final int remainingDrivers = UNCLOSED_COUNTER.decrementAndGet();
-        LOGGER.debug("Closed SingleThreadedServerDriver, leaving {} created but not closed", remainingDrivers);
+        stop();
+        if (lifeCycle.compareAndSet(LifeCycle.Stopped, LifeCycle.Closed)) {
+            executorService.shutdown();
+            final int remainingDrivers = UNCLOSED_COUNTER.decrementAndGet();
+            LOGGER.debug("Closed SingleThreadedServerDriver, leaving {} created but not closed", remainingDrivers);
+        } else {
+            LOGGER.debug("Couldn't close, in state {}", lifeCycle.get());
+        }
     }
 }
