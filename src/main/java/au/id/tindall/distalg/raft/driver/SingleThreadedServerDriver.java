@@ -17,6 +17,9 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runnable {
 
+    private static final int BUSY_WAIT_MILLISECONDS = 5;
+    private static final int BUSY_WAIT_NANOSECONDS = BUSY_WAIT_MILLISECONDS * 1_000_000;
+
     enum LifeCycle {
         Initialised,
         Started,
@@ -29,6 +32,7 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
     private final ExecutorService executorService;
     private final AtomicReference<LifeCycle> lifeCycle = new AtomicReference<>(LifeCycle.Initialised);
     private final AtomicReference<Future<?>> future;
+    private long lastEventTimeNanos = 0;
     private Server<?> server;
 
 
@@ -55,12 +59,18 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
             while (lifeCycle.get() == LifeCycle.Started && !Thread.currentThread().isInterrupted()) {
                 boolean receivedAMessage = server.poll();
                 boolean timedOut = server.timeoutNowIfDue();
-                if (!(receivedAMessage || timedOut)) {
-                    long startTime = System.currentTimeMillis();
-                    pauseMicros(300);
-                    final long pauseTime = System.currentTimeMillis() - startTime;
-                    if (pauseTime > 20) {
-                        LOGGER.warn("Pause went for {}ms", pauseTime);
+                if (receivedAMessage || timedOut) {
+                    lastEventTimeNanos = System.nanoTime();
+                } else {
+                    if (System.nanoTime() - lastEventTimeNanos < BUSY_WAIT_NANOSECONDS) {
+                        Thread.onSpinWait();
+                    } else {
+                        long startTime = System.currentTimeMillis();
+                        pauseMicros(300);
+                        final long pauseTime = System.currentTimeMillis() - startTime;
+                        if (pauseTime > 20) {
+                            LOGGER.warn("Pause went for {}ms", pauseTime);
+                        }
                     }
                 }
             }
