@@ -21,12 +21,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static au.id.tindall.distalg.raft.log.EntryStatus.AfterEnd;
-import static au.id.tindall.distalg.raft.log.EntryStatus.BeforeStart;
-import static au.id.tindall.distalg.raft.log.EntryStatus.Present;
+import static au.id.tindall.distalg.raft.log.EntryStatus.AFTER_END;
+import static au.id.tindall.distalg.raft.log.EntryStatus.BEFORE_START;
+import static au.id.tindall.distalg.raft.log.EntryStatus.PRESENT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 abstract class AbstractLogStorageTest<L extends LogStorage> {
 
@@ -53,7 +52,7 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
     class Add {
 
         @Test
-        public void willAddWhenIndexMatches() {
+        void willAddWhenIndexMatches() {
             List<LogEntry> entries = List.of(
                     new ClientRegistrationEntry(TERM, 123),
                     new ClientRegistrationEntry(TERM, 456),
@@ -66,14 +65,14 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
 
         @Test
         void willThrowWhenIndexDoesNotMatch() {
-            assertThrows(IllegalArgumentException.class, () -> {
-                storage.add(2, new ClientRegistrationEntry(TERM, 123));
-            });
+            final ClientRegistrationEntry logEntry = new ClientRegistrationEntry(TERM, 123);
+            assertThatThrownBy(() -> storage.add(2, logEntry))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
     @Test
-    public void willTruncate() {
+    void willTruncate() {
         List<LogEntry> entries = List.of(
                 new ClientRegistrationEntry(TERM, 123),
                 new ClientRegistrationEntry(TERM, 456),
@@ -88,7 +87,7 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
     }
 
     @Test
-    public void willTruncateToZero() {
+    void willTruncateToZero() {
         List<LogEntry> entries = List.of(
                 new ClientRegistrationEntry(TERM, 123),
                 new ClientRegistrationEntry(TERM, 456),
@@ -237,7 +236,7 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
         void willCorrectlyIdentifyIfAnIndexIsPresent(int lastIndex) {
             populateThenSnapshot(lastIndex);
             for (int i = 1; i < lastIndex + 5; i++) {
-                assertThat(storage.hasEntry(i)).isEqualTo(i <= lastIndex ? BeforeStart : i > 5 ? AfterEnd : Present);
+                assertThat(storage.hasEntry(i)).isEqualTo(i <= lastIndex ? BEFORE_START : i > 5 ? AFTER_END : PRESENT);
             }
         }
 
@@ -266,7 +265,7 @@ abstract class AbstractLogStorageTest<L extends LogStorage> {
             storage = createLogStorageWithTruncationBuffer(truncationBufferSize);
             storage.installSnapshot(new InMemorySnapshot(lastIndex, TERM, new ConfigurationEntry(TERM, Set.of(1, 2, 3))));
             assertThat(storage.getEntries()).isEmpty();
-            assertThat(storage.size()).isEqualTo(0);
+            assertThat(storage.size()).isZero();
             assertThat(storage.getPrevIndex()).isEqualTo(lastIndex);
             assertThat(storage.getLastLogIndex()).isEqualTo(lastIndex);
             assertThat(storage.getNextLogIndex()).isEqualTo(lastIndex + 1);

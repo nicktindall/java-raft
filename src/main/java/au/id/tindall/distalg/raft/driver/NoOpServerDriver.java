@@ -7,9 +7,11 @@ public enum NoOpServerDriver implements ServerDriver {
 
     @Override
     public void start(Server<?> server) {
+        // Do nothing
     }
 
     @Override
     public void stop() {
+        // Do nothing
     }
 }

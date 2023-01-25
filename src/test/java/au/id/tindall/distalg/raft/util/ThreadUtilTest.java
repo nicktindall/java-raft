@@ -9,6 +9,7 @@ class ThreadUtilTest {
 
     private static final Logger LOGGER = getLogger();
 
+    @SuppressWarnings("java:S2699")
     @Test
     void pauseMicros() {
         for (int i = 0; i < 30; i++) {
@@ -20,6 +21,7 @@ class ThreadUtilTest {
         }
     }
 
+    @SuppressWarnings("java:S2699")
     @Test
     void pauseMillis() {
         for (int i = 0; i < 30; i++) {

@@ -43,7 +43,7 @@ public class ServerFactory<ID extends Serializable> {
     private final int maxClientSessions;
     private final CommandExecutorFactory commandExecutorFactory;
     private final StateMachineFactory stateMachineFactory;
-    private final ElectionSchedulerFactory<ID> electionSchedulerFactory;
+    private final ElectionSchedulerFactory electionSchedulerFactory;
     private final int maxBatchSize;
     private final ReplicationSchedulerFactory<ID> replicationSchedulerFactory;
     private final Duration electionTimeout;
@@ -51,7 +51,7 @@ public class ServerFactory<ID extends Serializable> {
 
     public ServerFactory(ClusterFactory<ID> clusterFactory, LogFactory logFactory, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                          ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
-                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory<ID> electionSchedulerFactory,
+                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory electionSchedulerFactory,
                          int maxBatchSize, ReplicationSchedulerFactory<ID> replicationSchedulerFactory, Duration electionTimeout, SnapshotterFactory snapshotterFactory) {
         this.clusterFactory = clusterFactory;
         this.logFactory = logFactory;

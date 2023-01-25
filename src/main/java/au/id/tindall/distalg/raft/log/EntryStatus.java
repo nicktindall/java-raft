@@ -5,15 +5,15 @@ public enum EntryStatus {
     /**
      * There is an entry present in the log at that index
      */
-    Present,
+    PRESENT,
 
     /**
      * The index is after the end of the log
      */
-    AfterEnd,
+    AFTER_END,
 
     /**
      * The log entry has been truncated through log compaction
      */
-    BeforeStart
+    BEFORE_START
 }

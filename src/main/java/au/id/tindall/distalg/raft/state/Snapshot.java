@@ -21,13 +21,13 @@ public interface Snapshot extends Closeable {
 
     int writeBytes(int offset, byte[] chunk);
 
-    int snapshotOffset();
+    int getSnapshotOffset();
 
-    void snapshotOffset(int snapshotOffset);
+    void setSnapshotOffset(int snapshotOffset);
 
     void finaliseSessions();
 
-    void finalise();
+    void finalise() throws IOException;
 
     @Override
     void close() throws IOException;

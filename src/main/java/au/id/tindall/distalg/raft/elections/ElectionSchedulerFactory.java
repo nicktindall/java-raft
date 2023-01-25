@@ -1,10 +1,9 @@
 package au.id.tindall.distalg.raft.elections;
 
-import java.io.Serializable;
 import java.time.Instant;
 import java.util.Random;
 
-public class ElectionSchedulerFactory<ID extends Serializable> {
+public class ElectionSchedulerFactory {
 
     private final long minimumElectionTimeoutMilliseconds;
     private final long maximumElectionTimeoutMilliseconds;

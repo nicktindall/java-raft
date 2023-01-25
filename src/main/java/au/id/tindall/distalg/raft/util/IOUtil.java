@@ -5,7 +5,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.function.Consumer;
 
-public class IOUtil {
+public enum IOUtil {
+    ;
 
     private static final ThreadLocal<ByteBuffer> valueTransferBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocate(2048));
 

@@ -143,7 +143,7 @@ class LiveServerTest {
                 MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(),
                 MonotonicCounter::new,
-                new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
+                new ElectionSchedulerFactory(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
                 MAX_BATCH_SIZE,
                 new HeartbeatReplicationSchedulerFactory<>(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS),
                 Duration.ofMillis(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS),
@@ -188,7 +188,15 @@ class LiveServerTest {
         Server<Long> oldLeader = getLeaderWithRetries();
         oldLeader.stop();
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
-        oldLeader.start(new SingleThreadedServerDriver());
+        oldLeader.start(createServerDriver());
+    }
+
+    private static SingleThreadedServerDriver createServerDriver() {
+        if (LONG_RUN_TEST) {
+            return SingleThreadedServerDriver.lazy();
+        } else {
+            return SingleThreadedServerDriver.busy();
+        }
     }
 
     @Test
@@ -299,7 +307,7 @@ class LiveServerTest {
                 final Optional<Server<Long>> leader = getLeader();
                 if (leader.isPresent()) {
                     LOGGER.info("Adding server {}, (new set={})", newServerId, newServersView);
-                    server.start(new SingleThreadedServerDriver());
+                    server.start(createServerDriver());
                     final AddServerResponse response = (AddServerResponse) leader.get().handle(new AddServerRequest<>(newServerId)).get();
                     switch (response.getStatus()) {
                         case TIMEOUT:
@@ -378,7 +386,7 @@ class LiveServerTest {
             // Start a new node pointing to the same persistent state files
             Server<Long> newCurrentLeader = createServerAndState(killedServerId, ALL_SERVER_IDS);
             allServers.put(killedServerId, newCurrentLeader);
-            newCurrentLeader.start(new SingleThreadedServerDriver());
+            newCurrentLeader.start(createServerDriver());
             LOGGER.info("Server " + killedServerId + " restarted");
         } catch (Exception e) {
             testFailure.set(new RuntimeException("Killing leader failed!", e));
@@ -443,7 +451,7 @@ class LiveServerTest {
     }
 
     private void startServers() {
-        allServers.values().forEach(s -> s.start(new SingleThreadedServerDriver()));
+        allServers.values().forEach(s -> s.start(createServerDriver()));
     }
 
     private void stopServers() {

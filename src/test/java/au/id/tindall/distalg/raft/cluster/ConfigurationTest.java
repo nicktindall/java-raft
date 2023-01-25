@@ -10,16 +10,17 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.Set;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ConfigurationTest {
 
     public static final int SERVER_ID = 123;
+    public static final Duration ELECTION_TIMEOUT = Duration.ofMillis(5_000);
     private Configuration<Integer> configuration;
 
     @BeforeEach
     void setUp() {
-        configuration = new Configuration<>(SERVER_ID, Set.of(45, 67, 89), Duration.ofMillis(5_000));
+        configuration = new Configuration<>(SERVER_ID, Set.of(SERVER_ID, 45, 67, 89), ELECTION_TIMEOUT);
     }
 
     @Test
@@ -29,6 +30,40 @@ class ConfigurationTest {
 
         configuration.entryAppended(6, new ConfigurationEntry(Term.ZERO, Set.of(12, 13)));
         assertThat(configuration.getServers()).isEqualTo(Set.of(12, 13));
+    }
+
+    @Test
+    void willReturnAllOtherServerIds() {
+        assertThat(configuration.getOtherServerIds()).isEqualTo(Set.of(45, 67, 89));
+    }
+
+    @Test
+    void willReturnLocalId() {
+        assertThat(configuration.getLocalId()).isEqualTo(SERVER_ID);
+    }
+
+    @Test
+    void willReturnElectionTimeout() {
+        assertThat(configuration.getElectionTimeout()).isEqualTo(ELECTION_TIMEOUT);
+    }
+
+    @Nested
+    class IsQuorum {
+
+        @Test
+        void willReturnTrueWhenGreaterThanHalfOfServersIsIncluded() {
+            assertThat(configuration.isQuorum(Set.of(SERVER_ID, 45, 67))).isTrue();
+        }
+
+        @Test
+        void willReturnFalseWhenFewerThanHalfOfServersIsIncluded() {
+            assertThat(configuration.isQuorum(Set.of(SERVER_ID))).isFalse();
+        }
+
+        @Test
+        void willReturnFalseWhenExactlyHalfOfServersIsIncluded() {
+            assertThat(configuration.isQuorum(Set.of(SERVER_ID, 45))).isFalse();
+        }
     }
 
     @Nested

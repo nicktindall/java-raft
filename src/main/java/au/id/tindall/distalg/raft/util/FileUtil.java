@@ -16,7 +16,8 @@ import java.util.function.BiPredicate;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class FileUtil {
+public enum FileUtil {
+    ;
 
     private static final Logger LOGGER = getLogger();
 
@@ -34,7 +35,7 @@ public class FileUtil {
         try {
             Files.deleteIfExists(path);
         } catch (IOException e) {
-            LOGGER.warn("Error deleting " + path, e);
+            LOGGER.warn(() -> "Error deleting " + path, e);
         }
     }
 
@@ -62,7 +63,7 @@ public class FileUtil {
         @Override
         public FileVisitResult visitFileFailed(Path path, IOException e) {
             if (!(e instanceof NoSuchFileException)) {
-                LOGGER.warn("Error visiting " + path, e);
+                LOGGER.warn(() -> "Error visiting " + path, e);
             }
             return FileVisitResult.CONTINUE;
         }
@@ -70,7 +71,7 @@ public class FileUtil {
         @Override
         public FileVisitResult postVisitDirectory(Path path, IOException e) {
             if (e != null && !(e instanceof NoSuchFileException)) {
-                LOGGER.warn("Error visiting " + path, e);
+                LOGGER.warn(() -> "Error visiting " + path, e);
             }
             return FileVisitResult.CONTINUE;
         }

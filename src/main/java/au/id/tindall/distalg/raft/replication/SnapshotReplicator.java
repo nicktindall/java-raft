@@ -40,7 +40,7 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
     @Override
     public ReplicationResult sendNextReplicationMessage() {
         final Optional<Snapshot> currentSnapshot = persistentState.getCurrentSnapshot();
-        final AtomicReference<ReplicationResult> returnValue = new AtomicReference<>(ReplicationResult.StayInCurrentMode);
+        final AtomicReference<ReplicationResult> returnValue = new AtomicReference<>(ReplicationResult.STAY_IN_CURRENT_MODE);
         currentSnapshot.ifPresentOrElse(snapshot -> {
             if (sendingANewSnapshot(snapshot)) {
                 resetSendingState(snapshot);
@@ -53,11 +53,11 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
                 if (buffer.position() == 0) {
                     LOGGER.debug("Switching to log replication, sent lastIndex: {}, lastTerm: {}", snapshot.getLastIndex(), snapshot.getLastTerm());
                     replicationState.updateIndices(snapshot.getLastIndex(), snapshot.getLastIndex() + 1);
-                    returnValue.set(ReplicationResult.SwitchToLogReplication);
+                    returnValue.set(ReplicationResult.SWITCH_TO_LOG_REPLICATION);
                     return;
                 }
                 cluster.sendInstallSnapshotRequest(term, replicationState.getFollowerId(), snapshot.getLastIndex(), snapshot.getLastTerm(),
-                        snapshot.getLastConfig(), snapshot.snapshotOffset(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
+                        snapshot.getLastConfig(), snapshot.getSnapshotOffset(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
             } catch (RuntimeException e) {
                 LOGGER.warn("Error sending snapshot chunk", e);
             }

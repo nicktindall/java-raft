@@ -3,7 +3,10 @@ package au.id.tindall.distalg.raft.log.storage;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.state.Snapshot;
 
-public class BufferedTruncationCalculator {
+import static java.lang.String.format;
+
+public enum BufferedTruncationCalculator {
+    ;
 
     /**
      * This is stupidly complicated, so do it once and reuse it
@@ -14,10 +17,13 @@ public class BufferedTruncationCalculator {
      * @return The calculated truncation details
      */
     public static TruncationDetails calculateTruncation(Snapshot snapshot, LogStorage logStorage, int truncationBuffer) {
+        if (truncationBuffer < 0) {
+            throw new IllegalArgumentException(format("Truncation buffer must be greater than zero (was %d)", truncationBuffer));
+        }
         int newPrevIndex = snapshot.getLastIndex();
         int entriesBeingTruncated = logStorage.size();
         Term newPrevTerm = snapshot.getLastTerm();
-        if (newPrevIndex <= logStorage.getLastLogIndex() && newPrevIndex > logStorage.getPrevIndex()) {
+        if (newPrevIndex <= logStorage.getLastLogIndex()) {
             newPrevIndex = Math.max(logStorage.getPrevIndex(), newPrevIndex - truncationBuffer);
             if (newPrevIndex == logStorage.getPrevIndex()) {
                 newPrevTerm = logStorage.getPrevTerm();
@@ -52,6 +58,15 @@ public class BufferedTruncationCalculator {
 
         public int getEntriesToTruncate() {
             return entriesToTruncate;
+        }
+
+        @Override
+        public String toString() {
+            return "TruncationDetails{" +
+                    "newPrevIndex=" + newPrevIndex +
+                    ", newPrevTerm=" + newPrevTerm +
+                    ", entriesToTruncate=" + entriesToTruncate +
+                    '}';
         }
     }
 }

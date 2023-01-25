@@ -6,7 +6,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
-public class SerializationUtil {
+public enum SerializationUtil {
+    ;
 
     public static byte[] serializeObject(Object object) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -14,7 +15,7 @@ public class SerializationUtil {
             oos.writeObject(object);
             return baos.toByteArray();
         } catch (IOException e) {
-            throw new RuntimeException("Error serializing an object", e);
+            throw new IllegalArgumentException("Error serializing an object", e);
         }
     }
 
@@ -24,7 +25,7 @@ public class SerializationUtil {
              ObjectInputStream oos = new ObjectInputStream(bais)) {
             return (T) oos.readObject();
         } catch (ClassNotFoundException | IOException e) {
-            throw new RuntimeException("Error deserializing an object", e);
+            throw new IllegalArgumentException("Error deserializing an object", e);
         }
     }
 }

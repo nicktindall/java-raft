@@ -8,6 +8,7 @@ import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotRequest;
+import au.id.tindall.distalg.raft.state.InMemoryPersistentState;
 import au.id.tindall.distalg.raft.state.InMemorySnapshot;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.state.Snapshot;
@@ -18,19 +19,24 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static au.id.tindall.distalg.raft.DomainUtils.createInMemorySnapshot;
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -48,6 +54,8 @@ class FollowerTest {
     private static final LogEntry ENTRY_1 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, 0, "first".getBytes());
     private static final LogEntry ENTRY_2 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, 1, "second".getBytes());
     private static final LogEntry ENTRY_3 = new StateMachineCommandEntry(TERM_1, CLIENT_ID, -1, 2, "third".getBytes());
+    private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_1, CLIENT_ID, -1, 3, "fourth".getBytes());
+    private static final LogEntry ENTRY_5 = new StateMachineCommandEntry(TERM_1, CLIENT_ID, -1, 4, "fifth".getBytes());
 
     @Mock
     private Cluster<Long> cluster;
@@ -97,7 +105,7 @@ class FollowerTest {
         }
 
         @Test
-        void willDeleteAnyPartialSnapshots() {
+        void willDeleteAnyPartialSnapshots() throws IOException {
             when(persistentState.createSnapshot(anyInt(), any(Term.class), any(), anyInt()))
                     .thenAnswer(iom -> currentSnapshot);
             followerState.handle(new InstallSnapshotRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 999, TERM_0, null, 2, 0, "test".getBytes(), false));
@@ -111,7 +119,7 @@ class FollowerTest {
 
         @BeforeEach
         void setUp() {
-            when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
+            lenient().when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
         }
 
         @Test
@@ -128,6 +136,31 @@ class FollowerTest {
             Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_1), emptyList(), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.of(2));
+            verify(electionScheduler).resetTimeout();
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
+        }
+
+        @Test
+        void willRejectRequest_WhenPrevLogEntryIsAfterEndOfLog() {
+            Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 4, Optional.of(TERM_1), singletonList(ENTRY_5), 0));
+            verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.of(3));
+            verify(electionScheduler).resetTimeout();
+            assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
+        }
+
+        @Test
+        void willRejectRequest_WhenPrevLogEntryIsBeforeStartOfLog() {
+            final InMemoryPersistentState<Long> persistentState = new InMemoryPersistentState<>(SERVER_ID);
+            persistentState.setCurrentTerm(TERM_1);
+            final Log log = new Log(persistentState.getLogStorage());
+            log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4, ENTRY_5));
+            final InMemorySnapshot nextSnapshot = createInMemorySnapshot(3, TERM_1);
+            persistentState.setCurrentSnapshot(nextSnapshot);
+            assertThat(log.getPrevIndex()).isEqualTo(3);
+            Follower<Long> followerState = new Follower<>(persistentState, log, cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+            Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
+            verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.of(6));
             verify(electionScheduler).resetTimeout();
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
@@ -204,7 +237,7 @@ class FollowerTest {
         private InMemorySnapshot currentSnapshot;
 
         @BeforeEach
-        void setUp() {
+        void setUp() throws IOException {
             createdSnapshots = new ArrayList<>();
             lenient().when(persistentState.createSnapshot(anyInt(), any(Term.class), any(), anyInt()))
                     .thenAnswer(iom -> {
@@ -219,10 +252,11 @@ class FollowerTest {
         @Test
         void willThrowIllegalStateException_WhenLeaderTermIsGreaterThanLocalTerm() {
             Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
-            IllegalStateException ex = assertThrows(IllegalStateException.class,
-                    () -> followerState.handle(new InstallSnapshotRequest<>(TERM_2, LEADER_SERVER_ID, SERVER_ID, LAST_INDEX, LAST_TERM, null, 0, 0, SNAPSHOT_CHUNK, false)));
+            final InstallSnapshotRequest<Long> installSnapshotRequest = new InstallSnapshotRequest<>(TERM_2, LEADER_SERVER_ID, SERVER_ID, LAST_INDEX, LAST_TERM, null, 0, 0, SNAPSHOT_CHUNK, false);
+            assertThatThrownBy(() -> followerState.handle(installSnapshotRequest))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Received a request from a future term! this should never happen");
             verifyNoInteractions(electionScheduler);
-            assertThat(ex.getMessage()).isEqualTo("Received a request from a future term! this should never happen");
         }
 
         @Test
@@ -318,13 +352,27 @@ class FollowerTest {
         class WhenSnapshotIsComplete {
 
             @Test
-            void theSnapshotIsFinalisedAndInstalledToThePersistentState() {
+            void theSnapshotIsFinalisedAndInstalledToThePersistentState() throws IOException {
                 Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
                 Result<Long> result = followerState.handle(new InstallSnapshotRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, LAST_INDEX, TERM_0, null, 2, 0, SNAPSHOT_CHUNK, true));
                 verify(cluster).sendInstallSnapshotResponse(TERM_1, LEADER_SERVER_ID, true, LAST_INDEX, SNAPSHOT_CHUNK.length - 1);
                 assertThat(currentSnapshot.getContents().array()).startsWith(SNAPSHOT_CHUNK);
                 verify(persistentState).setCurrentSnapshot(currentSnapshot);
                 assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
+            }
+
+            @Test
+            void lateInstallSnapshotRequestsWillBeAcknowledged() throws IOException {
+                Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
+                followerState.handle(new InstallSnapshotRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, LAST_INDEX, TERM_0, null, 2, 0, Arrays.copyOfRange(SNAPSHOT_CHUNK, 0, 10), false));
+                verify(cluster).sendInstallSnapshotResponse(TERM_1, LEADER_SERVER_ID, true, LAST_INDEX, 9);
+                final InstallSnapshotRequest<Long> repeatedFinalRequest = new InstallSnapshotRequest<>(TERM_1, LEADER_SERVER_ID, SERVER_ID, LAST_INDEX, TERM_0, null, 2, 10, Arrays.copyOfRange(SNAPSHOT_CHUNK, 10, SNAPSHOT_CHUNK.length), true);
+                followerState.handle(repeatedFinalRequest);
+                verify(cluster).sendInstallSnapshotResponse(TERM_1, LEADER_SERVER_ID, true, LAST_INDEX, SNAPSHOT_CHUNK.length - 1);
+                verify(persistentState).setCurrentSnapshot(currentSnapshot);
+                followerState.handle(repeatedFinalRequest);
+                verify(cluster, times(2)).sendInstallSnapshotResponse(TERM_1, LEADER_SERVER_ID, true, LAST_INDEX, SNAPSHOT_CHUNK.length - 1);
+                verify(persistentState).setCurrentSnapshot(currentSnapshot);
             }
         }
     }

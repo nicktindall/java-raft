@@ -65,12 +65,12 @@ public class InMemorySnapshot implements Snapshot {
     }
 
     @Override
-    public int snapshotOffset() {
+    public int getSnapshotOffset() {
         return snapshotOffset;
     }
 
     @Override
-    public void snapshotOffset(int snapshotOffset) {
+    public void setSnapshotOffset(int snapshotOffset) {
         this.snapshotOffset = snapshotOffset;
     }
 

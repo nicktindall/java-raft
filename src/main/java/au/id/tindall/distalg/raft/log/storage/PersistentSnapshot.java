@@ -44,7 +44,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     private final Path path;
     private long contentsLength;
     private int snapshotOffset;
-    private State state = State.Initialised;
+    private State state = State.INITIALISED;
 
     private PersistentSnapshot(Path path, FileChannel fileChannel, int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int contentsStartOffset) {
         this.path = path;
@@ -64,7 +64,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
         this.lastConfig = lastConfig;
         this.contentsStartOffset = contentsStartOffset;
         this.contentsLength = contentsLength;
-        this.state = State.Complete;
+        this.state = State.COMPLETE;
     }
 
     @Override
@@ -101,12 +101,12 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     }
 
     @Override
-    public int snapshotOffset() {
+    public int getSnapshotOffset() {
         return snapshotOffset;
     }
 
     @Override
-    public void snapshotOffset(int snapshotOffset) {
+    public void setSnapshotOffset(int snapshotOffset) {
         try {
             IOUtil.writeInteger(fileChannel, SNAPSHOT_OFFSET_OFFSET, snapshotOffset);
         } catch (IOException e) {
@@ -118,14 +118,14 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     @Override
     public void finaliseSessions() {
         try {
-            snapshotOffset((int) fileChannel.size() - contentsStartOffset);
+            setSnapshotOffset((int) fileChannel.size() - contentsStartOffset);
         } catch (IOException e) {
             LOGGER.error("Error recording snapshot offset");
         }
     }
 
     @Override
-    public void finalise() {
+    public void finalise() throws IOException {
         try {
             ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
             MessageDigest digest = MessageDigest.getInstance("MD5");
@@ -138,15 +138,13 @@ public class PersistentSnapshot implements Snapshot, Closeable {
                 digest.update(byteBuffer);
                 index += read;
             }
-            IOUtil.writeByte(fileChannel, STATE_ORDINAL_OFFSET, (byte) State.Complete.ordinal());
+            IOUtil.writeByte(fileChannel, STATE_ORDINAL_OFFSET, (byte) State.COMPLETE.ordinal());
             fileChannel.write(ByteBuffer.wrap(digest.digest()), DIGEST_OFFSET);
             contentsLength = fileChannel.size() - contentsStartOffset;
             IOUtil.writeLong(fileChannel, CONTENTS_LENGTH_OFFSET, contentsLength);
-            state = State.Complete;
-        } catch (IOException e) {
-            throw new RuntimeException("Error calculating digest", e);
+            state = State.COMPLETE;
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("This won't happen", e);
+            throw new IllegalStateException("Couldn't load MD5 algorithm, this should never happen", e);
         }
     }
 
@@ -175,58 +173,51 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     }
 
     enum State {
-        Initialised,
-        Complete
-    }
-
-    public static PersistentSnapshot create(Path path, int lastIndex, Term lastTerm, ConfigurationEntry configurationEntry) {
-        try {
-            byte[] configEntry = serializeObject(configurationEntry);
-            ByteBuffer byteBuffer = ByteBuffer.allocate(HEADER_BUFFER_LENGTH);
-            byteBuffer.put(ByteBuffer.wrap(HEADER.getBytes(StandardCharsets.UTF_8)));
-            byteBuffer.putInt(LAST_INDEX_OFFSET, lastIndex);
-            byteBuffer.putInt(LAST_TERM_OFFSET, lastTerm.getNumber());
-            byteBuffer.put(STATE_ORDINAL_OFFSET, (byte) PersistentSnapshot.State.Initialised.ordinal());
-            byteBuffer.putInt(CONFIG_LENGTH_OFFSET, configEntry.length); // Length
-            byteBuffer.position(CONFIG_OFFSET);
-            byteBuffer.put(configEntry);
-            final int contentsStartIndex = byteBuffer.position();
-            byteBuffer.putInt(CONTENTS_START_OFFSET, contentsStartIndex);
-            FileChannel fileChannel = FileChannel.open(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, StandardOpenOption.READ);
-            byteBuffer.flip();
-            fileChannel.write(byteBuffer);
-            return new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, configurationEntry, contentsStartIndex);
-        } catch (IOException e) {
-            throw new RuntimeException("Error creating snapshot", e);
-        }
+        INITIALISED,
+        COMPLETE
     }
 
     @SuppressWarnings("java:S2095")
-    public static PersistentSnapshot load(Path path) {
-        try {
-            ByteBuffer buffer = ByteBuffer.allocate(HEADER_BUFFER_LENGTH);
-            FileChannel fileChannel = FileChannel.open(path, StandardOpenOption.READ);
-            fileChannel.read(buffer);
-            buffer.position(0);
-            buffer.limit(HEADER.length());
-            if (!ByteBuffer.wrap(HEADER.getBytes(StandardCharsets.UTF_8)).equals(buffer)) {
-                throw new IllegalArgumentException("Invalid snapshot file, got header: " + buffer);
-            }
-            buffer.limit(HEADER_BUFFER_LENGTH);
-            int lastIndex = buffer.getInt(LAST_INDEX_OFFSET);
-            Term lastTerm = new Term(buffer.getInt(LAST_TERM_OFFSET));
-            int configLength = buffer.getInt(CONFIG_LENGTH_OFFSET);
-            long contentsLength = buffer.getLong(CONTENTS_LENGTH_OFFSET);
-            ConfigurationEntry entry;
-            byte[] configBytesArray = new byte[configLength];
-            buffer.position(CONFIG_OFFSET);
-            buffer.get(configBytesArray);
-            entry = SerializationUtil.deserializeObject(configBytesArray);
-            final PersistentSnapshot persistentSnapshot = new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, entry, buffer.getInt(CONTENTS_START_OFFSET), contentsLength);
-            persistentSnapshot.snapshotOffset = buffer.getInt(SNAPSHOT_OFFSET_OFFSET);
-            return persistentSnapshot;
-        } catch (IOException e) {
-            throw new RuntimeException("Error loading snapshot", e);
+    public static PersistentSnapshot create(Path path, int lastIndex, Term lastTerm, ConfigurationEntry configurationEntry) throws IOException {
+        byte[] configEntry = serializeObject(configurationEntry);
+        ByteBuffer byteBuffer = ByteBuffer.allocate(HEADER_BUFFER_LENGTH);
+        byteBuffer.put(ByteBuffer.wrap(HEADER.getBytes(StandardCharsets.UTF_8)));
+        byteBuffer.putInt(LAST_INDEX_OFFSET, lastIndex);
+        byteBuffer.putInt(LAST_TERM_OFFSET, lastTerm.getNumber());
+        byteBuffer.put(STATE_ORDINAL_OFFSET, (byte) PersistentSnapshot.State.INITIALISED.ordinal());
+        byteBuffer.putInt(CONFIG_LENGTH_OFFSET, configEntry.length); // Length
+        byteBuffer.position(CONFIG_OFFSET);
+        byteBuffer.put(configEntry);
+        final int contentsStartIndex = byteBuffer.position();
+        byteBuffer.putInt(CONTENTS_START_OFFSET, contentsStartIndex);
+        FileChannel fileChannel = FileChannel.open(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, StandardOpenOption.READ);
+        byteBuffer.flip();
+        fileChannel.write(byteBuffer);
+        return new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, configurationEntry, contentsStartIndex);
+    }
+
+    @SuppressWarnings("java:S2095")
+    public static PersistentSnapshot load(Path path) throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(HEADER_BUFFER_LENGTH);
+        FileChannel fileChannel = FileChannel.open(path, StandardOpenOption.READ);
+        fileChannel.read(buffer);
+        buffer.position(0);
+        buffer.limit(HEADER.length());
+        if (!ByteBuffer.wrap(HEADER.getBytes(StandardCharsets.UTF_8)).equals(buffer)) {
+            throw new IllegalArgumentException("Invalid snapshot file, got header: " + buffer);
         }
+        buffer.limit(HEADER_BUFFER_LENGTH);
+        int lastIndex = buffer.getInt(LAST_INDEX_OFFSET);
+        Term lastTerm = new Term(buffer.getInt(LAST_TERM_OFFSET));
+        int configLength = buffer.getInt(CONFIG_LENGTH_OFFSET);
+        long contentsLength = buffer.getLong(CONTENTS_LENGTH_OFFSET);
+        ConfigurationEntry entry;
+        byte[] configBytesArray = new byte[configLength];
+        buffer.position(CONFIG_OFFSET);
+        buffer.get(configBytesArray);
+        entry = SerializationUtil.deserializeObject(configBytesArray);
+        final PersistentSnapshot persistentSnapshot = new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, entry, buffer.getInt(CONTENTS_START_OFFSET), contentsLength);
+        persistentSnapshot.snapshotOffset = buffer.getInt(SNAPSHOT_OFFSET_OFFSET);
+        return persistentSnapshot;
     }
 }

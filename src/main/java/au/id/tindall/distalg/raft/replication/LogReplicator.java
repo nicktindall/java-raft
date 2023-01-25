@@ -36,10 +36,10 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator {
     public ReplicationResult sendNextReplicationMessage() {
         int nextIndexToSend = replicationState.getNextIndex();    // This can change, take a copy
         int prevLogIndex = nextIndexToSend - 1;
-        if (log.hasEntry(nextIndexToSend) == EntryStatus.BeforeStart) {
+        if (log.hasEntry(nextIndexToSend) == EntryStatus.BEFORE_START) {
             LOGGER.debug("Switching to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
                     replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
-            return ReplicationResult.SwitchToSnapshotReplication;
+            return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
         }
         try {
             Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
@@ -47,11 +47,11 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator {
             cluster.sendAppendEntriesRequest(term, replicationState.getFollowerId(),
                     prevLogIndex, prevLogTerm, entriesToReplicate,
                     log.getCommitIndex());
-            return ReplicationResult.StayInCurrentMode;
+            return ReplicationResult.STAY_IN_CURRENT_MODE;
         } catch (IndexOutOfBoundsException e) {
             LOGGER.debug("Concurrent truncation caused switch to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
                     replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
-            return ReplicationResult.SwitchToSnapshotReplication;
+            return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
         }
     }
 
@@ -60,10 +60,10 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator {
             return Optional.empty();
         }
         final EntryStatus entryStatus = log.hasEntry(index);
-        if (entryStatus == EntryStatus.Present) {
+        if (entryStatus == EntryStatus.PRESENT) {
             return Optional.of(log.getEntry(index).getTerm());
         }
-        if (entryStatus == EntryStatus.BeforeStart && index == log.getPrevIndex()) {
+        if (entryStatus == EntryStatus.BEFORE_START && index == log.getPrevIndex()) {
             return Optional.of(log.getPrevTerm());
         }
         throw new IndexOutOfBoundsException("Can't get term for index " + index + ", entryStatus=" + entryStatus);
@@ -75,7 +75,7 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator {
     }
 
     private List<LogEntry> getEntriesToReplicate(Log log, int nextIndex) {
-        if (log.hasEntry(nextIndex) == EntryStatus.Present) {
+        if (log.hasEntry(nextIndex) == EntryStatus.PRESENT) {
             return log.getEntries(nextIndex, maxBatchSize);
         } else {
             return emptyList();

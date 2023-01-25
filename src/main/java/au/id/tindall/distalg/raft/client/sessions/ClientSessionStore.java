@@ -109,7 +109,7 @@ public class ClientSessionStore implements SnapshotInstalledListener {
 
     @Override
     public void onSnapshotInstalled(Snapshot snapshot) {
-        ByteBuffer byteBuffer = ByteBuffer.allocate(snapshot.snapshotOffset());
+        ByteBuffer byteBuffer = ByteBuffer.allocate(snapshot.getSnapshotOffset());
         snapshot.readInto(byteBuffer, 0);
         replaceSessions(byteBuffer.array());
     }

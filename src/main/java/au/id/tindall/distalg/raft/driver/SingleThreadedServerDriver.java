@@ -21,30 +21,39 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
     private static final int BUSY_WAIT_NANOSECONDS = BUSY_WAIT_MILLISECONDS * 1_000_000;
 
     enum LifeCycle {
-        Initialised,
-        Started,
-        Stopped,
-        Closed
+        INITIALISED,
+        STARTED,
+        STOPPED,
+        CLOSED
     }
 
     private static final Logger LOGGER = getLogger();
     private static final AtomicInteger UNCLOSED_COUNTER = new AtomicInteger(0);
     private final ExecutorService executorService;
-    private final AtomicReference<LifeCycle> lifeCycle = new AtomicReference<>(LifeCycle.Initialised);
+    private final AtomicReference<LifeCycle> lifeCycle = new AtomicReference<>(LifeCycle.INITIALISED);
     private final AtomicReference<Future<?>> future;
+    private final boolean busyWaiting;
     private long lastEventTimeNanos = 0;
     private Server<?> server;
 
+    public static SingleThreadedServerDriver busy() {
+        return new SingleThreadedServerDriver(true);
+    }
 
-    public SingleThreadedServerDriver() {
+    public static SingleThreadedServerDriver lazy() {
+        return new SingleThreadedServerDriver(false);
+    }
+
+    private SingleThreadedServerDriver(boolean busyWaiting) {
         this.executorService = Executors.newSingleThreadExecutor();
         this.future = new AtomicReference<>();
+        this.busyWaiting = busyWaiting;
         UNCLOSED_COUNTER.incrementAndGet();
     }
 
     @Override
     public void start(Server<?> server) {
-        if (lifeCycle.compareAndSet(LifeCycle.Initialised, LifeCycle.Started)) {
+        if (lifeCycle.compareAndSet(LifeCycle.INITIALISED, LifeCycle.STARTED)) {
             this.server = server;
             future.set(executorService.submit(this));
         } else {
@@ -56,13 +65,13 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
     public void run() {
         Thread.currentThread().setName("server-" + server.getId() + "-driver");
         try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", server.getId().toString())) {
-            while (lifeCycle.get() == LifeCycle.Started && !Thread.currentThread().isInterrupted()) {
+            while (lifeCycle.get() == LifeCycle.STARTED && !Thread.currentThread().isInterrupted()) {
                 boolean receivedAMessage = server.poll();
                 boolean timedOut = server.timeoutNowIfDue();
                 if (receivedAMessage || timedOut) {
                     lastEventTimeNanos = System.nanoTime();
                 } else {
-                    if (System.nanoTime() - lastEventTimeNanos < BUSY_WAIT_NANOSECONDS) {
+                    if (busyWaiting && System.nanoTime() - lastEventTimeNanos < BUSY_WAIT_NANOSECONDS) {
                         Thread.onSpinWait();
                     } else {
                         long startTime = System.currentTimeMillis();
@@ -79,14 +88,10 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
 
     @Override
     public void stop() {
-        if (lifeCycle.compareAndSet(LifeCycle.Initialised, LifeCycle.Stopped)
-                || lifeCycle.compareAndSet(LifeCycle.Started, LifeCycle.Stopped)) {
-//            try {
-//                future.get().get();
-//            } catch (InterruptedException | ExecutionException e) {
-//                throw new RuntimeException(e);
-//            }
-        } else {
+        if (lifeCycle.compareAndSet(LifeCycle.INITIALISED, LifeCycle.STOPPED)
+                || lifeCycle.compareAndSet(LifeCycle.STARTED, LifeCycle.STOPPED)) {
+            // Do nothing
+        } else if (lifeCycle.get() != LifeCycle.STOPPED) {
             LOGGER.debug("Couldn't stop, in state {}", lifeCycle.get());
         }
     }
@@ -94,7 +99,7 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
     @Override
     public void close() throws IOException {
         stop();
-        if (lifeCycle.compareAndSet(LifeCycle.Stopped, LifeCycle.Closed)) {
+        if (lifeCycle.compareAndSet(LifeCycle.STOPPED, LifeCycle.CLOSED)) {
             executorService.shutdown();
             final int remainingDrivers = UNCLOSED_COUNTER.decrementAndGet();
             LOGGER.debug("Closed SingleThreadedServerDriver, leaving {} created but not closed", remainingDrivers);

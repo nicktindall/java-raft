@@ -2,6 +2,8 @@ package au.id.tindall.distalg.raft.log;
 
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import au.id.tindall.distalg.raft.state.InMemoryPersistentState;
+import au.id.tindall.distalg.raft.state.InMemorySnapshot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -13,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Optional;
 
+import static au.id.tindall.distalg.raft.DomainUtils.createInMemorySnapshot;
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -34,6 +37,7 @@ class LogTest {
     private static final LogEntry ENTRY_4 = new StateMachineCommandEntry(TERM_0, CLIENT_ID, -1, 3, "fourth".getBytes());
     private static final LogEntry ENTRY_3B = new StateMachineCommandEntry(TERM_1, CLIENT_ID, -1, 2, "alt_third".getBytes());
     private static final LogEntry ENTRY_4B = new StateMachineCommandEntry(TERM_1, CLIENT_ID, -1, 3, "alt_fourth".getBytes());
+    public static final long SERVER_ID = 1L;
 
     @Mock
     private EntryCommittedEventHandler entryCommittedEventHandler;
@@ -152,6 +156,19 @@ class LogTest {
             assertThatThrownBy(() -> log.appendEntries(2, List.of(ENTRY_3B)))
                     .isInstanceOf(IllegalStateException.class);
         }
+
+        @Test
+        void willFail_WhenAttemptIsMadeToRewriteLogBeforeTruncation() {
+            final InMemoryPersistentState<Long> persistentState = new InMemoryPersistentState<>(SERVER_ID);
+            persistentState.setCurrentTerm(TERM_1);
+            final Log log = new Log(persistentState.getLogStorage());
+            log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4));
+            final InMemorySnapshot snapshot = createInMemorySnapshot(3, ENTRY_3.getTerm());
+            persistentState.setCurrentSnapshot(snapshot);
+            final List<LogEntry> entry3Only = List.of(ENTRY_3);
+            assertThatThrownBy(() -> log.appendEntries(2, entry3Only))
+                    .isInstanceOf(IllegalStateException.class);
+        }
     }
 
     @Nested
@@ -210,6 +227,32 @@ class LogTest {
         @Test
         void containsPrevLogEntry_WillReturnFalse_WhenPreviousIsNotPresent() {
             assertThat(logContaining(ENTRY_1, ENTRY_2, ENTRY_3).containsPreviousEntry(5, TERM_1)).isFalse();
+        }
+
+        @Nested
+        class WhenLogIsTruncated {
+
+            private Log log;
+
+            @BeforeEach
+            void setUp() {
+                final InMemoryPersistentState<Long> persistentState = new InMemoryPersistentState<>(SERVER_ID);
+                persistentState.setCurrentTerm(TERM_1);
+                log = new Log(persistentState.getLogStorage());
+                log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4));
+                final InMemorySnapshot snapshot = createInMemorySnapshot(3, ENTRY_3.getTerm());
+                persistentState.setCurrentSnapshot(snapshot);
+            }
+
+            @Test
+            void willReturnTrue_WhenPrevLogIndexAndTermMatch() {
+                assertThat(log.containsPreviousEntry(3, ENTRY_3.getTerm())).isTrue();
+            }
+
+            @Test
+            void willReturnFalse_WhenPrevLogIndexAndTermMismatch() {
+                assertThat(log.containsPreviousEntry(3, ENTRY_3.getTerm().next())).isFalse();
+            }
         }
     }
 
@@ -358,5 +401,14 @@ class LogTest {
             verifyNoInteractions(entryCommittedEventHandler);
             assertThat(log.getCommitIndex()).isEqualTo(4);
         }
+    }
+
+    @Test
+    void onSnapshotInstalled_WillAdvanceCommitIndex() {
+        Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3, ENTRY_4);
+        final InMemorySnapshot snapshot = createInMemorySnapshot(3, ENTRY_3.getTerm());
+        assertThat(log.getCommitIndex()).isZero();
+        log.onSnapshotInstalled(snapshot);
+        assertThat(log.getCommitIndex()).isEqualTo(3);
     }
 }

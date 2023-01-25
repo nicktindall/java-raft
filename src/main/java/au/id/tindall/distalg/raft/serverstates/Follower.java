@@ -11,6 +11,7 @@ import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.state.Snapshot;
 import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Optional;
 
@@ -74,13 +75,13 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         if (appendEntriesRequest.getPrevLogIndex() > 0) {
             final EntryStatus entryStatus = log.hasEntry(appendEntriesRequest.getPrevLogIndex());
             switch (entryStatus) {
-                case AfterEnd:
+                case AFTER_END:
                     LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, log.getLastIndex={},appendPrevTerm={}, log.hasEntry={}",
                             appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(), log.getLastLogIndex(),
                             appendEntriesRequest.getPrevLogTerm(), log.hasEntry(appendEntriesRequest.getPrevLogIndex()));
                     cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(log.getLastLogIndex() + 1));
                     return complete(this);
-                case BeforeStart:
+                case BEFORE_START:
                     if (log.getPrevIndex() != appendEntriesRequest.getPrevLogIndex() || !log.getPrevTerm().equals(appendEntriesRequest.getPrevLogTerm())) {
                         LOGGER.debug("Ignoring append entry: appendPrevIndex={}, appendPrevTerm={}, log.getPrevIndex={}", appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm(),
                                 log.getPrevIndex());
@@ -88,7 +89,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
                         return complete(this);
                     }
                     break;
-                case Present:
+                case PRESENT:
                     if (!log.containsPreviousEntry(appendEntriesRequest.getPrevLogIndex(), appendEntriesRequest.getPrevLogTerm())) {
                         LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, log.getLastIndex={}, appendPrevTerm={}, log.hasEntry={}",
                                 appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(), log.getLastLogIndex(),
@@ -133,17 +134,23 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
         electionScheduler.resetTimeout();
 
         if (installSnapshotRequest.getOffset() == 0) {
-            if (receivingSnapshot != null) {
-                if (receivingSnapshot.getLastIndex() != installSnapshotRequest.getLastIndex()
-                        || !receivingSnapshot.getLastTerm().equals(installSnapshotRequest.getLastTerm())) {
-                    LOGGER.debug("Started receiving snapshot starting at lastIndex/term {}/{}", installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm());
-                    receivingSnapshot.delete();
+            try {
+                if (receivingSnapshot != null) {
+                    if (receivingSnapshot.getLastIndex() != installSnapshotRequest.getLastIndex()
+                            || !receivingSnapshot.getLastTerm().equals(installSnapshotRequest.getLastTerm())) {
+                        LOGGER.debug("Started receiving snapshot starting at lastIndex/term {}/{}", installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm());
+                        receivingSnapshot.delete();
+                        receivingSnapshot = persistentState.createSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig(),
+                                installSnapshotRequest.getSnapshotOffset());
+                    }
+                } else {
                     receivingSnapshot = persistentState.createSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig(),
                             installSnapshotRequest.getSnapshotOffset());
                 }
-            } else {
-                receivingSnapshot = persistentState.createSnapshot(installSnapshotRequest.getLastIndex(), installSnapshotRequest.getLastTerm(), installSnapshotRequest.getLastConfig(),
-                        installSnapshotRequest.getSnapshotOffset());
+            } catch (IOException e) {
+                LOGGER.error("Error creating snapshot", e);
+                receivingSnapshot = null;
+                return complete(this);
             }
         } else {
             if (receivingSnapshot == null) {
@@ -151,7 +158,7 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
                         && installSnapshotRequest.getLastTerm().equals(lastReceivedSnapshotLastTerm)) {
                     LOGGER.debug("Got an InstallSnapshotRequest late, acknowledging it");
                     cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), true, installSnapshotRequest.getLastIndex(),
-                            installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length);
+                            installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length - 1);
                 } else {
                     LOGGER.warn("Got InstallSnapshotRequest for an unknown snapshot. Ignoring (offset={}, lastIndex={})",
                             installSnapshotRequest.getOffset(), installSnapshotRequest.getLastIndex());
@@ -176,16 +183,22 @@ public class Follower<ID extends Serializable> extends ServerState<ID> {
 
     private void updateAndPromoteSnapshot(InstallSnapshotRequest<ID> installSnapshotRequest) {
         int bytesWritten = receivingSnapshot.writeBytes(installSnapshotRequest.getOffset(), installSnapshotRequest.getData());
+        boolean success = true;
         if (installSnapshotRequest.isDone()) {
-            receivingSnapshot.finalise();
-            LOGGER.debug("Received snapshot lastIndex={}, lastTerm={}, length={}", receivingSnapshot.getLastIndex(), receivingSnapshot.getLastTerm(), receivingSnapshot.getLength());
-            persistentState.setCurrentSnapshot(receivingSnapshot);
-            receivingSnapshot.delete();
-            receivingSnapshot = null;
+            try {
+                receivingSnapshot.finalise();
+                LOGGER.debug("Received snapshot lastIndex={}, lastTerm={}, length={}", receivingSnapshot.getLastIndex(), receivingSnapshot.getLastTerm(), receivingSnapshot.getLength());
+                persistentState.setCurrentSnapshot(receivingSnapshot);
+                receivingSnapshot.delete();
+                receivingSnapshot = null;
+            } catch (IOException e) {
+                LOGGER.error("Error finalising snapshot", e);
+                success = false;
+            }
         }
         lastReceivedSnapshotLastIndex = installSnapshotRequest.getLastIndex();
         lastReceivedSnapshotLastTerm = installSnapshotRequest.getLastTerm();
-        cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), true,
+        cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), success,
                 installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + bytesWritten - 1);
     }
 

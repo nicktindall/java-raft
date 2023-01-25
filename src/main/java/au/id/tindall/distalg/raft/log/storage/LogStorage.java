@@ -18,11 +18,11 @@ public interface LogStorage {
 
     default EntryStatus hasEntry(int index) {
         if (index <= getPrevIndex()) {
-            return EntryStatus.BeforeStart;
+            return EntryStatus.BEFORE_START;
         } else if (index > getLastLogIndex()) {
-            return EntryStatus.AfterEnd;
+            return EntryStatus.AFTER_END;
         }
-        return EntryStatus.Present;
+        return EntryStatus.PRESENT;
     }
 
     LogEntry getEntry(int index);
@@ -74,11 +74,11 @@ public interface LogStorage {
     default void validateIndex(int logIndex) {
         final EntryStatus entryStatus = hasEntry(logIndex);
         switch (entryStatus) {
-            case Present:
+            case PRESENT:
                 return;
-            case BeforeStart:
+            case BEFORE_START:
                 throw new ArrayIndexOutOfBoundsException(format("Index has been truncated by log compaction (%,d <= %,d)", logIndex, getPrevIndex()));
-            case AfterEnd:
+            case AFTER_END:
                 throw new ArrayIndexOutOfBoundsException(format("Index is after end of log (%,d > %,d)", logIndex, getLastLogIndex()));
             default:
                 throw new IllegalStateException("Unexpected entry status " + entryStatus);

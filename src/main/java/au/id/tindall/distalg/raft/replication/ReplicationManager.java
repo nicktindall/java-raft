@@ -106,7 +106,7 @@ public class ReplicationManager<ID extends Serializable> implements MatchIndexAd
     }
 
     public void startReplicatingTo(ID followerId) {
-        LOGGER.debug("Starting replicating to " + followerId);
+        LOGGER.debug("Starting replicating to {}", followerId);
         final SingleClientReplicator<ID> logReplicator = replicatorFactory.createReplicator(configuration.getLocalId(), followerId, this);
         replicators.put(followerId, logReplicator);
         logReplicator.start();

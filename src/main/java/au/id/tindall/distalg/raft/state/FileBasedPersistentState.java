@@ -213,7 +213,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
 
     @Override
     public void setVotedFor(ID votedFor) {
-        if (!Objects.equals(this.votedFor, votedFor)) {
+        if (!Objects.equals(this.votedFor.get(), votedFor)) {
             this.votedFor.set(votedFor);
             writeToStateFile();
         }
@@ -235,18 +235,17 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     @Override
-    public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int snapshotOffset) {
+    public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int snapshotOffset) throws IOException {
         final Snapshot snapshot = createSnapshot(lastIndex, lastTerm, lastConfig);
-        snapshot.snapshotOffset(snapshotOffset);
+        snapshot.setSnapshotOffset(snapshotOffset);
         return snapshot;
     }
 
     @Override
-    public void setCurrentSnapshot(Snapshot nextSnapshot) {
-        // no point installing a snapshot if we've already gone past that point
-        if (currentSnapshot.get() != null && nextSnapshot.getLastIndex() <= logStorage.getPrevIndex()) {
-            LOGGER.debug("Not installing snapshot that would not advance us (log.prevLogIndex() == {}, nextSnapshot.getLastLogIndex() == {}",
-                    logStorage.getPrevIndex(), nextSnapshot.getLastIndex());
+    public void setCurrentSnapshot(Snapshot nextSnapshot) throws IOException {
+        if (snapshotIsNotLaterThanCurrentSnapshot(nextSnapshot)) {
+            LOGGER.debug("Not installing snapshot that would not advance us (currentSnapshot.getLastIndex() == {}, nextSnapshot.getLastLogIndex() == {}",
+                    currentSnapshot.get().getLastIndex(), nextSnapshot.getLastIndex());
             return;
         }
         try {
@@ -263,12 +262,18 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
                 listener.onSnapshotInstalled(currentSnapshot.get());
             }
         } catch (IOException e) {
-            throw new RuntimeException("Error promoting existing snapshot", e);
+            throw new IOException("Error promoting existing snapshot", e);
         }
     }
 
+    private boolean snapshotIsNotLaterThanCurrentSnapshot(Snapshot newSnapshot) {
+        // no point installing a snapshot if we've already gone past that point
+        final Snapshot previousSnapshot = currentSnapshot.get();
+        return previousSnapshot != null && newSnapshot.getLastIndex() <= previousSnapshot.getLastIndex();
+    }
+
     @Override
-    public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) {
+    public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) throws IOException {
         return PersistentSnapshot.create(tempSnapshotPathGenerator.apply(nextSnapshotSequence.getAndIncrement()), lastIndex, lastTerm, lastConfig);
     }
 
@@ -282,8 +287,12 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         LOGGER.debug("Initialise: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
         if (Files.exists(currentSnapshotPath)) {
             LOGGER.debug("Discovered snapshot, attempting to load");
-            setCurrentSnapshot(PersistentSnapshot.load(currentSnapshotPath));
-            LOGGER.debug("After snapshot: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
+            try {
+                setCurrentSnapshot(PersistentSnapshot.load(currentSnapshotPath));
+                LOGGER.debug("After snapshot: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
+            } catch (IOException e) {
+                LOGGER.error("Failed to load snapshot", e);
+            }
         } else if (logStorage.getPrevIndex() > 0) {
             LOGGER.error("prevIndex > 0 (={}), but no current snapshot could be found (currentSnapshotPath={})", logStorage.getPrevIndex(), currentSnapshotPath);
         }

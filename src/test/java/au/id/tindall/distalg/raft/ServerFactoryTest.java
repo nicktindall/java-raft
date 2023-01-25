@@ -75,7 +75,7 @@ class ServerFactoryTest {
     @Mock
     private StateMachine stateMachine;
     @Mock
-    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
+    private ElectionSchedulerFactory electionSchedulerFactory;
     @Mock
     private ElectionScheduler electionScheduler;
     @Mock

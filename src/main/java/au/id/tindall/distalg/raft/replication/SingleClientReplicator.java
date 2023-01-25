@@ -24,11 +24,11 @@ public class SingleClientReplicator<ID extends Serializable> {
 
     private synchronized void sendNexReplicationMessage() {
         switch (stateReplicator.sendNextReplicationMessage()) {
-            case SwitchToLogReplication:
+            case SWITCH_TO_LOG_REPLICATION:
                 stateReplicator = logReplicatorFactory.createLogReplicator(replicationState);
                 sendNexReplicationMessage();
                 return;
-            case SwitchToSnapshotReplication:
+            case SWITCH_TO_SNAPSHOT_REPLICATION:
                 stateReplicator = snapshotReplicatorFactory.createSnapshotReplicator(replicationState);
                 sendNexReplicationMessage();
                 return;

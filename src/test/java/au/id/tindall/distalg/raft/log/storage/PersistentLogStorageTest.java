@@ -50,7 +50,7 @@ class PersistentLogStorageTest extends AbstractLogStorageTest<PersistentLogStora
         for (int i = 0; i < 100; i++) {
             storage.add(i + 1, new ClientRegistrationEntry(Term.ZERO, i + 6));
         }
-        assertThat(storage.getPrevIndex()).isEqualTo(0);
+        assertThat(storage.getPrevIndex()).isZero();
         assertThat(storage.getLastLogIndex()).isEqualTo(100);
 
         storage.installSnapshot(new InMemorySnapshot(35, Term.ZERO, null));

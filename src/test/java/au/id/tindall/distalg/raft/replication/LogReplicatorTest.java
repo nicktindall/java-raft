@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
-import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.StayInCurrentMode;
-import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SwitchToSnapshotReplication;
+import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.STAY_IN_CURRENT_MODE;
+import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -62,13 +62,13 @@ class LogReplicatorTest {
         @Test
         void willSendEmptyAppendEntriesRequest_WhenThereAreNoLogEntries() {
             logReplicator = new LogReplicator<>(logContaining(), CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, 1, matchIndexAdvancedListener));
-            assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(StayInCurrentMode);
+            assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
             verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, 0, Optional.empty(), emptyList(), 0);
         }
 
         @Test
         void shouldSendEmptyAppendEntriesRequest_WhenFollowerIsCaughtUp() {
-            assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(StayInCurrentMode);
+            assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
             verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX, Optional.of(ENTRY_FOUR.getTerm()), emptyList(), COMMIT_INDEX);
         }
 
@@ -76,7 +76,7 @@ class LogReplicatorTest {
         void shouldSendUpToMaxBatchSizeEntries_WhenFollowerIsLagging() {
             int maxBatchSize = 2;
             logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, maxBatchSize, new ReplicationState<>(FOLLOWER_ID, LAST_LOG_INDEX - 2, matchIndexAdvancedListener));
-            assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(StayInCurrentMode);
+            assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
             verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, LAST_LOG_INDEX - 3, Optional.of(ENTRY_ONE.getTerm()), List.of(ENTRY_TWO, ENTRY_THREE), COMMIT_INDEX);
         }
 
@@ -95,14 +95,14 @@ class LogReplicatorTest {
             @Test
             void willSwitchToSnapshotReplicationWhenNextIndexHasBeenTruncated() {
                 logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, 2, matchIndexAdvancedListener));
-                assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(SwitchToSnapshotReplication);
+                assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(SWITCH_TO_SNAPSHOT_REPLICATION);
                 verifyNoInteractions(cluster);
             }
 
             @Test
             void willSendAppendEntriesEventWhenPrevIndexHasBeenTruncated() {
                 logReplicator = new LogReplicator<>(log, CURRENT_TERM, cluster, MAX_BATCH_SIZE, new ReplicationState<>(FOLLOWER_ID, 4, matchIndexAdvancedListener));
-                assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(StayInCurrentMode);
+                assertThat(logReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
                 verify(cluster).sendAppendEntriesRequest(CURRENT_TERM, FOLLOWER_ID, 3, Optional.of(ENTRY_THREE.getTerm()),
                         List.of(ENTRY_FOUR), COMMIT_INDEX);
             }

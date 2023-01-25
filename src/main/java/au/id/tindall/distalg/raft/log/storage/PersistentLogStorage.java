@@ -174,27 +174,27 @@ public class PersistentLogStorage implements LogStorage {
     }
 
     public void reIndex(int firstIndex) {
-        int nextIndex = firstIndex;
+        int localNextIndex = firstIndex;
         try {
             entryEndIndex = new ArrayList<>();
             entryEndIndex.add(0L);
             logFileChannel.position(0);
             while (logFileChannel.position() < logFileChannel.size()) {
                 int index = IOUtil.readInteger(logFileChannel);
-                if (nextIndex > 1 && index != nextIndex) {
-                    throw new IllegalStateException(format("Corrupt log file detected! (expected sequence %,d, found sequence %,d)", nextIndex, index));
+                if (localNextIndex > 1 && index != localNextIndex) {
+                    throw new IllegalStateException(format("Corrupt log file detected! (expected sequence %,d, found sequence %,d)", localNextIndex, index));
                 }
-                if (nextIndex == 1 && index != 1) {
+                if (localNextIndex == 1 && index != 1) {
                     firstIndex = index;
                 }
-                nextIndex = index + 1;
+                localNextIndex = index + 1;
                 int length = IOUtil.readInteger(logFileChannel);
                 long endIndex = logFileChannel.position() + length;
                 entryEndIndex.add(endIndex);
                 logFileChannel.position(endIndex);
             }
             this.prevIndex = firstIndex - 1;
-            this.nextIndex.set(nextIndex);
+            this.nextIndex.set(localNextIndex);
         } catch (IOException ex) {
             throw new RuntimeException("Error reading log", ex);
         }

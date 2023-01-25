@@ -47,7 +47,8 @@ public class ReplicationState<ID extends Serializable> {
     }
 
     public void logSuccessResponse(int lastAppendedIndex) {
-        int oldMatchIndex, newMatchIndex;
+        int oldMatchIndex;
+        int newMatchIndex;
         synchronized (this) {
             oldMatchIndex = matchIndex;
             nextIndex = Math.max(lastAppendedIndex + 1, nextIndex);

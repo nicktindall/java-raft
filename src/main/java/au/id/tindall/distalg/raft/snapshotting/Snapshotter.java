@@ -9,8 +9,6 @@ import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 import org.apache.logging.log4j.Logger;
 
-import java.io.IOException;
-
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Snapshotter {
@@ -35,20 +33,22 @@ public class Snapshotter {
 
     public void createSnapshotIfReady(int committedIndex) {
         if (snapshotHeuristic.shouldCreateSnapshot(log, stateMachine, persistentState.getCurrentSnapshot().orElse(null))) {
-            byte[] snapshot = stateMachine.createSnapshot();
-            Term termAtIndex = persistentState.getLogStorage().getEntry(committedIndex).getTerm();
-            LOGGER.debug("Creating snapshot to index={}, term={}, length={}", committedIndex, termAtIndex, snapshot.length);
-            try (final Snapshot nextSnapshot = persistentState.createSnapshot(committedIndex, termAtIndex, lastConfigurationEntry)) {
-                final byte[] chunk = clientSessionStore.serializeSessions();
-                LOGGER.debug("Serialised sessions size = {}", chunk.length);
-                final int startOfSnapshot = nextSnapshot.writeBytes(0, chunk);
-                nextSnapshot.finaliseSessions();
-                nextSnapshot.writeBytes(startOfSnapshot, snapshot);
-                nextSnapshot.finalise();
-                persistentState.setCurrentSnapshot(nextSnapshot);
-                nextSnapshot.delete();
-            } catch (IOException e) {
-                LOGGER.error("Error creating snapshot", e);
+            try {
+                byte[] snapshot = stateMachine.createSnapshot();
+                Term termAtIndex = persistentState.getLogStorage().getEntry(committedIndex).getTerm();
+                LOGGER.debug("Creating snapshot to index={}, term={}, length={}", committedIndex, termAtIndex, snapshot.length);
+                try (final Snapshot nextSnapshot = persistentState.createSnapshot(committedIndex, termAtIndex, lastConfigurationEntry)) {
+                    final byte[] chunk = clientSessionStore.serializeSessions();
+                    LOGGER.debug("Serialised sessions size = {}", chunk.length);
+                    final int startOfSnapshot = nextSnapshot.writeBytes(0, chunk);
+                    nextSnapshot.finaliseSessions();
+                    nextSnapshot.writeBytes(startOfSnapshot, snapshot);
+                    nextSnapshot.finalise();
+                    persistentState.setCurrentSnapshot(nextSnapshot);
+                    nextSnapshot.delete();
+                }
+            } catch (Exception e) {
+                LOGGER.error("Error occurred creating snapshot", e);
             }
         }
     }

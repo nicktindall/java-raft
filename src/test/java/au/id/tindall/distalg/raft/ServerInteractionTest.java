@@ -57,7 +57,7 @@ class ServerInteractionTest {
     @Mock
     private ElectionScheduler electionScheduler;
     @Mock
-    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
+    private ElectionSchedulerFactory electionSchedulerFactory;
 
     @BeforeEach
     void setUp() {

@@ -66,7 +66,7 @@ public class Log implements SnapshotInstalledListener {
 
     public void appendEntries(int prevLogIndex, List<LogEntry> newEntries) {
         doWrite(() -> {
-            if (prevLogIndex != 0 && hasEntry(prevLogIndex) == EntryStatus.AfterEnd) {
+            if (prevLogIndex != 0 && hasEntry(prevLogIndex) == EntryStatus.AFTER_END) {
                 throw new IllegalArgumentException(format("Attempted to append after index %s when length is %s", prevLogIndex, storage.size()));
             }
             for (int offset = 0; offset < newEntries.size(); offset++) {
@@ -80,9 +80,9 @@ public class Log implements SnapshotInstalledListener {
     private void appendEntry(int appendIndex, LogEntry entry) {
         final EntryStatus entryStatus = hasEntry(appendIndex);
         switch (entryStatus) {
-            case BeforeStart:
-                throwAttemptToAppendBeforeCommitIndexError(appendIndex, null, entry);
-            case Present:
+            case BEFORE_START:
+                throw new AttemptToAppendBeforeCommitIndexException(appendIndex, null, entry);
+            case PRESENT:
                 final LogEntry entryAtIndex = getEntry(appendIndex);
                 if (entryAtIndex.getTerm().equals(entry.getTerm())) {
                     // We already have this entry
@@ -90,11 +90,12 @@ public class Log implements SnapshotInstalledListener {
                 } else {
                     // The entry we have at that index was from a different term
                     if (appendIndex <= this.commitIndex) {
-                        throwAttemptToAppendBeforeCommitIndexError(appendIndex, entryAtIndex, entry);
+                        throw new AttemptToAppendBeforeCommitIndexException(appendIndex, entryAtIndex, entry);
                     }
                     storage.truncate(appendIndex);
                 }
-            case AfterEnd:
+                // fallthrough
+            case AFTER_END:
                 storage.add(appendIndex, entry);
                 notifyAppendedListeners(appendIndex);
                 break;
@@ -103,17 +104,19 @@ public class Log implements SnapshotInstalledListener {
         }
     }
 
-    private void throwAttemptToAppendBeforeCommitIndexError(int appendIndex, LogEntry entryAtIndex, LogEntry entry) {
-        throw new IllegalStateException(format("Attempt made to truncate prior to commit index, this is a bug. appendIndex=%,d, commitIndex=%,d, prevIndex=%,d, entryAtIndex=%s, entry=%s",
-                appendIndex, getCommitIndex(), getPrevIndex(), entryAtIndex, entry));
+    class AttemptToAppendBeforeCommitIndexException extends IllegalStateException {
+        public AttemptToAppendBeforeCommitIndexException(int appendIndex, LogEntry entryAtIndex, LogEntry entry) {
+            super(format("Attempt made to truncate prior to commit index, this is a bug. appendIndex=%,d, commitIndex=%,d, prevIndex=%,d, entryAtIndex=%s, entry=%s",
+                    appendIndex, getCommitIndex(), getPrevIndex(), entryAtIndex, entry));
+        }
     }
 
     public boolean containsPreviousEntry(int prevLogIndex, Term prevLogTerm) {
         return doRead(() -> {
             switch (hasEntry(prevLogIndex)) {
-                case Present:
+                case PRESENT:
                     return getEntry(prevLogIndex).getTerm().equals(prevLogTerm);
-                case BeforeStart:
+                case BEFORE_START:
                     return storage.getPrevIndex() == prevLogIndex && storage.getPrevTerm().equals(prevLogTerm);
                 default:
                     return false;

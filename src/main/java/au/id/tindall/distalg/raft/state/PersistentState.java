@@ -4,6 +4,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Optional;
 
@@ -21,24 +22,13 @@ public interface PersistentState<ID extends Serializable> {
 
     LogStorage getLogStorage();
 
-    /**
-     * The latest cluster membership configuration up through prevIndex
-     *
-     * @return the prevConfig
-     */
-    default ConfigurationEntry getPrevConfig() {
-        return null;
-    }
+    void setCurrentSnapshot(Snapshot snapshot) throws IOException;
 
-    void setCurrentSnapshot(Snapshot snapshot);
+    Optional<Snapshot> getCurrentSnapshot();
 
-    default Optional<Snapshot> getCurrentSnapshot() {
-        return Optional.empty();
-    }
+    Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) throws IOException;
 
-    Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig);
-
-    Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int snapshotOffset);
+    Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int snapshotOffset) throws IOException;
 
     void addSnapshotInstalledListener(SnapshotInstalledListener listener);
 

@@ -4,6 +4,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.InMemoryLogStorage;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
+import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -11,7 +12,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.apache.logging.log4j.LogManager.getLogger;
+
 public class InMemoryPersistentState<ID extends Serializable> implements PersistentState<ID> {
+
+    private static final Logger LOGGER = getLogger();
 
     private final ID id;
     private final LogStorage logStorage;
@@ -72,6 +77,12 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
 
     @Override
     public void setCurrentSnapshot(Snapshot nextSnapshot) {
+        // no point installing a snapshot if we've already gone past that point
+        if (currentSnapshot != null && nextSnapshot.getLastIndex() <= currentSnapshot.getLastIndex()) {
+            LOGGER.debug("Not installing snapshot that would not advance us (currentSnapshot.getLastIndex() == {}, nextSnapshot.getLastLogIndex() == {}",
+                    currentSnapshot.getLastIndex(), nextSnapshot.getLastIndex());
+            return;
+        }
         currentSnapshot = (InMemorySnapshot) nextSnapshot;
         logStorage.installSnapshot(currentSnapshot);
         for (SnapshotInstalledListener listener : snapshotInstalledListeners) {
@@ -87,7 +98,7 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     @Override
     public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig, int snapshotOffset) {
         final Snapshot snapshot = createSnapshot(lastIndex, lastTerm, lastConfig);
-        snapshot.snapshotOffset(snapshotOffset);
+        snapshot.setSnapshotOffset(snapshotOffset);
         return snapshot;
     }
 
