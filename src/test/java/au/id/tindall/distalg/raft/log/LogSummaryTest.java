@@ -15,47 +15,47 @@ class LogSummaryTest {
 
     @Test
     void compareTo_WillReturnZero_WhenBothLogsAreEmpty() {
-        assertThat(new LogSummary(Optional.empty(), 0).compareTo(new LogSummary(Optional.empty(), 0))).isZero();
+        assertThat(new LogSummary(Optional.empty(), 0)).isEqualByComparingTo(new LogSummary(Optional.empty(), 0));
     }
 
     @Test
     void compareTo_WillReturnNegative_WhenLogIsEmptyAndOtherIsNot() {
-        assertThat(new LogSummary(Optional.empty(), 0).compareTo(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX))).isNegative();
+        assertThat(new LogSummary(Optional.empty(), 0)).isLessThan(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX));
     }
 
     @Test
     void compareTo_WillReturnPositive_WhenLogIsNotEmptyAndOtherIs() {
-        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX).compareTo(new LogSummary(Optional.empty(), 0))).isPositive();
+        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX)).isGreaterThan(new LogSummary(Optional.empty(), 0));
     }
 
     @Test
     void compareTo_WillReturnZero_WhenLastLogTermAndLastLogIndexAreEqual() {
-        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX)
-                .compareTo(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX))).isZero();
+        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX))
+                .isEqualByComparingTo(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX));
     }
 
     @Test
     void compareTo_WillReturnNegative_WhenLastLogTermOfOtherIsHigher() {
-        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX)
-                .compareTo(new LogSummary(Optional.of(HIGHER_LAST_LOG_TERM), LAST_LOG_INDEX))).isNegative();
+        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX))
+                .isLessThan(new LogSummary(Optional.of(HIGHER_LAST_LOG_TERM), LAST_LOG_INDEX));
     }
 
     @Test
     void compareTo_WillReturnPositive_WhenLastLogTermOfOtherIsLower() {
-        assertThat(new LogSummary(Optional.of(HIGHER_LAST_LOG_TERM), LAST_LOG_INDEX)
-                .compareTo(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX))).isPositive();
+        assertThat(new LogSummary(Optional.of(HIGHER_LAST_LOG_TERM), LAST_LOG_INDEX))
+                .isGreaterThan(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX));
     }
 
     @Test
     void compareTo_WillReturnNegative_WhenLastLogTermsAreEqualAndLastLogIndexOfOtherIsHigher() {
-        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX)
-                .compareTo(new LogSummary(Optional.of(LAST_LOG_TERM), HIGHER_LAST_LOG_INDEX))).isNegative();
+        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX))
+                .isLessThan(new LogSummary(Optional.of(LAST_LOG_TERM), HIGHER_LAST_LOG_INDEX));
     }
 
     @Test
     void compareTo_WillReturnPositive_WhenLastLogTermsAreEqualAndLastLogIndexOfOtherIsLower() {
-        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), HIGHER_LAST_LOG_INDEX)
-                .compareTo(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX))).isPositive();
+        assertThat(new LogSummary(Optional.of(LAST_LOG_TERM), HIGHER_LAST_LOG_INDEX))
+                .isGreaterThan(new LogSummary(Optional.of(LAST_LOG_TERM), LAST_LOG_INDEX));
     }
 
     @Test

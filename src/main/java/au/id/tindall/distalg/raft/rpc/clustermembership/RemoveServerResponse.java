@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft.rpc.clustermembership;
 
-public class RemoveServerResponse extends ClusterMembershipResponse {
+public enum RemoveServerResponse implements ClusterMembershipResponse {
+    OK(Status.OK),
+    NOT_LEADER(Status.NOT_LEADER);
 
     public enum Status {
         OK,
@@ -8,12 +10,9 @@ public class RemoveServerResponse extends ClusterMembershipResponse {
         TIMEOUT
     }
 
-    public static RemoveServerResponse OK = new RemoveServerResponse(Status.OK);
-    public static RemoveServerResponse NOT_LEADER = new RemoveServerResponse(Status.NOT_LEADER);
-
     private final Status status;
 
-    private RemoveServerResponse(Status status) {
+    RemoveServerResponse(Status status) {
         this.status = status;
     }
 

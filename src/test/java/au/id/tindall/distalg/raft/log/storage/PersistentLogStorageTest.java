@@ -29,7 +29,7 @@ class PersistentLogStorageTest extends AbstractLogStorageTest<PersistentLogStora
     }
 
     @Test
-    public void willAddAfterReIndex() {
+    void willAddAfterReIndex() {
         List<LogEntry> entries = List.of(
                 new ClientRegistrationEntry(TERM, 123),
                 new ClientRegistrationEntry(TERM, 456)

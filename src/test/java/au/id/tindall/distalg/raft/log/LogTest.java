@@ -18,7 +18,6 @@ import java.util.Optional;
 import static au.id.tindall.distalg.raft.DomainUtils.createInMemorySnapshot;
 import static au.id.tindall.distalg.raft.DomainUtils.logContaining;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
@@ -136,24 +135,25 @@ class LogTest {
         @Test
         void willFail_WhenPrevLogIndexIsInvalid() {
             Log log = new Log();
-            assertThatCode(
-                    () -> log.appendEntries(-1, List.of(ENTRY_1, ENTRY_2))
-            ).isInstanceOf(IllegalArgumentException.class);
+            final List<LogEntry> entryOneAndTwo = List.of(ENTRY_1, ENTRY_2);
+            assertThatThrownBy(() -> log.appendEntries(-1, entryOneAndTwo))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
         void willFail_WhenPrevLogIndexIsNotPresent() {
             Log log = new Log();
-            assertThatCode(
-                    () -> log.appendEntries(1, List.of(ENTRY_1, ENTRY_2))
-            ).isInstanceOf(IllegalArgumentException.class);
+            final List<LogEntry> entryOneAndTwo = List.of(ENTRY_1, ENTRY_2);
+            assertThatThrownBy(() -> log.appendEntries(1, entryOneAndTwo))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
         void willFail_WhenAttemptIsMadeToRewriteLogBeforeCommitIndex() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3);
             log.advanceCommitIndex(3);
-            assertThatThrownBy(() -> log.appendEntries(2, List.of(ENTRY_3B)))
+            final List<LogEntry> entry3bOnly = List.of(ENTRY_3B);
+            assertThatThrownBy(() -> log.appendEntries(2, entry3bOnly))
                     .isInstanceOf(IllegalStateException.class);
         }
 
@@ -179,9 +179,8 @@ class LogTest {
             Log log = new Log();
             log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
             List<LogEntry> entries = log.getEntries();
-            assertThatCode(
-                    () -> entries.remove(0)
-            ).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> entries.remove(0))
+                    .isInstanceOf(UnsupportedOperationException.class);
         }
 
         @Test
@@ -205,9 +204,8 @@ class LogTest {
             Log log = new Log();
             log.appendEntries(0, List.of(ENTRY_1, ENTRY_2, ENTRY_3));
             List<LogEntry> entries = log.getEntries(2, 10);
-            assertThatCode(
-                    () -> entries.remove(0)
-            ).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> entries.remove(0))
+                    .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
@@ -351,7 +349,7 @@ class LogTest {
         }
 
         @Test
-        public void willNotAdvanceCommitIndexForEntriesFromPreviousTerms() {
+        void willNotAdvanceCommitIndexForEntriesFromPreviousTerms() {
             Log log = logContaining(ENTRY_1, ENTRY_2, ENTRY_3B, ENTRY_4B);
             log.addEntryCommittedEventHandler(entryCommittedEventHandler);
             log.updateCommitIndex(List.of(0, 0, 2, 2), TERM_1);

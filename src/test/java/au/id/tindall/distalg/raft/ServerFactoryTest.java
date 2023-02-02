@@ -97,7 +97,7 @@ class ServerFactoryTest {
         when(persistentState.getId()).thenReturn(SERVER_ID);
         when(persistentState.getLogStorage()).thenReturn(logStorage);
         when(clientSessionStoreFactory.create(MAX_CLIENT_SESSIONS)).thenReturn(clientSessionStore);
-        when(clusterFactory.createForNode(eq(SERVER_ID))).thenReturn(cluster);
+        when(clusterFactory.createForNode(SERVER_ID)).thenReturn(cluster);
         when(logFactory.createLog(logStorage)).thenReturn(log);
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
         when(electionSchedulerFactory.createElectionScheduler()).thenReturn(electionScheduler);

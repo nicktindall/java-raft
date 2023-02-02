@@ -48,17 +48,17 @@ class TermTest {
 
     @Test
     void compareTo_WillReturnNegative_WhenOtherIsGreater() {
-        assertThat(new Term(100).compareTo(new Term(200))).isNegative();
+        assertThat(new Term(100)).isLessThan(new Term(200));
     }
 
     @Test
     void compareTo_WillReturnZero_WhenOtherIsEqual() {
-        assertThat(new Term(100).compareTo(new Term(100))).isZero();
+        assertThat(new Term(100)).isEqualByComparingTo(new Term(100));
     }
 
     @Test
     void compareTo_WillReturnPositive_WhenOtherIsLess() {
-        assertThat(new Term(100).compareTo(new Term(50))).isPositive();
+        assertThat(new Term(100)).isGreaterThan(new Term(50));
     }
 
     @Test

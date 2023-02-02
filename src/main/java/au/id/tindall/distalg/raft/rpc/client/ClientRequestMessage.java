@@ -6,7 +6,7 @@ public abstract class ClientRequestMessage<ID extends Serializable> {
 
     private final ID destinationId;
 
-    public ClientRequestMessage(ID destinationId) {
+    protected ClientRequestMessage(ID destinationId) {
         this.destinationId = destinationId;
     }
 

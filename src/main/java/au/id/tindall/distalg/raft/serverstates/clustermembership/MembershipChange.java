@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-abstract public class MembershipChange<ID extends Serializable, R extends ClusterMembershipResponse> implements Closeable {
+public abstract class MembershipChange<ID extends Serializable, R extends ClusterMembershipResponse> implements Closeable {
     protected static final int NOT_SET = Integer.MIN_VALUE;
     private final PersistentState<ID> persistentState;
     protected final Log log;

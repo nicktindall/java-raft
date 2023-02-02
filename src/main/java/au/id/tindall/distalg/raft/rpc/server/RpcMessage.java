@@ -9,7 +9,7 @@ public abstract class RpcMessage<ID extends Serializable> implements Serializabl
     private final Term term;
     private final ID source;
 
-    public RpcMessage(Term term, ID source) {
+    protected RpcMessage(Term term, ID source) {
         this.term = term;
         this.source = source;
     }

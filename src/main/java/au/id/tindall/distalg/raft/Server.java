@@ -95,7 +95,7 @@ public class Server<ID extends Serializable> implements Closeable {
         return state.handle(clientRequestMessage);
     }
 
-    public synchronized CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest<ID> clusterMembershipRequest) {
+    public synchronized CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest clusterMembershipRequest) {
         assertThatNodeIsRunning();
         return state.handle(clusterMembershipRequest);
     }

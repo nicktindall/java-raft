@@ -1,6 +1,9 @@
 package au.id.tindall.distalg.raft.rpc.clustermembership;
 
-public class AddServerResponse extends ClusterMembershipResponse {
+public enum AddServerResponse implements ClusterMembershipResponse {
+    OK(Status.OK),
+    TIMEOUT(Status.TIMEOUT),
+    NOT_LEADER(Status.NOT_LEADER);
 
     public enum Status {
         OK,
@@ -8,11 +11,7 @@ public class AddServerResponse extends ClusterMembershipResponse {
         TIMEOUT
     }
 
-    public static final AddServerResponse OK = new AddServerResponse(Status.OK);
-    public static final AddServerResponse TIMEOUT = new AddServerResponse(Status.TIMEOUT);
-    public static final AddServerResponse NOT_LEADER = new AddServerResponse(Status.NOT_LEADER);
-
-    private AddServerResponse(Status status) {
+    AddServerResponse(Status status) {
         this.status = status;
     }
 

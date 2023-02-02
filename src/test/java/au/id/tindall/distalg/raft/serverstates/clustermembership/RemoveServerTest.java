@@ -29,7 +29,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
-public class RemoveServerTest {
+class RemoveServerTest {
 
     private static final Term CURRENT_TERM = new Term(1);
     private static final int SERVER_ID = 111;

@@ -26,8 +26,9 @@ class PendingClientRequestResponseTest {
     @Test
     void shouldReturnFuture() {
         CompletableFuture<ClientRequestResponse<Serializable>> responseFuture = response.getResponseFuture();
-        assertThat(responseFuture).isNotNull();
-        assertThat(responseFuture).isNotCompleted();
+        assertThat(responseFuture)
+                .isNotNull()
+                .isNotCompleted();
     }
 
     @Test

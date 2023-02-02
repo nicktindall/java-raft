@@ -3,7 +3,7 @@ package au.id.tindall.distalg.raft.rpc.client;
 import java.io.Serializable;
 import java.util.Arrays;
 
-public class ClientRequestResponse<ID extends Serializable> extends ClientResponseMessage {
+public class ClientRequestResponse<ID extends Serializable> implements ClientResponseMessage {
 
     private final ClientRequestStatus status;
     private final byte[] response;

@@ -48,7 +48,7 @@ public abstract class ServerState<ID extends Serializable> {
     protected final ServerStateFactory<ID> serverStateFactory;
     protected final ID currentLeader;
 
-    public ServerState(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader) {
+    protected ServerState(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader) {
         this.persistentState = persistentState;
         this.log = log;
         this.cluster = cluster;
@@ -183,7 +183,7 @@ public abstract class ServerState<ID extends Serializable> {
     public void leaveState() {
     }
 
-    public CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest<ID> message) {
+    public CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest message) {
         if (message instanceof AddServerRequest) {
             return this.handle((AddServerRequest<ID>) message);
         } else if (message instanceof RemoveServerRequest) {

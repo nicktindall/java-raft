@@ -149,7 +149,7 @@ class ServerInteractionTest {
     }
 
     @Test
-    public void commitIndicesWillAdvanceAsLogEntriesAreDistributed() {
+    void commitIndicesWillAdvanceAsLogEntriesAreDistributed() {
         server1.timeoutNowIfDue();
         queuedSendingStrategy.fullyFlush(allServers);
         server1.handle(new RegisterClientRequest<>(server1.getId()));
