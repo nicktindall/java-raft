@@ -24,7 +24,7 @@ The parts of the algorithm I have implemented (according to the thesis chapters)
 | 4.2.2 | Removing the current leader | :x: |
 | 4.2.3 | Disruptive servers | :x: |
 | 4.3 | Arbitrary configuration changes using joint consensus | :x: |
-| 5 | Log compaction | :x: |
+| 5 | Log compaction | :heavy_check_mark: |
 | 6.1 | Finding the cluster | :x: |
 | 6.2 | Routing requests to the leader | :heavy_check_mark: |
 | 6.3 | Implementing linearizable semantics | :heavy_check_mark: |
