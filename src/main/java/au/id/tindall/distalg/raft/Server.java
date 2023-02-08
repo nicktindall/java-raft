@@ -33,6 +33,7 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Server<ID extends Serializable> implements Closeable {
 
+    private static final int POLL_WARN_THRESHOLD_MS = 50;
     private static final Logger LOGGER = getLogger();
 
     private final PersistentState<ID> persistentState;
@@ -52,9 +53,19 @@ public class Server<ID extends Serializable> implements Closeable {
     }
 
     public synchronized boolean poll() {
-        final Optional<RpcMessage<ID>> poll = cluster.poll();
-        poll.ifPresent(this::handle);
-        return poll.isPresent();
+        long startTimeMillis = System.currentTimeMillis();
+        long pollDurationMillis = 0;
+        final Optional<RpcMessage<ID>> message = cluster.poll();
+        try {
+            pollDurationMillis = System.currentTimeMillis() - startTimeMillis;
+            message.ifPresent(this::handle);
+            return message.isPresent();
+        } finally {
+            long totalDurationMillis = System.currentTimeMillis() - startTimeMillis;
+            if (totalDurationMillis > POLL_WARN_THRESHOLD_MS) {
+                LOGGER.warn("Message handling took {}ms, polling took {}ms, message was {}", totalDurationMillis, pollDurationMillis, message.get());
+            }
+        }
     }
 
     public synchronized boolean timeoutNowIfDue() {
@@ -80,6 +91,7 @@ public class Server<ID extends Serializable> implements Closeable {
         this.serverDriver = serverDriver;
         updateState(serverStateFactory.createInitialState());
         serverDriver.start(this);
+        cluster.onStart();
     }
 
     public synchronized void stop() {
@@ -88,6 +100,7 @@ public class Server<ID extends Serializable> implements Closeable {
         }
         serverDriver.stop();
         updateState(null);
+        cluster.onStop();
     }
 
     public synchronized CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {

@@ -23,6 +23,7 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 public class Log implements SnapshotInstalledListener {
 
     private static final Logger LOGGER = getLogger();
+    private static final int LOCK_ACQUIRE_WARNING_TIME_MS = 50;
 
     private final ReadWriteLock readWriteLock;
     private final List<EntryCommittedEventHandler> entryCommittedEventHandlers;
@@ -246,7 +247,12 @@ public class Log implements SnapshotInstalledListener {
     }
 
     private <V> V acquireLockAnd(Lock lock, Supplier<V> function) {
+        long startTimeNanos = System.nanoTime();
         lock.lock();
+        long timeTakenToAcquireNanos = System.nanoTime() - startTimeNanos;
+        if (timeTakenToAcquireNanos > LOCK_ACQUIRE_WARNING_TIME_MS * 1_000_000) {
+            LOGGER.warn("Took {}ms to acquire to acquire {}", (timeTakenToAcquireNanos / 1_000_000), lock.getClass().getSimpleName());
+        }
         try {
             return function.get();
         } finally {

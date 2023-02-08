@@ -7,4 +7,8 @@ public interface SendingStrategy {
     void send(Long destination, RpcMessage<Long> message);
 
     RpcMessage<Long> poll(Long serverId);
+
+    void onStop(Long localId);
+
+    void onStart(Long localId);
 }

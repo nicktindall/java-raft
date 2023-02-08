@@ -26,6 +26,7 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class TestClusterFactory implements ClusterFactory<Long> {
 
+    private static final long SEND_WARN_THRESHOLD_US = 10_000;
     private static final Logger LOGGER = getLogger();
 
     private final SendingStrategy sendingStrategy;
@@ -49,6 +50,16 @@ public class TestClusterFactory implements ClusterFactory<Long> {
     @Override
     public Cluster<Long> createForNode(Long localId) {
         return new Cluster<>() {
+
+            @Override
+            public void onStart() {
+                sendingStrategy.onStart(localId);
+            }
+
+            @Override
+            public void onStop() {
+                sendingStrategy.onStop(localId);
+            }
 
             @Override
             public boolean isQuorum(Set<Long> receivedVotes) {
@@ -109,6 +120,7 @@ public class TestClusterFactory implements ClusterFactory<Long> {
     }
 
     private void dispatch(RpcMessage<Long> message) {
+        long startTimeNanos = System.nanoTime();
         if (message instanceof BroadcastMessage) {
             LOGGER.trace("Broadcasting {} from Server {}", message.getClass().getSimpleName(), message.getSource());
             servers.values().forEach(server -> {
@@ -122,6 +134,10 @@ public class TestClusterFactory implements ClusterFactory<Long> {
             messageStats.recordMessageSent(message);
         } else {
             throw new IllegalStateException("Unknown message type: " + message.getClass().getName());
+        }
+        long sendDurationMicros = (System.nanoTime() - startTimeNanos) / 1_000;
+        if (sendDurationMicros > SEND_WARN_THRESHOLD_US) {
+            LOGGER.warn("Sending to cluster took {}us", sendDurationMicros);
         }
     }
 }

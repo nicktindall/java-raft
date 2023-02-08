@@ -25,6 +25,14 @@ public class QueuedSendingStrategy implements SendingStrategy {
         throw new UnsupportedOperationException("Use flush/fullyFlush");
     }
 
+    @Override
+    public void onStop(Long localId) {
+    }
+
+    @Override
+    public void onStart(Long localId) {
+    }
+
     public void flush(Map<Long, Server<Long>> serverMap) {
         List<DestinationAndMessage> oldMessages = messageQueue;
         messageQueue = new ArrayList<>();

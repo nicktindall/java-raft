@@ -36,12 +36,29 @@ public class DelayedMultipathSendingStrategy implements SendingStrategy {
 
     @Override
     public void send(Long destination, RpcMessage<Long> message) {
-        serverPaths.computeIfAbsent(destination, id -> new ServerMessageQueue(percentDropped, minLatencyMicros, maxLatencyMicros)).send(message);
+        final ServerMessageQueue serverMessageQueue = serverPaths.get(destination);
+        if (serverMessageQueue != null) {
+            serverMessageQueue.send(message);
+        }
     }
 
     @Override
     public RpcMessage<Long> poll(Long serverId) {
-        return serverPaths.computeIfAbsent(serverId, id -> new ServerMessageQueue(percentDropped, minLatencyMicros, maxLatencyMicros)).poll();
+        final ServerMessageQueue serverMessageQueue = serverPaths.get(serverId);
+        if (serverMessageQueue != null) {
+            return serverMessageQueue.poll();
+        }
+        return null;
+    }
+
+    @Override
+    public void onStop(Long serverId) {
+        serverPaths.remove(serverId);
+    }
+
+    @Override
+    public void onStart(Long serverId) {
+        serverPaths.put(serverId, new ServerMessageQueue(percentDropped, minLatencyMicros, maxLatencyMicros));
     }
 
     public void expire() {
@@ -60,6 +77,7 @@ public class DelayedMultipathSendingStrategy implements SendingStrategy {
     private static class ServerMessageQueue {
 
         private static final int INACTIVITY_BEFORE_STALE_MS = 10_000;
+        private static final int MESSAGE_DELAY_WARNING_MS = 50;
         private final PriorityBlockingQueue<MessageSlot> messageQueue;
         private final MessageSlotPool messageSlotPool;
         private final float percentDropped;
@@ -67,6 +85,7 @@ public class DelayedMultipathSendingStrategy implements SendingStrategy {
         private final long maxLatencyNanos;
         private volatile long lastSend;
         private volatile long lastPoll;
+        private volatile long lastArriveTimeNanos = Long.MIN_VALUE;
 
         public ServerMessageQueue(float percentDropped, long minLatencyMicros, long maxLatencyMicros) {
             this.percentDropped = percentDropped;
@@ -81,13 +100,30 @@ public class DelayedMultipathSendingStrategy implements SendingStrategy {
         public RpcMessage<Long> poll() {
             lastPoll = System.currentTimeMillis();
             final MessageSlot peek = messageQueue.peek();
-            if (peek != null && peek.arrivalTimeNanos < System.nanoTime()) {
+            final long nowNanos = System.nanoTime();
+            if (peek != null && peek.arrivalTimeNanos < nowNanos) {
+                assertArrivalTimeIncreasing(peek);
+                checkMessageDelay(peek.arrivalTimeNanos, nowNanos);
                 final MessageSlot nextMessage = messageQueue.poll();
                 RpcMessage<Long> message = nextMessage.message;
                 messageSlotPool.ret(nextMessage);
                 return message;
             }
             return null;
+        }
+
+        private static void checkMessageDelay(long scheduledArrivalTimeNanos, long nowNanos) {
+            final long messageDelayedMillis = (nowNanos - scheduledArrivalTimeNanos) / 1_000_000;
+            if (messageDelayedMillis > MESSAGE_DELAY_WARNING_MS) {
+                LOGGER.warn("Message delayed by " + messageDelayedMillis + "ms");
+            }
+        }
+
+        private void assertArrivalTimeIncreasing(MessageSlot peek) {
+            if (lastArriveTimeNanos > peek.arrivalTimeNanos) {
+                LOGGER.warn(format("lastArriveTime (%,d) > arrivalTimeNanos (%,d)", lastArriveTimeNanos, peek.arrivalTimeNanos));
+            }
+            lastArriveTimeNanos = peek.arrivalTimeNanos;
         }
 
         public void send(RpcMessage<Long> rpcMessage) {

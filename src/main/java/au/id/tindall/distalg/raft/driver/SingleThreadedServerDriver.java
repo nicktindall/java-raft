@@ -83,6 +83,9 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
                     }
                 }
             }
+        } catch (RuntimeException e) {
+            LOGGER.error("Something went wrong in server thread", e);
+            throw e;
         }
     }
 

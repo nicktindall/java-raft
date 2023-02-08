@@ -53,24 +53,25 @@ public class HeartbeatReplicationScheduler<ID extends Serializable> implements R
         executorService.shutdown();
     }
 
-    private Void run() throws InterruptedException {
+    private Void run() {
         try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", serverId.toString())) {
-            try {
-                while (running) {
-                    if (replicationScheduled.getAndSet(false)) {
-                        sendAppendEntriesRequest.run();
-                    } else {
-                        synchronized (replicationScheduled) {
-                            replicationScheduled.wait(maxDelayBetweenMessagesInMilliseconds);
-                        }
-                        replicationScheduled.set(true);
+            while (running) {
+                if (replicationScheduled.getAndSet(false)) {
+                    sendAppendEntriesRequest.run();
+                } else {
+                    synchronized (replicationScheduled) {
+                        replicationScheduled.wait(maxDelayBetweenMessagesInMilliseconds);
                     }
+                    replicationScheduled.set(true);
                 }
-            } catch (RuntimeException ex) {
-                LOGGER.error("Replication thread failed!", ex);
             }
-            return null;
+        } catch (RuntimeException ex) {
+            LOGGER.error("Replication thread failed!", ex);
+        } catch (InterruptedException e) {
+            LOGGER.debug("Replication thread interrupted!");
+            Thread.currentThread().interrupt();
         }
+        return null;
     }
 
     @Override

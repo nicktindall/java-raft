@@ -12,6 +12,10 @@ import java.util.Set;
 
 public interface Cluster<ID extends Serializable> {
 
+    void onStart();
+
+    void onStop();
+
     boolean isQuorum(Set<ID> receivedVotes);
 
     Set<ID> getOtherMemberIds();
