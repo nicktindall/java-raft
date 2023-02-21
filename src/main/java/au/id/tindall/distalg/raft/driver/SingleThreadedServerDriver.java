@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.driver;
 
 import au.id.tindall.distalg.raft.Server;
+import au.id.tindall.distalg.raft.timing.TimingServer;
 import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.Logger;
 
@@ -19,6 +20,7 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
 
     private static final int BUSY_WAIT_MILLISECONDS = 5;
     private static final int BUSY_WAIT_NANOSECONDS = BUSY_WAIT_MILLISECONDS * 1_000_000;
+    private static final int WARNING_THRESHOLD_MILLIS = 25;
 
     enum LifeCycle {
         INITIALISED,
@@ -54,7 +56,7 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
     @Override
     public void start(Server<?> server) {
         if (lifeCycle.compareAndSet(LifeCycle.INITIALISED, LifeCycle.STARTED)) {
-            this.server = server;
+            this.server = TimingServer.wrap(server, WARNING_THRESHOLD_MILLIS);
             future.set(executorService.submit(this));
         } else {
             LOGGER.debug("Couldn't start, in state {}", lifeCycle.get());

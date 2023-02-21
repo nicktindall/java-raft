@@ -61,7 +61,7 @@ class ServerTest {
 
     @BeforeEach
     void setUp() {
-        server = new Server<>(persistentState, serverStateFactory, stateMachine, cluster, electionScheduler);
+        server = new ServerImpl<>(persistentState, serverStateFactory, stateMachine, cluster, electionScheduler);
     }
 
     @Nested

@@ -21,6 +21,7 @@ import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
 import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
+import au.id.tindall.distalg.raft.timing.TimingServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
@@ -89,6 +90,7 @@ class LiveServerTest {
     private static final int MAX_BATCH_SIZE = 20;
     private static final Set<Long> ALL_SERVER_IDS = Set.of(1L, 2L, 3L);
     private static final float PACKET_DROP_PROBABILITY = 0.001f;    // 0.1% which is quite high
+    private static final int WARNING_THRESHOLD_MILLIS = 25;
 
     private TestClusterFactory clusterFactory;
     private Map<Long, Server<Long>> allServers;
@@ -154,7 +156,7 @@ class LiveServerTest {
     private Server<Long> createServerAndState(long id, Set<Long> serverIds) {
         try {
             PersistentState<Long> persistentState = FileBasedPersistentState.createOrOpen(stateFileDirectory.resolve(String.valueOf(id)), id);
-            Server<Long> server = serverFactory.create(persistentState, serverIds, new DumbRegularIntervalSnapshotHeuristic());
+            Server<Long> server = TimingServer.wrap(serverFactory.create(persistentState, serverIds, new DumbRegularIntervalSnapshotHeuristic()), WARNING_THRESHOLD_MILLIS);
             allServers.put(id, server);
             return server;
         } catch (IOException e) {

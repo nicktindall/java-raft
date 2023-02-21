@@ -111,7 +111,7 @@ class ServerFactoryTest {
     void createsServersAndTheirDependencies() {
         final Configuration<Long> configuration = new Configuration<>(SERVER_ID, Set.of(SERVER_ID, OTHER_SERVER_ID), ELECTION_TIMEOUT);
         assertThat(serverFactory.create(persistentState, Set.of(SERVER_ID, OTHER_SERVER_ID), snapshotHeuristic)).usingRecursiveComparison().isEqualTo(
-                new Server<>(
+                new ServerImpl<>(
                         persistentState,
                         new ServerStateFactory<>(
                                 persistentState,
