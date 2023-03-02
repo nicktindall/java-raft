@@ -62,7 +62,7 @@ class ServerStateFactoryTest {
     @BeforeEach
     void setUp() {
         serverStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory,
-                replicationManagerFactory, clusterMembershipChangeManagerFactory);
+                replicationManagerFactory, clusterMembershipChangeManagerFactory, false);
     }
 
     @Test

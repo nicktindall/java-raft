@@ -12,6 +12,7 @@ import au.id.tindall.distalg.raft.serverstates.clustermembership.ClusterMembersh
 import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTransferFactory;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
+import au.id.tindall.distalg.raft.timing.TimingWrappers;
 
 import java.io.Closeable;
 import java.io.Serializable;
@@ -20,6 +21,7 @@ import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 
 public class ServerStateFactory<ID extends Serializable> implements Closeable {
 
+    private static final int WARNING_THRESHOLD_MILLIS = 50;
     private final Log log;
     private final Cluster<ID> cluster;
     private final PendingResponseRegistryFactory pendingResponseRegistryFactory;
@@ -30,11 +32,12 @@ public class ServerStateFactory<ID extends Serializable> implements Closeable {
     private final LeadershipTransferFactory<ID> leadershipTransferFactory;
     private final ReplicationManagerFactory<ID> replicationManagerFactory;
     private final ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory;
+    private final boolean timing;
 
     public ServerStateFactory(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                               ClientSessionStore clientSessionStore, CommandExecutor commandExecutor, ElectionScheduler electionScheduler,
                               LeadershipTransferFactory<ID> leadershipTransferFactory, ReplicationManagerFactory<ID> replicationManagerFactory,
-                              ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory) {
+                              ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory, boolean timing) {
         this.persistentState = persistentState;
         this.log = log;
         this.cluster = cluster;
@@ -45,26 +48,30 @@ public class ServerStateFactory<ID extends Serializable> implements Closeable {
         this.leadershipTransferFactory = leadershipTransferFactory;
         this.replicationManagerFactory = replicationManagerFactory;
         this.clusterMembershipChangeManagerFactory = clusterMembershipChangeManagerFactory;
+        this.timing = timing;
     }
 
-    public Leader<ID> createLeader() {
+    public ServerState<ID> createLeader() {
         final ReplicationManager<ID> replicationManager = replicationManagerFactory.createReplicationManager();
         final ClusterMembershipChangeManager<ID> clusterMembershipChangeManager = clusterMembershipChangeManagerFactory.createChangeManager(replicationManager);
         replicationManager.addMatchIndexAdvancedListener(clusterMembershipChangeManager);
-        return new Leader<>(persistentState, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
+        final Leader<ID> leaderState = new Leader<>(persistentState, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
                 this, replicationManager, clientSessionStore, leadershipTransferFactory.create(replicationManager), clusterMembershipChangeManager);
+        return timing ? TimingWrappers.wrap(leaderState, WARNING_THRESHOLD_MILLIS) : leaderState;
     }
 
-    public Follower<ID> createInitialState() {
+    public ServerState<ID> createInitialState() {
         return createFollower(null);
     }
 
-    public Follower<ID> createFollower(ID currentLeader) {
-        return new Follower<>(persistentState, log, cluster, this, currentLeader, electionScheduler);
+    public ServerState<ID> createFollower(ID currentLeader) {
+        final Follower<ID> followerState = new Follower<>(persistentState, log, cluster, this, currentLeader, electionScheduler);
+        return timing ? TimingWrappers.wrap(followerState, WARNING_THRESHOLD_MILLIS) : followerState;
     }
 
-    public Candidate<ID> createCandidate() {
-        return new Candidate<>(persistentState, log, cluster, this, electionScheduler);
+    public ServerState<ID> createCandidate() {
+        final Candidate<ID> candidateState = new Candidate<>(persistentState, log, cluster, this, electionScheduler);
+        return timing ? TimingWrappers.wrap(candidateState, WARNING_THRESHOLD_MILLIS) : candidateState;
     }
 
     public ClientSessionStore getClientSessionStore() {

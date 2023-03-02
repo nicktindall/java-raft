@@ -21,7 +21,7 @@ import static java.lang.Math.min;
 import static java.util.Optional.empty;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Follower<ID extends Serializable> extends ServerState<ID> {
+public class Follower<ID extends Serializable> extends ServerStateImpl<ID> {
 
     private static final Logger LOGGER = getLogger();
 

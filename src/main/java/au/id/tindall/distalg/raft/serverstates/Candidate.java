@@ -20,7 +20,7 @@ import static java.util.Collections.unmodifiableSet;
 import static java.util.Optional.empty;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Candidate<ID extends Serializable> extends ServerState<ID> {
+public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
 
     private static final Logger LOGGER = getLogger();
 
@@ -84,7 +84,7 @@ public class Candidate<ID extends Serializable> extends ServerState<ID> {
     }
 
     @Override
-    protected void requestVotes() {
+    public void requestVotes() {
         cluster.sendRequestVoteRequest(persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm());
     }
 

@@ -81,7 +81,7 @@ class ServerStateTest {
             when(rpcMessage.getTerm()).thenReturn(TERM_2);
             when(rpcMessage.getSource()).thenReturn(OTHER_SERVER_ID);
 
-            var serverState = new ServerStateImpl(persistentState, log, cluster, serverStateFactory, LEADER_ID);
+            var serverState = new MinimalServerState(persistentState, log, cluster, serverStateFactory, LEADER_ID);
             Result<Long> result = serverState.handle(rpcMessage);
 
             assertThat(result).usingRecursiveComparison().isEqualTo(incomplete(follower));
@@ -94,7 +94,7 @@ class ServerStateTest {
         @Test
         void willNotGrantVote_WhenRequesterTermIsLowerThanLocalTerm() {
             when(persistentState.getCurrentTerm()).thenReturn(TERM_3);
-            var serverState = new ServerStateImpl(persistentState, log, cluster, serverStateFactory, null);
+            var serverState = new MinimalServerState(persistentState, log, cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
 
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, false);
@@ -105,7 +105,7 @@ class ServerStateTest {
         void willNotGrantVote_WhenServerHasAlreadyVoted() {
             when(persistentState.getCurrentTerm()).thenReturn(TERM_3);
             when(persistentState.getVotedFor()).thenReturn(Optional.of(SERVER_ID));
-            var serverState = new ServerStateImpl(persistentState, log, cluster, serverStateFactory, null);
+            var serverState = new MinimalServerState(persistentState, log, cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_3, OTHER_SERVER_ID, 100, Optional.of(TERM_2)));
 
             verify(cluster).sendRequestVoteResponse(TERM_3, OTHER_SERVER_ID, false);
@@ -115,7 +115,7 @@ class ServerStateTest {
         @Test
         void willNotGrantVote_WhenServerLogIsMoreUpToDateThanRequesterLog() {
             when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
-            var serverState = new ServerStateImpl(persistentState, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
+            var serverState = new MinimalServerState(persistentState, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0)));
 
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, false);
@@ -125,7 +125,7 @@ class ServerStateTest {
         @Test
         void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasNotAlreadyVoted() {
             when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
-            var serverState = new ServerStateImpl(persistentState, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
+            var serverState = new MinimalServerState(persistentState, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
 
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
@@ -135,7 +135,7 @@ class ServerStateTest {
         @Test
         void willGrantVote_WhenRequesterTermIsEqualServerLogIsLessUpToDateAndServerHasNotAlreadyVoted() {
             when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
-            var serverState = new ServerStateImpl(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, null);
+            var serverState = new MinimalServerState(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
 
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
@@ -146,7 +146,7 @@ class ServerStateTest {
         void willGrantVote_WhenRequesterTermIsEqualLogsAreSameAndServerHasAlreadyVotedForRequester() {
             when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
             when(persistentState.getVotedFor()).thenReturn(Optional.of(OTHER_SERVER_ID));
-            var serverState = new ServerStateImpl(persistentState, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
+            var serverState = new MinimalServerState(persistentState, logContaining(ENTRY_1, ENTRY_2, ENTRY_3), cluster, serverStateFactory, null);
             serverState.handle(new RequestVoteRequest<>(TERM_2, OTHER_SERVER_ID, 3, Optional.of(TERM_1)));
 
             verify(cluster).sendRequestVoteResponse(TERM_2, OTHER_SERVER_ID, true);
@@ -159,7 +159,7 @@ class ServerStateTest {
 
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
-            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+            var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
             CompletableFuture<RegisterClientResponse<Long>> response = serverState.handle(new RegisterClientRequest<>(SERVER_ID));
 
             assertThat(response).isCompleted();
@@ -173,7 +173,7 @@ class ServerStateTest {
 
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
-            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+            var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
             CompletableFuture<ClientRequestResponse<Long>> response = serverState.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, 0, LAST_RESPONSE_RECEIVED, "command".getBytes(StandardCharsets.UTF_8)));
 
             assertThat(response).isCompleted();
@@ -193,7 +193,7 @@ class ServerStateTest {
         @Test
         void willTransitionToCandidateStateAndContinueHandlingMessage() {
             when(serverStateFactory.createCandidate()).thenReturn(candidate);
-            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+            var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
 
             assertThat(serverState.handle(new TimeoutNowMessage<>(TERM_0, SERVER_ID))).usingRecursiveComparison().isEqualTo(incomplete(candidate));
         }
@@ -204,7 +204,7 @@ class ServerStateTest {
 
         @Test
         void willDoNothing() {
-            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+            var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
 
             assertThat(serverState.handle(new TransferLeadershipMessage<>(TERM_0, SERVER_ID))).usingRecursiveComparison().isEqualTo(complete(serverState));
         }
@@ -215,7 +215,7 @@ class ServerStateTest {
 
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
-            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+            var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
 
             var response = serverState.handle(new AddServerRequest<>(1234L));
             assertThat(response).isCompleted();
@@ -229,7 +229,7 @@ class ServerStateTest {
 
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
-            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+            var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
 
             var response = serverState.handle(new RemoveServerRequest<>(1234L));
             assertThat(response).isCompleted();
@@ -243,7 +243,7 @@ class ServerStateTest {
 
         @Test
         void willDoNothing() {
-            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+            var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
 
             assertThat(serverState.handle(new InstallSnapshotRequest<>(TERM_0, LEADER_ID, SERVER_ID, 999, TERM_2, null, 101010, 1234, "Hello".getBytes(), true)))
                     .usingRecursiveComparison().isEqualTo(complete(serverState));
@@ -255,16 +255,16 @@ class ServerStateTest {
 
         @Test
         void willDoNothing() {
-            var serverState = new ServerStateImpl(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
+            var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID);
 
             assertThat(serverState.handle(new InstallSnapshotResponse<>(TERM_0, LEADER_ID, SERVER_ID, true, 999, 1)))
                     .usingRecursiveComparison().isEqualTo(complete(serverState));
         }
     }
 
-    private static class ServerStateImpl extends ServerState<Long> {
+    private static class MinimalServerState extends ServerStateImpl<Long> {
 
-        ServerStateImpl(PersistentState<Long> persistentState, Log log, Cluster<Long> cluster, ServerStateFactory<Long> serverStateFactory, Long leaderId) {
+        MinimalServerState(PersistentState<Long> persistentState, Log log, Cluster<Long> cluster, ServerStateFactory<Long> serverStateFactory, Long leaderId) {
             super(persistentState, log, cluster, serverStateFactory, leaderId);
         }
 

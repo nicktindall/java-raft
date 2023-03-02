@@ -104,7 +104,7 @@ class ServerFactoryTest {
         when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter)).thenReturn(commandExecutor);
         when(snapshotterFactory.create(eq(log), eq(clientSessionStore), eq(stateMachine), eq(persistentState), any(SnapshotHeuristic.class))).thenReturn(snapshotter);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT, snapshotterFactory);
+                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT, snapshotterFactory, false);
     }
 
     @Test
@@ -128,7 +128,8 @@ class ServerFactoryTest {
                                                 new SnapshotReplicatorFactory<>(persistentState, cluster),
                                                 new ReplicationStateFactory<>(log))
                                 ),
-                                new ClusterMembershipChangeManagerFactory<>(log, persistentState, configuration)
+                                new ClusterMembershipChangeManagerFactory<>(log, persistentState, configuration),
+                                false
                         ),
                         stateMachine,
                         cluster,

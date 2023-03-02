@@ -48,11 +48,13 @@ public class ServerFactory<ID extends Serializable> {
     private final ReplicationSchedulerFactory<ID> replicationSchedulerFactory;
     private final Duration electionTimeout;
     private final SnapshotterFactory snapshotterFactory;
+    private final boolean timing;
 
     public ServerFactory(ClusterFactory<ID> clusterFactory, LogFactory logFactory, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                          ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
                          CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory electionSchedulerFactory,
-                         int maxBatchSize, ReplicationSchedulerFactory<ID> replicationSchedulerFactory, Duration electionTimeout, SnapshotterFactory snapshotterFactory) {
+                         int maxBatchSize, ReplicationSchedulerFactory<ID> replicationSchedulerFactory, Duration electionTimeout, SnapshotterFactory snapshotterFactory,
+                         boolean timing) {
         this.clusterFactory = clusterFactory;
         this.logFactory = logFactory;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
@@ -65,6 +67,7 @@ public class ServerFactory<ID extends Serializable> {
         this.replicationSchedulerFactory = replicationSchedulerFactory;
         this.electionTimeout = electionTimeout;
         this.snapshotterFactory = snapshotterFactory;
+        this.timing = timing;
     }
 
     public Server<ID> create(PersistentState<ID> persistentState, Set<ID> initialPeers) {
@@ -97,7 +100,7 @@ public class ServerFactory<ID extends Serializable> {
         ClusterMembershipChangeManagerFactory<ID> clusterMembershipChangeManagerFactory = new ClusterMembershipChangeManagerFactory<>(log,
                 persistentState, configuration);
         final ServerStateFactory<ID> idServerStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
-                clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory);
+                clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory, timing);
         Server<ID> server = new ServerImpl<>(persistentState, idServerStateFactory, stateMachine, cluster, electionScheduler);
         server.initialize();
         return server;

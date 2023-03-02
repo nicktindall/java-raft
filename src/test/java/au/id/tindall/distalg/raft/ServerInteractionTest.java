@@ -85,7 +85,8 @@ class ServerInteractionTest {
                 MAX_BATCH_SIZE,
                 id -> new SynchronousReplicationScheduler(),
                 Duration.ZERO,
-                Snapshotter::new
+                Snapshotter::new,
+                false
         );
     }
 

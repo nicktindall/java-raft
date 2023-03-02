@@ -38,7 +38,7 @@ import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Leader<ID extends Serializable> extends ServerState<ID> {
+public class Leader<ID extends Serializable> extends ServerStateImpl<ID> {
 
     private static final Logger LOGGER = getLogger();
 
