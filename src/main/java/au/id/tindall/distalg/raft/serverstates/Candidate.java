@@ -72,8 +72,7 @@ public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
     @Override
     protected Result<ID> handle(TimeoutNowMessage<ID> timeoutNowMessage) {
         long startTime = System.currentTimeMillis();
-        persistentState.setCurrentTerm(persistentState.getCurrentTerm().next());
-        persistentState.setVotedFor(persistentState.getId());
+        persistentState.setCurrentTermAndVotedFor(persistentState.getCurrentTerm().next(), persistentState.getId());
         long setPersistentStateDuration = System.currentTimeMillis() - startTime;
         ServerState<ID> nextState = recordVoteAndClaimLeadershipIfEligible(persistentState.getId());
         electionScheduler.resetTimeout();

@@ -232,8 +232,7 @@ class CandidateTest {
                 candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID));
 
                 InOrder sequence = inOrder(persistentState, cluster);
-                sequence.verify(persistentState).setCurrentTerm(TERM_2);
-                sequence.verify(persistentState).setVotedFor(SERVER_ID);
+                sequence.verify(persistentState).setCurrentTermAndVotedFor(TERM_2, SERVER_ID);
                 sequence.verify(cluster).sendRequestVoteRequest(TERM_1, LAST_LOG_INDEX, Optional.of(TERM_0));
             }
 
@@ -268,8 +267,7 @@ class CandidateTest {
                 candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID));
 
                 InOrder sequence = inOrder(persistentState);
-                sequence.verify(persistentState).setCurrentTerm(TERM_2);
-                sequence.verify(persistentState).setVotedFor(SERVER_ID);
+                sequence.verify(persistentState).setCurrentTermAndVotedFor(TERM_2, SERVER_ID);
             }
 
             @Test

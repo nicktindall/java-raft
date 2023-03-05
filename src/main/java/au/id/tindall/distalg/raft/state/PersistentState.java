@@ -20,6 +20,11 @@ public interface PersistentState<ID extends Serializable> {
 
     Optional<ID> getVotedFor();
 
+    default void setCurrentTermAndVotedFor(Term term, ID votedFor) {
+        setCurrentTerm(term);
+        setVotedFor(votedFor);
+    }
+
     LogStorage getLogStorage();
 
     void setCurrentSnapshot(Snapshot snapshot) throws IOException;
