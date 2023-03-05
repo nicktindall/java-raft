@@ -195,6 +195,6 @@ public class ServerImpl<ID extends Serializable> implements Server<ID>, Closeabl
                 stop();
             }
         }
-        closeQuietly(serverStateFactory, serverDriver);
+        closeQuietly(serverStateFactory, serverDriver, persistentState);
     }
 }

@@ -5,13 +5,13 @@ import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.log.storage.PersistentLogStorage;
 import au.id.tindall.distalg.raft.log.storage.PersistentSnapshot;
-import au.id.tindall.distalg.raft.util.Closeables;
-import au.id.tindall.distalg.raft.util.IOUtil;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,13 +24,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
+import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 import static au.id.tindall.distalg.raft.util.FileUtil.deleteFilesMatching;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static java.nio.file.StandardOpenOption.CREATE_NEW;
-import static java.nio.file.StandardOpenOption.READ;
-import static java.nio.file.StandardOpenOption.SYNC;
-import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 /**
@@ -43,16 +40,19 @@ import static org.apache.logging.log4j.LogManager.getLogger;
  * - serialized voted for ID (if present)
  * - EOF
  */
-public class FileBasedPersistentState<ID extends Serializable> implements PersistentState<ID> {
+public class FileBasedPersistentState<ID extends Serializable> implements PersistentState<ID>, AutoCloseable {
 
     private static final Logger LOGGER = getLogger();
     private static final int TRUNCATION_BUFFER = 20;
-    private static final long START_OF_ID_LENGTH = 0L;
-    private static final long START_OF_CURRENT_TERM = 4L;
-    private static final long START_OF_VOTED_FOR_LENGTH = 8L;
-    private static final long START_OF_ID = 12L;
+    private static final int START_OF_ID_LENGTH = 0;
+    private static final int START_OF_CURRENT_TERM = 4;
+    private static final int START_OF_VOTED_FOR_LENGTH = 8;
+    private static final int START_OF_ID = 12;
+    private static final int STATE_FILE_SIZE = 1024;    // Larger than it needs to be
+    public static final int STATE_WRITE_TIME_WARN_THRESHOLD_MS = 2;
     private final LogStorage logStorage;
-    private final FileChannel fileChannel;
+    private final RandomAccessFile stateFile;
+    private final MappedByteBuffer stateFileMap;
     private final IDSerializer<ID> idSerializer;
 
     private ID id;
@@ -122,7 +122,8 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         this.snapshotInstalledListeners = new ArrayList<>();
         try {
             this.logStorage = logStorage;
-            this.fileChannel = FileChannel.open(statePath, CREATE_NEW, READ, WRITE, SYNC);
+            this.stateFile = initialiseStateFile(statePath);
+            this.stateFileMap = mapStateFile(stateFile);
             this.idSerializer = idSerializer;
             this.id = id;
             this.currentTerm.set(new Term(0));
@@ -143,7 +144,8 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         this.snapshotInstalledListeners = new ArrayList<>();
         try {
             this.logStorage = logStorage;
-            this.fileChannel = FileChannel.open(statePath, READ, WRITE, SYNC);
+            this.stateFile = initialiseStateFile(statePath);
+            this.stateFileMap = mapStateFile(stateFile);
             this.idSerializer = idSerializer;
             readFromStateFile();
         } catch (IOException e) {
@@ -151,11 +153,23 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         }
     }
 
+    private RandomAccessFile initialiseStateFile(Path statePath) throws IOException {
+        RandomAccessFile sf = new RandomAccessFile(statePath.toFile(), "rw");
+        if (sf.length() < STATE_FILE_SIZE) {
+            sf.setLength(STATE_FILE_SIZE);
+        }
+        return sf;
+    }
+
+    private MappedByteBuffer mapStateFile(RandomAccessFile randomAccessFile) throws IOException {
+        return randomAccessFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, STATE_FILE_SIZE);
+    }
+
     private void readFromStateFile() {
         try {
-            int idLength = IOUtil.readInteger(fileChannel, START_OF_ID_LENGTH);
-            currentTerm.set(new Term(IOUtil.readInteger(fileChannel, START_OF_CURRENT_TERM)));
-            int votedForLength = IOUtil.readInteger(fileChannel, START_OF_VOTED_FOR_LENGTH);
+            int idLength = stateFileMap.getInt(START_OF_ID_LENGTH);
+            currentTerm.set(new Term(stateFileMap.getInt(START_OF_CURRENT_TERM)));
+            int votedForLength = stateFileMap.getInt(START_OF_VOTED_FOR_LENGTH);
             id = readIdFrom(START_OF_ID, idLength);
             votedFor.set(readIdFrom(START_OF_ID + idLength, votedForLength));
         } catch (IOException e) {
@@ -163,29 +177,30 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         }
     }
 
-    private ID readIdFrom(long startPoint, int length) throws IOException {
+    private ID readIdFrom(int startPoint, int length) throws IOException {
         if (length == 0) {
             return null;
         }
-        ByteBuffer idBuffer = ByteBuffer.allocate(length);
-        fileChannel.read(idBuffer, startPoint);
-        idBuffer.flip();
-        return idSerializer.deserialize(idBuffer);
+        ByteBuffer buffer = ByteBuffer.allocate(length);
+        stateFileMap.position(startPoint);
+        stateFileMap.get(buffer.array());
+        return idSerializer.deserialize(buffer);
     }
 
     private void writeToStateFile() {
-        try {
-            ByteBuffer idBytes = idSerializer.serialize(id);
-            ID votedForId = votedFor.get();
-            ByteBuffer votedForBytes = votedForId != null ? idSerializer.serialize(votedForId) : ByteBuffer.allocate(0);
-            IOUtil.writeInteger(fileChannel, START_OF_ID_LENGTH, idBytes.capacity());
-            IOUtil.writeInteger(fileChannel, START_OF_CURRENT_TERM, currentTerm.get().getNumber());
-            IOUtil.writeInteger(fileChannel, START_OF_VOTED_FOR_LENGTH, votedForBytes.capacity());
-            fileChannel.write(idBytes, START_OF_ID);
-            fileChannel.write(votedForBytes, START_OF_ID + idBytes.capacity());
-            fileChannel.truncate(START_OF_ID + idBytes.capacity() + votedForBytes.capacity());
-        } catch (IOException e) {
-            throw new RuntimeException("Error writing to state file");
+        long startTime = System.currentTimeMillis();
+        ByteBuffer idBytes = idSerializer.serialize(id);
+        ID votedForId = votedFor.get();
+        ByteBuffer votedForBytes = votedForId != null ? idSerializer.serialize(votedForId) : ByteBuffer.allocate(0);
+        stateFileMap.putInt(START_OF_ID_LENGTH, idBytes.capacity());
+        stateFileMap.putInt(START_OF_CURRENT_TERM, currentTerm.get().getNumber());
+        stateFileMap.putInt(START_OF_VOTED_FOR_LENGTH, votedForBytes.capacity());
+        stateFileMap.position(START_OF_ID).put(idBytes);
+        stateFileMap.put(votedForBytes);
+        stateFileMap.force();
+        long duration = System.currentTimeMillis() - startTime;
+        if (duration > STATE_WRITE_TIME_WARN_THRESHOLD_MS) {
+            LOGGER.warn("Took {}ms to write state file (expected < {})", duration, STATE_WRITE_TIME_WARN_THRESHOLD_MS);
         }
     }
 
@@ -249,7 +264,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
             return;
         }
         try {
-            Closeables.closeQuietly(nextSnapshot, currentSnapshot.getAndSet(null));
+            closeQuietly(nextSnapshot, currentSnapshot.getAndSet(null));
             if (!(Files.exists(currentSnapshotPath) && Files.isSameFile(((PersistentSnapshot) nextSnapshot).path(), currentSnapshotPath))) {
                 Files.move(((PersistentSnapshot) nextSnapshot).path(), currentSnapshotPath, ATOMIC_MOVE, REPLACE_EXISTING);
                 if (Files.exists(((PersistentSnapshot) nextSnapshot).path())) {
@@ -296,5 +311,10 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         } else if (logStorage.getPrevIndex() > 0) {
             LOGGER.error("prevIndex > 0 (={}), but no current snapshot could be found (currentSnapshotPath={})", logStorage.getPrevIndex(), currentSnapshotPath);
         }
+    }
+
+    @Override
+    public void close() {
+        closeQuietly(logStorage, stateFileMap, stateFile);
     }
 }
