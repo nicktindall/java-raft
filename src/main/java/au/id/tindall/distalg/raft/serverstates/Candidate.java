@@ -22,6 +22,7 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
 
+    private static final long WARNING_THRESHOLD_MS = 30;
     private static final Logger LOGGER = getLogger();
 
     private final Set<ID> receivedVotes;
@@ -70,11 +71,20 @@ public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
 
     @Override
     protected Result<ID> handle(TimeoutNowMessage<ID> timeoutNowMessage) {
+        long startTime = System.currentTimeMillis();
         persistentState.setCurrentTerm(persistentState.getCurrentTerm().next());
         persistentState.setVotedFor(persistentState.getId());
+        long setPersistentStateDuration = System.currentTimeMillis() - startTime;
         ServerState<ID> nextState = recordVoteAndClaimLeadershipIfEligible(persistentState.getId());
         electionScheduler.resetTimeout();
+        long requestVotesStart = System.currentTimeMillis();
         nextState.requestVotes();
+        long requestVotesDuration = System.currentTimeMillis() - requestVotesStart;
+        long totalDuration = System.currentTimeMillis() - startTime;
+        if (totalDuration > WARNING_THRESHOLD_MS) {
+            LOGGER.warn("Handling TimeoutNowMessage took {}ms, (expected < {}ms, setPersistentStateDuration={}ms, requestVotesDuration={}ms)",
+                    totalDuration, WARNING_THRESHOLD_MS, setPersistentStateDuration, requestVotesDuration);
+        }
         return complete(nextState);
     }
 
