@@ -5,7 +5,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.Closeable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,5 +61,31 @@ class CloseablesTest {
         Closeables.closeQuietly(closeables);
         verify(closeable, times(3)).close();
         assertThat(closeables).isEmpty();
+    }
+
+    @Test
+    void willCloseMaps() {
+        CloseableThing k1 = new CloseableThing();
+        CloseableThing v1 = new CloseableThing();
+        CloseableThing k2 = new CloseableThing();
+        CloseableThing v2 = new CloseableThing();
+        HashMap<CloseableThing, CloseableThing> map = new HashMap<>();
+        map.put(k1, v1);
+        map.put(k2, v2);
+        Closeables.closeQuietly(map);
+        assertThat(k1.closed).isTrue();
+        assertThat(v1.closed).isTrue();
+        assertThat(k2.closed).isTrue();
+        assertThat(v2.closed).isTrue();
+        assertThat(map).isEmpty();
+    }
+
+    static class CloseableThing implements Closeable {
+        private boolean closed = false;
+
+        @Override
+        public void close() {
+            closed = true;
+        }
     }
 }

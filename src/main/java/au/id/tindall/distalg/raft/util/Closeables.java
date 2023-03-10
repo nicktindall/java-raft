@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.util;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Collection;
+import java.util.Map;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
@@ -16,6 +17,11 @@ public enum Closeables {
             try {
                 if (closeable instanceof Collection) {
                     closeQuietly((Collection<?>) closeable);
+                }
+                if (closeable instanceof Map) {
+                    final Map<?, ?> map = (Map<?, ?>) closeable;
+                    map.forEach(Closeables::closeQuietly);
+                    map.clear();
                 }
                 if (closeable instanceof AutoCloseable) {
                     ((AutoCloseable) closeable).close();
@@ -34,7 +40,7 @@ public enum Closeables {
             closeQuietly(item);
         }
         try {
-            collection.removeIf(item -> true);
+            collection.clear();
         } catch (UnsupportedOperationException e) {
             // Do nothing, collection may be immutable
         }

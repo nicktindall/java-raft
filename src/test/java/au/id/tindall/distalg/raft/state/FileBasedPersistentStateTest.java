@@ -4,7 +4,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
-import au.id.tindall.distalg.raft.log.storage.PersistentLogStorage;
+import au.id.tindall.distalg.raft.log.storage.MemoryMappedLogStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.function.Function;
@@ -62,15 +63,17 @@ class FileBasedPersistentStateTest extends PersistentStateContractTest {
     }
 
     @Test
-    void willCreateStateAndLogStorage() {
+    void willCreateStateAndLogStorage() throws IOException {
         final Path otherStateFile = tempDir.resolve("otherStateFile");
+        Files.createDirectories(otherStateFile);
         final FileBasedPersistentState<Integer> ps = FileBasedPersistentState.create(otherStateFile, SERVER_ID);
-        assertThat(ps.getLogStorage()).isInstanceOf(PersistentLogStorage.class);
+        assertThat(ps.getLogStorage()).isInstanceOf(MemoryMappedLogStorage.class);
     }
 
     @Test
     void willCreateOrOpenStateAndLogStorage() throws IOException {
         final Path otherStateFile = tempDir.resolve("otherStateFile");
+        Files.createDirectories(otherStateFile);
         final ClientRegistrationEntry logEntry = new ClientRegistrationEntry(Term.ZERO, 678);
         final FileBasedPersistentState<Integer> ps = FileBasedPersistentState.createOrOpen(otherStateFile, SERVER_ID);
         ps.getLogStorage().add(1, logEntry);

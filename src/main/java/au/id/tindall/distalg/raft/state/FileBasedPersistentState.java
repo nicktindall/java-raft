@@ -3,7 +3,7 @@ package au.id.tindall.distalg.raft.state;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
-import au.id.tindall.distalg.raft.log.storage.PersistentLogStorage;
+import au.id.tindall.distalg.raft.log.storage.MemoryMappedLogStorage;
 import au.id.tindall.distalg.raft.log.storage.PersistentSnapshot;
 import org.apache.logging.log4j.Logger;
 
@@ -66,49 +66,49 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private final AtomicInteger nextSnapshotSequence = new AtomicInteger(0);
 
 
-    public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateFilesPrefix, ID serverId) {
-        PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath(stateFilesPrefix), TRUNCATION_BUFFER);
-        return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath(stateFilesPrefix),
-                tempSnapshotPathGenerator(stateFilesPrefix), currentSnapshotPath(stateFilesPrefix), new JavaIDSerializer<>(), serverId);
+    public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateDirectory, ID serverId) {
+        MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(logFilePath(stateDirectory), TRUNCATION_BUFFER);
+        return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath(stateDirectory),
+                tempSnapshotPathGenerator(stateDirectory), currentSnapshotPath(stateDirectory), new JavaIDSerializer<>(), serverId);
     }
 
-    public static <ID extends Serializable> FileBasedPersistentState<ID> createOrOpen(Path stateFilesPrefix, ID serverId) throws IOException {
-        Path logFilePath = logFilePath(stateFilesPrefix);
-        Path stateFilePath = stateFilePath(stateFilesPrefix);
-        Function<Integer, Path> tempSnapshotPathGenerator = tempSnapshotPathGenerator(stateFilesPrefix);
-        deleteAnyTempSnapshots(stateFilesPrefix);
-        Path currentSnapshotPath = currentSnapshotPath(stateFilesPrefix);
+    public static <ID extends Serializable> FileBasedPersistentState<ID> createOrOpen(Path stateDirectory, ID serverId) throws IOException {
+        Path logFilePath = logFilePath(stateDirectory);
+        Path stateFilePath = stateFilePath(stateDirectory);
+        Function<Integer, Path> tempSnapshotPathGenerator = tempSnapshotPathGenerator(stateDirectory);
+        deleteAnyTempSnapshots(stateDirectory);
+        Path currentSnapshotPath = currentSnapshotPath(stateDirectory);
         if (Files.exists(logFilePath) && Files.exists(stateFilePath)) {
-            PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath, TRUNCATION_BUFFER);
+            MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(logFilePath, TRUNCATION_BUFFER);
             return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, new JavaIDSerializer<>());
         } else {
             Files.deleteIfExists(logFilePath);
             Files.deleteIfExists(stateFilePath);
             Files.deleteIfExists(currentSnapshotPath);
-            PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath, TRUNCATION_BUFFER);
+            MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(logFilePath, TRUNCATION_BUFFER);
             return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, new JavaIDSerializer<>(), serverId);
         }
     }
 
     private static Path currentSnapshotPath(Path stateFilesPrefix) {
-        return stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".currentSnapshot");
+        return stateFilesPrefix.resolve("currentSnapshot");
     }
 
-    private static void deleteAnyTempSnapshots(Path stateFilesPrefix) {
-        deleteFilesMatching(stateFilesPrefix.getParent(), 1,
-                (path, attr) -> Pattern.matches(stateFilesPrefix.getFileName() + "\\.snapshot\\.\\d+", path.getFileName().toString()));
+    private static void deleteAnyTempSnapshots(Path stateFilesDirectory) {
+        deleteFilesMatching(stateFilesDirectory, 1,
+                (path, attr) -> Pattern.matches("snapshot\\.\\d+", path.getFileName().toString()));
     }
 
-    private static Function<Integer, Path> tempSnapshotPathGenerator(Path stateFilesPrefix) {
-        return sequenceNumber -> stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".snapshot." + sequenceNumber);
+    private static Function<Integer, Path> tempSnapshotPathGenerator(Path stateFilesDirectory) {
+        return sequenceNumber -> stateFilesDirectory.resolve("snapshot." + sequenceNumber);
     }
 
     private static Path stateFilePath(Path stateFilesPrefix) {
-        return stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".state");
+        return stateFilesPrefix.resolve("state");
     }
 
     private static Path logFilePath(Path stateFilesPrefix) {
-        return stateFilesPrefix.resolveSibling(stateFilesPrefix.getFileName() + ".log");
+        return stateFilesPrefix.resolve("log");
     }
 
     /**

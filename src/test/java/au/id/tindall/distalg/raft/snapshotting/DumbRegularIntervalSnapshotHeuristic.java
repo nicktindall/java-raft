@@ -13,10 +13,12 @@ import static org.apache.logging.log4j.status.StatusLogger.getLogger;
  */
 public class DumbRegularIntervalSnapshotHeuristic implements SnapshotHeuristic {
     private static final Logger LOGGER = getLogger();
+    private static final int LOG_INTERVAL = 1_000;
 
     @Override
     public boolean shouldCreateSnapshot(Log log, StateMachine stateMachine, Snapshot currentSnapshot) {
-        final boolean shouldCreateSnapshot = log.getCommitIndex() - log.getPrevIndex() > 1_000;
+        final boolean shouldCreateSnapshot = (currentSnapshot == null && log.getCommitIndex() >= LOG_INTERVAL
+                || currentSnapshot != null && log.getCommitIndex() - currentSnapshot.getLastIndex() > LOG_INTERVAL);
         if (shouldCreateSnapshot) {
             LOGGER.info("Snapshotting at " + log.getCommitIndex());
         }

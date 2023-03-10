@@ -31,6 +31,10 @@ public enum FileUtil {
         }
     }
 
+    public static void deleteRecursively(Path path) {
+        deleteFilesMatching(path, Integer.MAX_VALUE, (p, a) -> true);
+    }
+
     public static void deleteFileOrWarn(Path path) {
         try {
             Files.deleteIfExists(path);

@@ -22,6 +22,7 @@ import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import au.id.tindall.distalg.raft.timing.TimingWrappers;
+import au.id.tindall.distalg.raft.util.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
@@ -38,9 +39,11 @@ import org.junit.platform.launcher.listeners.TestExecutionSummary;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -156,12 +159,22 @@ class LiveServerTest {
 
     private Server<Long> createServerAndState(long id, Set<Long> serverIds) {
         try {
-            PersistentState<Long> persistentState = FileBasedPersistentState.createOrOpen(stateFileDirectory.resolve(String.valueOf(id)), id);
+            PersistentState<Long> persistentState = FileBasedPersistentState.createOrOpen(stateDirectoryForServer(id), id);
             Server<Long> server = TimingWrappers.wrap(serverFactory.create(persistentState, serverIds, new DumbRegularIntervalSnapshotHeuristic()), WARNING_THRESHOLD_MILLIS);
             allServers.put(id, server);
             return server;
         } catch (IOException e) {
             throw new RuntimeException("Error creating persistent state");
+        }
+    }
+
+    private Path stateDirectoryForServer(long id) {
+        try {
+            final Path resolve = stateFileDirectory.resolve(String.valueOf(id));
+            Files.createDirectories(resolve);
+            return resolve;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -345,6 +358,7 @@ class LiveServerTest {
                         LOGGER.info("Server {} remove succeeded, shutting down", server.getId());
                         allServers.remove(server.getId());
                         server.close();
+                        FileUtil.deleteRecursively(stateDirectoryForServer(server.getId()));
                     } else {
                         LOGGER.error("Server {} remove failed, aborting (status={})", server.getId(), response.getStatus());
                     }
