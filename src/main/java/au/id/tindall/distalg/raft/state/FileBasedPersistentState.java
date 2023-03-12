@@ -197,12 +197,9 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         stateFileMap.putInt(START_OF_VOTED_FOR_LENGTH, votedForBytes.capacity());
         stateFileMap.position(START_OF_ID).put(idBytes);
         stateFileMap.put(votedForBytes);
-        long startOfForce = System.currentTimeMillis();
-        stateFileMap.force();
-        long forceDuration = System.currentTimeMillis() - startOfForce;
         long duration = System.currentTimeMillis() - startTime;
         if (duration > STATE_WRITE_TIME_WARN_THRESHOLD_MS) {
-            LOGGER.warn("Took {}ms to write state file (expected < {}, forceDuration={})", duration, STATE_WRITE_TIME_WARN_THRESHOLD_MS, forceDuration);
+            LOGGER.warn("Took {}ms to write state file (expected < {})", duration, STATE_WRITE_TIME_WARN_THRESHOLD_MS);
         }
     }
 
