@@ -5,6 +5,7 @@ import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.log.storage.MemoryMappedLogStorage;
 import au.id.tindall.distalg.raft.log.storage.PersistentSnapshot;
+import au.id.tindall.distalg.raft.util.BufferUtil;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -328,5 +329,6 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     @Override
     public void close() {
         closeQuietly(logStorage, stateFileMap, stateFile);
+        BufferUtil.free(stateFileMap);
     }
 }
