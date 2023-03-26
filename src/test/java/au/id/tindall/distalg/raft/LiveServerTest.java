@@ -221,8 +221,7 @@ class LiveServerTest {
             countUp();
             waitForAllServersToCatchUp();
         } catch (Exception ex) {
-            printThreadDump();
-            fail(ex);
+            logStateAndFail(ex);
         }
     }
 
@@ -232,8 +231,7 @@ class LiveServerTest {
             try {
                 countUp();
             } catch (Exception ex) {
-                printThreadDump();
-                fail(ex);
+                logStateAndFail(ex);
             }
         });
         ScheduledFuture<?> periodicLeaderKiller = testExecutorService.scheduleAtFixedRate(this::killThenResurrectCurrentLeader, 5, 5, SECONDS);
@@ -254,8 +252,7 @@ class LiveServerTest {
             try {
                 countUp();
             } catch (Exception ex) {
-                printThreadDump();
-                fail(ex);
+                logStateAndFail(ex);
             }
         });
         ScheduledFuture<?> periodicTransferTrigger = testExecutorService.scheduleAtFixedRate(this::triggerLeadershipTransfer, 5, 5, SECONDS);
@@ -276,8 +273,7 @@ class LiveServerTest {
             try {
                 countUp();
             } catch (Exception ex) {
-                printThreadDump();
-                fail(ex);
+                logStateAndFail(ex);
             }
         });
 
@@ -291,6 +287,12 @@ class LiveServerTest {
             // This is fine
         }
         waitForAllServersToCatchUp();
+    }
+
+    private void logStateAndFail(Exception e) {
+        LOGGER.error("Failing due to exception", e);
+        printThreadDump();
+        fail(e);
     }
 
     private Runnable addOrRemoveAServer(AtomicLong newServerIdCounter) {
