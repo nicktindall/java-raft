@@ -6,7 +6,7 @@ import static java.lang.String.format;
 
 public class NamedThreadFactory implements ThreadFactory {
 
-    private final ThreadGroup threadGroup;
+    private final String namePrefix;
     private final boolean sequenced;
     private int sequenceNumber = 0;
 
@@ -18,13 +18,13 @@ public class NamedThreadFactory implements ThreadFactory {
         return new NamedThreadFactory(threadGroupName, true);
     }
 
-    private NamedThreadFactory(String threadGroupName, boolean sequenced) {
-        this.threadGroup = new ThreadGroup(threadGroupName);
+    private NamedThreadFactory(String namePrefix, boolean sequenced) {
+        this.namePrefix = namePrefix;
         this.sequenced = sequenced;
     }
 
     @Override
     public Thread newThread(Runnable runnable) {
-        return new Thread(threadGroup, runnable, sequenced ? format("%s-%d", threadGroup.getName(), sequenceNumber++) : threadGroup.getName());
+        return new Thread(null, runnable, sequenced ? format("%s-%d", namePrefix, sequenceNumber++) : namePrefix);
     }
 }
