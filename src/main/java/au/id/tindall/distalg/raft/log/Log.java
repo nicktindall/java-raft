@@ -105,6 +105,14 @@ public class Log implements SnapshotInstalledListener {
         }
     }
 
+    public boolean tryReadLock() {
+        return readWriteLock.readLock().tryLock();
+    }
+
+    public void releaseReadLock() {
+        readWriteLock.readLock().unlock();
+    }
+
     class AttemptToAppendBeforeCommitIndexException extends IllegalStateException {
         public AttemptToAppendBeforeCommitIndexException(int appendIndex, LogEntry entryAtIndex, LogEntry entry) {
             super(format("Attempt made to truncate prior to commit index, this is a bug. appendIndex=%,d, commitIndex=%,d, prevIndex=%,d, entryAtIndex=%s, entry=%s",

@@ -1,8 +1,10 @@
 package au.id.tindall.distalg.raft.replication;
 
+import java.util.function.Supplier;
+
 public interface ReplicationScheduler {
 
-    void setSendAppendEntriesRequest(Runnable sendAppendEntriesRequest);
+    void setSendAppendEntriesRequest(Supplier<Boolean> sendAppendEntriesRequest);
 
     void start();
 

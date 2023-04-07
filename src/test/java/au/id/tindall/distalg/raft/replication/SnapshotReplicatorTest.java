@@ -17,7 +17,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.STAY_IN_CURRENT_MODE;
+import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SUCCESS;
 import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SWITCH_TO_LOG_REPLICATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.lenient;
@@ -57,7 +57,7 @@ class SnapshotReplicatorTest {
         @Test
         void willDoNothingAndStayInCurrentStateWhenThereIsNoCurrentSnapshot() {
             when(persistentState.getCurrentSnapshot()).thenReturn(Optional.empty());
-            assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
+            assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
             verifyNoInteractions(cluster);
         }
 
@@ -77,7 +77,7 @@ class SnapshotReplicatorTest {
 
             @Test
             void theFirstChunkIsSentOnInitialSend() {
-                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
+                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
                 verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                         null, 0, 0, Arrays.copyOf(snapshotBytes, SNAPSHOT_CHUNK_LENGTH), false);
             }
@@ -87,7 +87,7 @@ class SnapshotReplicatorTest {
                 snapshotReplicator.sendNextReplicationMessage();
                 reset(cluster);
                 snapshotReplicator.logSuccessSnapshotResponse(currentSnapshot.getLastIndex(), 350);
-                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
+                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
                 verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                         null, 0, 351, Arrays.copyOfRange(snapshotBytes, 351, SNAPSHOT_CHUNK_LENGTH + 351), false);
             }
@@ -97,7 +97,7 @@ class SnapshotReplicatorTest {
                 snapshotReplicator.sendNextReplicationMessage();
                 reset(cluster);
                 snapshotReplicator.logSuccessSnapshotResponse(currentSnapshot.getLastIndex(), 8192);
-                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
+                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
                 verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                         null, 0, 8193, Arrays.copyOfRange(snapshotBytes, 8193, snapshotBytes.length), true);
             }
@@ -119,7 +119,7 @@ class SnapshotReplicatorTest {
                 snapshotReplicator.logSuccessSnapshotResponse(currentSnapshot.getLastIndex(), 4096);
                 currentSnapshot = createRandomSnapshot(NEW_LAST_INDEX); // create new snapshot
                 when(persistentState.getCurrentSnapshot()).thenReturn(Optional.of(currentSnapshot));
-                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
+                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
                 verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                         null, 0, 0, Arrays.copyOf(snapshotBytes, SNAPSHOT_CHUNK_LENGTH), false);
             }
@@ -144,7 +144,7 @@ class SnapshotReplicatorTest {
             reset(cluster);
             snapshotReplicator.logSuccessSnapshotResponse(LAST_INDEX, 350);
             snapshotReplicator.logSuccessSnapshotResponse(LAST_INDEX - 100, 3500); // this is ignored because lastIndex is not current
-            assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(STAY_IN_CURRENT_MODE);
+            assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
             verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                     null, 0, 351, Arrays.copyOfRange(snapshotBytes, 351, SNAPSHOT_CHUNK_LENGTH + 351), false);
         }

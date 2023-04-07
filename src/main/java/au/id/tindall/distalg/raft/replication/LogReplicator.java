@@ -34,24 +34,32 @@ public class LogReplicator<ID extends Serializable> implements StateReplicator {
 
     @Override
     public ReplicationResult sendNextReplicationMessage() {
-        int nextIndexToSend = replicationState.getNextIndex();    // This can change, take a copy
-        int prevLogIndex = nextIndexToSend - 1;
-        if (log.hasEntry(nextIndexToSend) == EntryStatus.BEFORE_START) {
-            LOGGER.debug("Switching to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
-                    replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
-            return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
-        }
-        try {
-            Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
-            List<LogEntry> entriesToReplicate = getEntriesToReplicate(log, nextIndexToSend);
-            cluster.sendAppendEntriesRequest(term, replicationState.getFollowerId(),
-                    prevLogIndex, prevLogTerm, entriesToReplicate,
-                    log.getCommitIndex());
-            return ReplicationResult.STAY_IN_CURRENT_MODE;
-        } catch (IndexOutOfBoundsException e) {
-            LOGGER.debug("Concurrent truncation caused switch to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
-                    replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
-            return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
+        if (log.tryReadLock()) {
+            try {
+                int nextIndexToSend = replicationState.getNextIndex();    // This can change, take a copy
+                int prevLogIndex = nextIndexToSend - 1;
+                if (log.hasEntry(nextIndexToSend) == EntryStatus.BEFORE_START) {
+                    LOGGER.debug("Switching to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
+                            replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
+                    return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
+                }
+                try {
+                    Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
+                    List<LogEntry> entriesToReplicate = getEntriesToReplicate(log, nextIndexToSend);
+                    cluster.sendAppendEntriesRequest(term, replicationState.getFollowerId(),
+                            prevLogIndex, prevLogTerm, entriesToReplicate,
+                            log.getCommitIndex());
+                    return ReplicationResult.SUCCESS;
+                } catch (IndexOutOfBoundsException e) {
+                    LOGGER.debug("Concurrent truncation caused switch to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
+                            replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
+                    return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
+                }
+            } finally {
+                log.releaseReadLock();
+            }
+        } else {
+            return ReplicationResult.COULD_NOT_REPLICATE;
         }
     }
 

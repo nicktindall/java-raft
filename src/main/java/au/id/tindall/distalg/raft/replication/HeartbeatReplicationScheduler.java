@@ -8,6 +8,7 @@ import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 public class HeartbeatReplicationScheduler<ID extends Serializable> implements ReplicationScheduler {
 
@@ -19,7 +20,7 @@ public class HeartbeatReplicationScheduler<ID extends Serializable> implements R
     private final ExecutorService executorService;
     private final AtomicBoolean replicationScheduled;
     private volatile boolean running;
-    private Runnable sendAppendEntriesRequest;
+    private Supplier<Boolean> sendAppendEntriesRequest;
 
     public HeartbeatReplicationScheduler(ID serverId, long maxDelayBetweenMessagesInMilliseconds, ExecutorService executorService) {
         this.serverId = serverId;
@@ -30,7 +31,7 @@ public class HeartbeatReplicationScheduler<ID extends Serializable> implements R
     }
 
     @Override
-    public void setSendAppendEntriesRequest(Runnable sendAppendEntriesRequest) {
+    public void setSendAppendEntriesRequest(Supplier<Boolean> sendAppendEntriesRequest) {
         this.sendAppendEntriesRequest = sendAppendEntriesRequest;
     }
 
@@ -67,7 +68,9 @@ public class HeartbeatReplicationScheduler<ID extends Serializable> implements R
         try (CloseableThreadContext.Instance ctc = CloseableThreadContext.put("serverId", serverId.toString())) {
             while (running) {
                 if (replicationScheduled.getAndSet(false)) {
-                    sendAppendEntriesRequest.run();
+                    if (!sendAppendEntriesRequest.get()) {
+                        replicationScheduled.set(true);
+                    }
                 } else {
                     synchronized (replicationScheduled) {
                         replicationScheduled.wait(maxDelayBetweenMessagesInMilliseconds);

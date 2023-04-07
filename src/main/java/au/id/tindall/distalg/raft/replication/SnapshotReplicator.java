@@ -40,7 +40,7 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
     @Override
     public ReplicationResult sendNextReplicationMessage() {
         final Optional<Snapshot> currentSnapshot = persistentState.getCurrentSnapshot();
-        final AtomicReference<ReplicationResult> returnValue = new AtomicReference<>(ReplicationResult.STAY_IN_CURRENT_MODE);
+        final AtomicReference<ReplicationResult> returnValue = new AtomicReference<>(ReplicationResult.SUCCESS);
         currentSnapshot.ifPresentOrElse(snapshot -> {
             if (sendingANewSnapshot(snapshot)) {
                 resetSendingState(snapshot);
