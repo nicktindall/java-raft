@@ -21,7 +21,7 @@ import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 
 public class ServerStateFactory<ID extends Serializable> implements Closeable {
 
-    private static final int WARNING_THRESHOLD_MILLIS = 50;
+    private static final int WARNING_THRESHOLD_MILLIS = 10;
     private final Log log;
     private final Cluster<ID> cluster;
     private final PendingResponseRegistryFactory pendingResponseRegistryFactory;

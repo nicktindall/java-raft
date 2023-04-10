@@ -151,7 +151,11 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
             prevIndex = firstBlock.getPrevIndex();
             prevTerm = firstBlock.getPrevTerm();
         }
-        LOGGER.debug("Took {}us to truncate head of log", (System.nanoTime() - startTime) / 1_000);
+
+        final long truncateDurationMicros = (System.nanoTime() - startTime) / 1_000;
+        if (truncateDurationMicros > 500) {
+            LOGGER.debug("Took {}us to truncate head of log", truncateDurationMicros);
+        }
     }
 
     private int firstIndexInBlockId(int blockId) {

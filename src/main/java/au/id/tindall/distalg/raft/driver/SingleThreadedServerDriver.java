@@ -20,7 +20,7 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
 
     private static final int BUSY_WAIT_MILLISECONDS = 5;
     private static final int BUSY_WAIT_NANOSECONDS = BUSY_WAIT_MILLISECONDS * 1_000_000;
-    private static final int WARNING_THRESHOLD_MILLIS = 25;
+    private static final int WARNING_THRESHOLD_MILLIS = 10;
 
     enum LifeCycle {
         INITIALISED,
