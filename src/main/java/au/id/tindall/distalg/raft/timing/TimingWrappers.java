@@ -40,7 +40,7 @@ public enum TimingWrappers {
             long tookMillis = System.currentTimeMillis() - startTime;
             if (tookMillis > warningThresholdMillis) {
                 final String callIdentifier = method.getName().equals("handle") ? method.getName() + "(" + args[0].getClass().getSimpleName() + ")" : method.getName();
-                LOGGER.warn("{} took {}ms (expected < {}ms, server={})", callIdentifier, tookMillis, warningThresholdMillis, delegate.getId());
+                LOGGER.warn("Server#{} took {}ms (expected < {}ms, server={})", callIdentifier, tookMillis, warningThresholdMillis, delegate.getId());
             }
             if (t != null) {
                 throw t;
@@ -78,7 +78,8 @@ public enum TimingWrappers {
             }
             long tookMillis = System.currentTimeMillis() - startTime;
             if (tookMillis > warningThresholdMillis) {
-                final String callIdentifier = method.getName().equals("handle") ? delegate.getClass().getSimpleName() + "." + method.getName() + "(" + args[0].getClass().getSimpleName() + ")" : method.getName();
+                final String methodName = delegate.getClass().getSimpleName() + "#" + method.getName();
+                final String callIdentifier = method.getName().equals("handle") ? methodName + "(" + args[0].getClass().getSimpleName() + ")" : methodName;
                 LOGGER.warn("{} took {}ms (expected < {}ms)", callIdentifier, tookMillis, warningThresholdMillis);
             }
             if (t != null) {
