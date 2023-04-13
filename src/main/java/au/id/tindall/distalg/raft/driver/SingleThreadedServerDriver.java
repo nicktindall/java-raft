@@ -13,6 +13,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static au.id.tindall.distalg.raft.util.ExecutorUtil.shutdownAndAwaitTermination;
 import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMicros;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
@@ -21,6 +22,7 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
     private static final int BUSY_WAIT_MILLISECONDS = 5;
     private static final int BUSY_WAIT_NANOSECONDS = BUSY_WAIT_MILLISECONDS * 1_000_000;
     private static final int WARNING_THRESHOLD_MILLIS = 10;
+    private static final int EXECUTOR_TERMINATE_TIMEOUT_MS = 1_500;
 
     enum LifeCycle {
         INITIALISED,
@@ -105,7 +107,7 @@ public class SingleThreadedServerDriver implements ServerDriver, Closeable, Runn
     public void close() throws IOException {
         stop();
         if (lifeCycle.compareAndSet(LifeCycle.STOPPED, LifeCycle.CLOSED)) {
-            executorService.shutdown();
+            shutdownAndAwaitTermination(executorService, EXECUTOR_TERMINATE_TIMEOUT_MS);
             final int remainingDrivers = UNCLOSED_COUNTER.decrementAndGet();
             LOGGER.debug("Closed SingleThreadedServerDriver, leaving {} created but not closed", remainingDrivers);
         } else {

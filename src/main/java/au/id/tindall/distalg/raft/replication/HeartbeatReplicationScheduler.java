@@ -6,9 +6,10 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+
+import static au.id.tindall.distalg.raft.util.ExecutorUtil.shutdownAndAwaitTermination;
 
 public class HeartbeatReplicationScheduler<ID extends Serializable> implements ReplicationScheduler {
 
@@ -53,15 +54,7 @@ public class HeartbeatReplicationScheduler<ID extends Serializable> implements R
         synchronized (replicationScheduled) {
             replicationScheduled.notifyAll();
         }
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(WAIT_FOR_TERMINATE_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS)) {
-                LOGGER.warn("Couldn't shut down replication executor");
-            }
-        } catch (InterruptedException e) {
-            LOGGER.warn("Interrupted waiting for replication executor to stop");
-            Thread.currentThread().interrupt();
-        }
+        shutdownAndAwaitTermination(executorService, WAIT_FOR_TERMINATE_TIMEOUT_MILLISECONDS);
     }
 
     private Void run() {

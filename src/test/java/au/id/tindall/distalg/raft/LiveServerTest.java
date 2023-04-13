@@ -105,11 +105,11 @@ class LiveServerTest {
     Path stateFileDirectory;
 
     public static void main(String[] args) {
-        LauncherDiscoveryRequest ldr = LauncherDiscoveryRequestBuilder.request()
-                .selectors(selectClass(LiveServerTest.class))
-                .build();
         try (final PrintWriter writer = new PrintWriter(System.out)) {
             while (true) {
+                LauncherDiscoveryRequest ldr = LauncherDiscoveryRequestBuilder.request()
+                        .selectors(selectClass(LiveServerTest.class))
+                        .build();
                 final Launcher launcher = LauncherFactory.create();
                 launcher.discover(ldr);
                 final SummaryGeneratingListener summaryGeneratingListener = new SummaryGeneratingListener();
@@ -189,8 +189,11 @@ class LiveServerTest {
                 LOGGER.error("Test executor didn't stop");
             }
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            LOGGER.error("Interrupted waiting for test executor service to terminate");
+            Thread.currentThread().interrupt();
         }
+        allServers.clear();
+        System.gc();
     }
 
     @Test
