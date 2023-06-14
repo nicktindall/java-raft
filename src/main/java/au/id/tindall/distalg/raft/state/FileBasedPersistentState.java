@@ -168,18 +168,14 @@ public class FileBasedPersistentState<I extends Serializable> implements Persist
     }
 
     private void readFromStateFile() {
-        try {
-            int idLength = stateFileMap.getInt(START_OF_ID_LENGTH);
-            currentTerm.set(new Term(stateFileMap.getInt(START_OF_CURRENT_TERM)));
-            int votedForLength = stateFileMap.getInt(START_OF_VOTED_FOR_LENGTH);
-            id = readIdFrom(START_OF_ID, idLength);
-            votedFor.set(readIdFrom(START_OF_ID + idLength, votedForLength));
-        } catch (IOException e) {
-            throw new UncheckedIOException("Error reading from state file", e);
-        }
+        int idLength = stateFileMap.getInt(START_OF_ID_LENGTH);
+        currentTerm.set(new Term(stateFileMap.getInt(START_OF_CURRENT_TERM)));
+        int votedForLength = stateFileMap.getInt(START_OF_VOTED_FOR_LENGTH);
+        id = readIdFrom(START_OF_ID, idLength);
+        votedFor.set(readIdFrom(START_OF_ID + idLength, votedForLength));
     }
 
-    private I readIdFrom(int startPoint, int length) throws IOException {
+    private I readIdFrom(int startPoint, int length) {
         if (length == 0) {
             return null;
         }
