@@ -8,9 +8,9 @@ import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.NOT_LEADER;
 
-public class PendingRegisterClientResponse<ID extends Serializable> implements PendingResponse<RegisterClientResponse<ID>> {
+public class PendingRegisterClientResponse<I extends Serializable> implements PendingResponse<RegisterClientResponse<I>> {
 
-    private CompletableFuture<RegisterClientResponse<ID>> future;
+    private final CompletableFuture<RegisterClientResponse<I>> future;
 
     public PendingRegisterClientResponse() {
         this.future = new CompletableFuture<>();
@@ -22,7 +22,7 @@ public class PendingRegisterClientResponse<ID extends Serializable> implements P
     }
 
     @Override
-    public CompletableFuture<RegisterClientResponse<ID>> getResponseFuture() {
+    public CompletableFuture<RegisterClientResponse<I>> getResponseFuture() {
         return future;
     }
 }

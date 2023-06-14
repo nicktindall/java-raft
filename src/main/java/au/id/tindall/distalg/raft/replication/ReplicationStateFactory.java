@@ -4,7 +4,7 @@ import au.id.tindall.distalg.raft.log.Log;
 
 import java.io.Serializable;
 
-public class ReplicationStateFactory<ID extends Serializable> {
+public class ReplicationStateFactory<I extends Serializable> {
 
     private final Log log;
 
@@ -12,7 +12,7 @@ public class ReplicationStateFactory<ID extends Serializable> {
         this.log = log;
     }
 
-    public ReplicationState<ID> createReplicationState(ID folllowerId, MatchIndexAdvancedListener<ID> matchIndexAdvancedListener) {
+    public ReplicationState<I> createReplicationState(I folllowerId, MatchIndexAdvancedListener<I> matchIndexAdvancedListener) {
         return new ReplicationState<>(folllowerId, log.getNextLogIndex(), matchIndexAdvancedListener);
     }
 }

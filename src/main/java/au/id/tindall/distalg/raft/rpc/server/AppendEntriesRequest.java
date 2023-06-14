@@ -9,15 +9,15 @@ import java.util.Optional;
 
 import static java.util.List.copyOf;
 
-public class AppendEntriesRequest<ID extends Serializable> extends UnicastMessage<ID> {
+public class AppendEntriesRequest<I extends Serializable> extends UnicastMessage<I> {
 
-    private final ID leaderId;
+    private final I leaderId;
     private final int prevLogIndex;
     private final Term prevLogTerm;
     private final List<LogEntry> entries;
     private final int leaderCommit;
 
-    public AppendEntriesRequest(Term term, ID leaderId, ID destinationId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entries, int leaderCommit) {
+    public AppendEntriesRequest(Term term, I leaderId, I destinationId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entries, int leaderCommit) {
         super(term, leaderId, destinationId);
         this.leaderId = leaderId;
         this.prevLogIndex = prevLogIndex;
@@ -26,7 +26,7 @@ public class AppendEntriesRequest<ID extends Serializable> extends UnicastMessag
         this.leaderCommit = leaderCommit;
     }
 
-    public ID getLeaderId() {
+    public I getLeaderId() {
         return leaderId;
     }
 

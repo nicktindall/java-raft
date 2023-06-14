@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class SnapshotReplicator<ID extends Serializable> implements StateReplicator {
+public class SnapshotReplicator<I extends Serializable> implements StateReplicator {
 
     private static final Logger LOGGER = getLogger();
 
@@ -22,15 +22,15 @@ public class SnapshotReplicator<ID extends Serializable> implements StateReplica
     private final ByteBuffer buffer = ByteBuffer.allocate(CHUNK_SIZE);
 
     private final Term term;
-    private final Cluster<ID> cluster;
-    private final PersistentState<ID> persistentState;
-    private final ReplicationState<ID> replicationState;
+    private final Cluster<I> cluster;
+    private final PersistentState<I> persistentState;
+    private final ReplicationState<I> replicationState;
 
     private int currentSnapshotLastIndex = -1;
     private Term currentSnapshotLastTerm = null;
     private int lastOffsetConfirmed = -1;
 
-    public SnapshotReplicator(Term term, Cluster<ID> cluster, PersistentState<ID> persistentState, ReplicationState<ID> replicationState) {
+    public SnapshotReplicator(Term term, Cluster<I> cluster, PersistentState<I> persistentState, ReplicationState<I> replicationState) {
         this.term = term;
         this.cluster = cluster;
         this.persistentState = persistentState;

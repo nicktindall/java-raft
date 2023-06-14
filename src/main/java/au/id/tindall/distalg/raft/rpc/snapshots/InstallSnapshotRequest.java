@@ -6,9 +6,9 @@ import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 
 import java.io.Serializable;
 
-public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMessage<ID> {
+public class InstallSnapshotRequest<I extends Serializable> extends UnicastMessage<I> {
 
-    private final ID leaderId;
+    private final I leaderId;
     private final int lastIndex;
     private final Term lastTerm;
     private final ConfigurationEntry lastConfig;
@@ -17,7 +17,7 @@ public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMess
     private final byte[] data;
     private final boolean done;
 
-    public InstallSnapshotRequest(Term term, ID leaderId, ID destination,
+    public InstallSnapshotRequest(Term term, I leaderId, I destination,
                                   int lastIndex, Term lastTerm, ConfigurationEntry lastConfig,
                                   int snapshotOffset, int offset, byte[] data, boolean done) {
         super(term, leaderId, destination);
@@ -31,7 +31,7 @@ public class InstallSnapshotRequest<ID extends Serializable> extends UnicastMess
         this.done = done;
     }
 
-    public ID getLeaderId() {
+    public I getLeaderId() {
         return leaderId;
     }
 

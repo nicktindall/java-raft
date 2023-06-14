@@ -4,11 +4,11 @@ import au.id.tindall.distalg.raft.log.Term;
 
 import java.io.Serializable;
 
-public class RequestVoteResponse<ID extends Serializable> extends UnicastMessage<ID> {
+public class RequestVoteResponse<I extends Serializable> extends UnicastMessage<I> {
 
     private final boolean voteGranted;
 
-    public RequestVoteResponse(Term term, ID source, ID destination, boolean voteGranted) {
+    public RequestVoteResponse(Term term, I source, I destination, boolean voteGranted) {
         super(term, source, destination);
         this.voteGranted = voteGranted;
     }

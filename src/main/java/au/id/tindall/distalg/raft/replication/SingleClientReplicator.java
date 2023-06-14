@@ -2,18 +2,18 @@ package au.id.tindall.distalg.raft.replication;
 
 import java.io.Serializable;
 
-public class SingleClientReplicator<ID extends Serializable> {
+public class SingleClientReplicator<I extends Serializable> {
 
     private final ReplicationScheduler replicationScheduler;
-    private final LogReplicatorFactory<ID> logReplicatorFactory;
-    private final SnapshotReplicatorFactory<ID> snapshotReplicatorFactory;
-    private final ReplicationState<ID> replicationState;
+    private final LogReplicatorFactory<I> logReplicatorFactory;
+    private final SnapshotReplicatorFactory<I> snapshotReplicatorFactory;
+    private final ReplicationState<I> replicationState;
     private StateReplicator stateReplicator;
 
     public SingleClientReplicator(ReplicationScheduler replicationScheduler,
-                                  LogReplicatorFactory<ID> logReplicatorFactory,
-                                  SnapshotReplicatorFactory<ID> snapshotReplicatorFactory,
-                                  ReplicationState<ID> replicationState) {
+                                  LogReplicatorFactory<I> logReplicatorFactory,
+                                  SnapshotReplicatorFactory<I> snapshotReplicatorFactory,
+                                  ReplicationState<I> replicationState) {
         this.replicationScheduler = replicationScheduler;
         this.logReplicatorFactory = logReplicatorFactory;
         this.snapshotReplicatorFactory = snapshotReplicatorFactory;

@@ -14,40 +14,40 @@ import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 
-public class ClusterMembershipChangeManager<ID extends Serializable> implements EntryCommittedEventHandler, Closeable, MatchIndexAdvancedListener<ID> {
+public class ClusterMembershipChangeManager<I extends Serializable> implements EntryCommittedEventHandler, Closeable, MatchIndexAdvancedListener<I> {
 
-    private final Queue<MembershipChange<ID, ?>> membershipChangeQueue;
-    private final ClusterMembershipChangeFactory<ID> clusterMembershipChangeFactory;
-    private MembershipChange<ID, ?> currentMembershipChange;
+    private final Queue<MembershipChange<I, ?>> membershipChangeQueue;
+    private final ClusterMembershipChangeFactory<I> clusterMembershipChangeFactory;
+    private MembershipChange<I, ?> currentMembershipChange;
 
-    public ClusterMembershipChangeManager(ClusterMembershipChangeFactory<ID> clusterMembershipChangeFactory) {
+    public ClusterMembershipChangeManager(ClusterMembershipChangeFactory<I> clusterMembershipChangeFactory) {
         this.clusterMembershipChangeFactory = clusterMembershipChangeFactory;
         membershipChangeQueue = new LinkedList<>();
         currentMembershipChange = null;
     }
 
-    public CompletableFuture<AddServerResponse> addServer(ID newServerId) {
-        final AddServer<ID> addServer = clusterMembershipChangeFactory.createAddServer(newServerId);
+    public CompletableFuture<AddServerResponse> addServer(I newServerId) {
+        final AddServer<I> addServer = clusterMembershipChangeFactory.createAddServer(newServerId);
         membershipChangeQueue.add(addServer);
         startNextMembershipChangeIfReady();
         return addServer.getResponseFuture();
     }
 
-    public CompletableFuture<RemoveServerResponse> removeServer(ID serverId) {
-        final RemoveServer<ID> removeServer = clusterMembershipChangeFactory.createRemoveServer(serverId);
+    public CompletableFuture<RemoveServerResponse> removeServer(I serverId) {
+        final RemoveServer<I> removeServer = clusterMembershipChangeFactory.createRemoveServer(serverId);
         membershipChangeQueue.add(removeServer);
         startNextMembershipChangeIfReady();
         return removeServer.getResponseFuture();
     }
 
     @Override
-    public void matchIndexAdvanced(ID followerId, int newMatchIndex) {
+    public void matchIndexAdvanced(I followerId, int newMatchIndex) {
         if (currentMembershipChange != null && !currentMembershipChange.isFinished()) {
             currentMembershipChange.matchIndexAdvanced(followerId, newMatchIndex);
         }
     }
 
-    public void logMessageFromFollower(ID followerId) {
+    public void logMessageFromFollower(I followerId) {
         if (currentMembershipChange != null && !currentMembershipChange.isFinished()) {
             currentMembershipChange.logMessageFromFollower(followerId);
         }
@@ -55,7 +55,7 @@ public class ClusterMembershipChangeManager<ID extends Serializable> implements 
 
     private void startNextMembershipChangeIfReady() {
         if (currentMembershipChange == null || currentMembershipChange.isFinished()) {
-            final MembershipChange<ID, ?> nextChange = membershipChangeQueue.poll();
+            final MembershipChange<I, ?> nextChange = membershipChangeQueue.poll();
             if (nextChange != null) {
                 currentMembershipChange = nextChange;
                 currentMembershipChange.start();

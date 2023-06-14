@@ -6,23 +6,23 @@ import java.io.Serializable;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class ReplicationState<ID extends Serializable> {
+public class ReplicationState<I extends Serializable> {
 
     private static final Logger LOGGER = getLogger();
 
-    private final ID followerId;
-    private final MatchIndexAdvancedListener<ID> matchIndexAdvancedListener;
+    private final I followerId;
+    private final MatchIndexAdvancedListener<I> matchIndexAdvancedListener;
     private volatile int matchIndex;
     private volatile int nextIndex;
 
-    public ReplicationState(ID followerId, int nextLogIndex, MatchIndexAdvancedListener<ID> matchIndexAdvancedListener) {
+    public ReplicationState(I followerId, int nextLogIndex, MatchIndexAdvancedListener<I> matchIndexAdvancedListener) {
         this.followerId = followerId;
         this.matchIndex = 0;
         this.nextIndex = nextLogIndex;
         this.matchIndexAdvancedListener = matchIndexAdvancedListener;
     }
 
-    public ID getFollowerId() {
+    public I getFollowerId() {
         return followerId;
     }
 

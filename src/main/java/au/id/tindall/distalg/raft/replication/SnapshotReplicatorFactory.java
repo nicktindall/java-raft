@@ -5,17 +5,17 @@ import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Serializable;
 
-public class SnapshotReplicatorFactory<ID extends Serializable> {
+public class SnapshotReplicatorFactory<I extends Serializable> {
 
-    private final PersistentState<ID> persistentState;
-    private final Cluster<ID> cluster;
+    private final PersistentState<I> persistentState;
+    private final Cluster<I> cluster;
 
-    public SnapshotReplicatorFactory(PersistentState<ID> persistentState, Cluster<ID> cluster) {
+    public SnapshotReplicatorFactory(PersistentState<I> persistentState, Cluster<I> cluster) {
         this.persistentState = persistentState;
         this.cluster = cluster;
     }
 
-    public SnapshotReplicator<ID> createSnapshotReplicator(ReplicationState<ID> replicationState) {
+    public SnapshotReplicator<I> createSnapshotReplicator(ReplicationState<I> replicationState) {
         return new SnapshotReplicator<>(persistentState.getCurrentTerm(), cluster, persistentState, replicationState);
     }
 }

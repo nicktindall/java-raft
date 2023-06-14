@@ -6,14 +6,14 @@ import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Serializable;
 
-public class LogReplicatorFactory<ID extends Serializable> {
+public class LogReplicatorFactory<I extends Serializable> {
 
     private final Log log;
-    private final PersistentState<ID> persistentState;
-    private final Cluster<ID> cluster;
+    private final PersistentState<I> persistentState;
+    private final Cluster<I> cluster;
     private final int maxBatchSize;
 
-    public LogReplicatorFactory(Log log, PersistentState<ID> persistentState, Cluster<ID> cluster,
+    public LogReplicatorFactory(Log log, PersistentState<I> persistentState, Cluster<I> cluster,
                                 int maxBatchSize) {
         this.log = log;
         this.cluster = cluster;
@@ -21,7 +21,7 @@ public class LogReplicatorFactory<ID extends Serializable> {
         this.maxBatchSize = maxBatchSize;
     }
 
-    public LogReplicator<ID> createLogReplicator(ReplicationState<ID> replicationState) {
+    public LogReplicator<I> createLogReplicator(ReplicationState<I> replicationState) {
         return new LogReplicator<>(log, persistentState.getCurrentTerm(), cluster, maxBatchSize, replicationState);
     }
 }

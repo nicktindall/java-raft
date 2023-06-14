@@ -5,13 +5,13 @@ import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 
 import java.io.Serializable;
 
-public class InstallSnapshotResponse<ID extends Serializable> extends UnicastMessage<ID> {
+public class InstallSnapshotResponse<I extends Serializable> extends UnicastMessage<I> {
 
     private final boolean success;
     private final int lastIndex;
     private final int offset;
 
-    public InstallSnapshotResponse(Term term, ID source, ID destination, boolean success, int lastIndex, int offset) {
+    public InstallSnapshotResponse(Term term, I source, I destination, boolean success, int lastIndex, int offset) {
         super(term, source, destination);
         this.success = success;
         this.lastIndex = lastIndex;

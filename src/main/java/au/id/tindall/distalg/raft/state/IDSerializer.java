@@ -3,9 +3,9 @@ package au.id.tindall.distalg.raft.state;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
-public interface IDSerializer<ID extends Serializable> {
+public interface IDSerializer<I extends Serializable> {
 
-    ID deserialize(ByteBuffer buf);
+    I deserialize(ByteBuffer buf);
 
-    ByteBuffer serialize(ID id);
+    ByteBuffer serialize(I id);
 }

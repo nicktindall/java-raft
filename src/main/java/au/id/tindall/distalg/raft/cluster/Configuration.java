@@ -16,15 +16,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class Configuration<ID extends Serializable> implements EntryAppendedEventHandler, SnapshotInstalledListener {
+public class Configuration<I extends Serializable> implements EntryAppendedEventHandler, SnapshotInstalledListener {
 
-    private final ID localId;
-    private final Set<ID> servers;
+    private final I localId;
+    private final Set<I> servers;
     private final Duration electionTimeout;
 
     private LogSummary configurationIndex;
 
-    public Configuration(ID localId, Set<ID> initialServers, Duration electionTimeout) {
+    public Configuration(I localId, Set<I> initialServers, Duration electionTimeout) {
         this.localId = localId;
         this.servers = new HashSet<>();
         this.servers.addAll(initialServers);
@@ -32,21 +32,21 @@ public class Configuration<ID extends Serializable> implements EntryAppendedEven
         this.configurationIndex = LogSummary.EMPTY;
     }
 
-    public Set<ID> getServers() {
+    public Set<I> getServers() {
         return Collections.unmodifiableSet(servers);
     }
 
-    public Set<ID> getOtherServerIds() {
+    public Set<I> getOtherServerIds() {
         return servers.stream()
                 .filter(id -> !Objects.equals(id, localId))
                 .collect(Collectors.toSet());
     }
 
-    public ID getLocalId() {
+    public I getLocalId() {
         return localId;
     }
 
-    public boolean isQuorum(Set<ID> receivedVotes) {
+    public boolean isQuorum(Set<I> receivedVotes) {
         return receivedVotes.size() > (servers.size() / 2f);
     }
 
@@ -60,7 +60,7 @@ public class Configuration<ID extends Serializable> implements EntryAppendedEven
         if (logEntry instanceof ConfigurationEntry) {
             configurationIndex = new LogSummary(Optional.of(logEntry.getTerm()), index);
             servers.clear();
-            servers.addAll((Set<ID>) ((ConfigurationEntry) logEntry).getClusterMembers());
+            servers.addAll((Set<I>) ((ConfigurationEntry) logEntry).getClusterMembers());
         }
     }
 
@@ -73,7 +73,7 @@ public class Configuration<ID extends Serializable> implements EntryAppendedEven
             configurationIndex = snapshotLastIndex;
             servers.clear();
             final ConfigurationEntry lastConfig = snapshot.getLastConfig();
-            servers.addAll((Set<ID>) lastConfig.getClusterMembers());
+            servers.addAll((Set<I>) lastConfig.getClusterMembers());
         }
     }
 }

@@ -2,15 +2,15 @@ package au.id.tindall.distalg.raft.rpc.clustermembership;
 
 import java.io.Serializable;
 
-public class RemoveServerRequest<ID extends Serializable> implements ClusterMembershipRequest {
+public class RemoveServerRequest<I extends Serializable> implements ClusterMembershipRequest {
 
-    private final ID oldServer;
+    private final I oldServer;
 
-    public RemoveServerRequest(ID oldServer) {
+    public RemoveServerRequest(I oldServer) {
         this.oldServer = oldServer;
     }
 
-    public ID getOldServer() {
+    public I getOldServer() {
         return oldServer;
     }
 }

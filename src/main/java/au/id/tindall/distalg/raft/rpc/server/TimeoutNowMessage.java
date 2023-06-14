@@ -4,13 +4,13 @@ import au.id.tindall.distalg.raft.log.Term;
 
 import java.io.Serializable;
 
-public class TimeoutNowMessage<ID extends Serializable> extends UnicastMessage<ID> {
+public class TimeoutNowMessage<I extends Serializable> extends UnicastMessage<I> {
 
-    public TimeoutNowMessage(Term term, ID source) {
+    public TimeoutNowMessage(Term term, I source) {
         super(term, source, source);
     }
 
-    public TimeoutNowMessage(Term term, ID source, ID destination) {
+    public TimeoutNowMessage(Term term, I source, I destination) {
         super(term, source, destination);
     }
 }

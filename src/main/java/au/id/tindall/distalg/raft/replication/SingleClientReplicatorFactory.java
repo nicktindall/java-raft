@@ -2,24 +2,24 @@ package au.id.tindall.distalg.raft.replication;
 
 import java.io.Serializable;
 
-public class SingleClientReplicatorFactory<ID extends Serializable> {
+public class SingleClientReplicatorFactory<I extends Serializable> {
 
-    private final ReplicationSchedulerFactory<ID> replicationSchedulerFactory;
-    private final LogReplicatorFactory<ID> logReplicatorFactory;
-    private final SnapshotReplicatorFactory<ID> snapshotReplicatorFactory;
-    private final ReplicationStateFactory<ID> replicationStateFactory;
+    private final ReplicationSchedulerFactory<I> replicationSchedulerFactory;
+    private final LogReplicatorFactory<I> logReplicatorFactory;
+    private final SnapshotReplicatorFactory<I> snapshotReplicatorFactory;
+    private final ReplicationStateFactory<I> replicationStateFactory;
 
-    public SingleClientReplicatorFactory(ReplicationSchedulerFactory<ID> replicationSchedulerFactory,
-                                         LogReplicatorFactory<ID> logReplicatorFactory,
-                                         SnapshotReplicatorFactory<ID> snapshotReplicatorFactory,
-                                         ReplicationStateFactory<ID> replicationStateFactory) {
+    public SingleClientReplicatorFactory(ReplicationSchedulerFactory<I> replicationSchedulerFactory,
+                                         LogReplicatorFactory<I> logReplicatorFactory,
+                                         SnapshotReplicatorFactory<I> snapshotReplicatorFactory,
+                                         ReplicationStateFactory<I> replicationStateFactory) {
         this.replicationSchedulerFactory = replicationSchedulerFactory;
         this.logReplicatorFactory = logReplicatorFactory;
         this.snapshotReplicatorFactory = snapshotReplicatorFactory;
         this.replicationStateFactory = replicationStateFactory;
     }
 
-    public SingleClientReplicator<ID> createReplicator(ID serverId, ID followerId, MatchIndexAdvancedListener<ID> matchIndexAdvancedListener) {
+    public SingleClientReplicator<I> createReplicator(I serverId, I followerId, MatchIndexAdvancedListener<I> matchIndexAdvancedListener) {
         return new SingleClientReplicator<>(
                 replicationSchedulerFactory.create(serverId),
                 logReplicatorFactory,

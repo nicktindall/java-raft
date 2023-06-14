@@ -4,9 +4,9 @@ import au.id.tindall.distalg.raft.log.Term;
 
 import java.io.Serializable;
 
-public class BroadcastMessage<ID extends Serializable> extends RpcMessage<ID> {
+public class BroadcastMessage<I extends Serializable> extends RpcMessage<I> {
 
-    public BroadcastMessage(Term term, ID source) {
+    public BroadcastMessage(Term term, I source) {
         super(term, source);
     }
 }

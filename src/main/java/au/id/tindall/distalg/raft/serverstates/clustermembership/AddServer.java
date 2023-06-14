@@ -15,15 +15,15 @@ import java.util.function.Supplier;
 import static au.id.tindall.distalg.raft.util.TimestampUtil.formatTimestamp;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-class AddServer<ID extends Serializable> extends MembershipChange<ID, AddServerResponse> {
+class AddServer<I extends Serializable> extends MembershipChange<I, AddServerResponse> {
 
     private static final Logger LOGGER = getLogger();
 
     private final int numberOfCatchUpRounds;
     private ReplicationCatchUpRound currentRound;
 
-    AddServer(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState,
-              ReplicationManager<ID> replicationManager, ID serverId,
+    AddServer(Log log, Configuration<I> configuration, PersistentState<I> persistentState,
+              ReplicationManager<I> replicationManager, I serverId,
               int numberOfCatchupRounds, Supplier<Instant> timeSource) {
         super(log, configuration, persistentState, replicationManager, serverId, timeSource);
         this.numberOfCatchUpRounds = numberOfCatchupRounds;

@@ -38,17 +38,17 @@ import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static java.lang.String.format;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public abstract class ServerStateImpl<ID extends Serializable> implements ServerState<ID> {
+public abstract class ServerStateImpl<I extends Serializable> implements ServerState<I> {
 
     private static final Logger LOGGER = getLogger();
 
-    protected final PersistentState<ID> persistentState;
-    protected final Cluster<ID> cluster;
+    protected final PersistentState<I> persistentState;
+    protected final Cluster<I> cluster;
     protected final Log log;
-    protected final ServerStateFactory<ID> serverStateFactory;
-    protected final ID currentLeader;
+    protected final ServerStateFactory<I> serverStateFactory;
+    protected final I currentLeader;
 
-    protected ServerStateImpl(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader) {
+    protected ServerStateImpl(PersistentState<I> persistentState, Log log, Cluster<I> cluster, ServerStateFactory<I> serverStateFactory, I currentLeader) {
         this.persistentState = persistentState;
         this.log = log;
         this.cluster = cluster;
@@ -57,18 +57,18 @@ public abstract class ServerStateImpl<ID extends Serializable> implements Server
     }
 
     @Override
-    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> message) {
+    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> message) {
         if (message instanceof RegisterClientRequest) {
-            return handle((RegisterClientRequest<ID>) message);
+            return handle((RegisterClientRequest<I>) message);
         } else if (message instanceof ClientRequestRequest) {
-            return handle(((ClientRequestRequest<ID>) message));
+            return handle(((ClientRequestRequest<I>) message));
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
     }
 
     @Override
-    public Result<ID> handle(RpcMessage<ID> message) {
+    public Result<I> handle(RpcMessage<I> message) {
         if (message.getTerm().isGreaterThan(persistentState.getCurrentTerm())) {
             LOGGER.debug("Received a message from a future term, transitioning from {} to {} state, message={}",
                     getServerStateType(), ServerStateType.FOLLOWER, message);
@@ -77,21 +77,21 @@ public abstract class ServerStateImpl<ID extends Serializable> implements Server
         }
 
         if (message instanceof RequestVoteRequest) {
-            return handle((RequestVoteRequest<ID>) message);
+            return handle((RequestVoteRequest<I>) message);
         } else if (message instanceof RequestVoteResponse) {
-            return handle((RequestVoteResponse<ID>) message);
+            return handle((RequestVoteResponse<I>) message);
         } else if (message instanceof AppendEntriesRequest) {
-            return handle((AppendEntriesRequest<ID>) message);
+            return handle((AppendEntriesRequest<I>) message);
         } else if (message instanceof AppendEntriesResponse) {
-            return handle((AppendEntriesResponse<ID>) message);
+            return handle((AppendEntriesResponse<I>) message);
         } else if (message instanceof TimeoutNowMessage) {
-            return handle((TimeoutNowMessage<ID>) message);
+            return handle((TimeoutNowMessage<I>) message);
         } else if (message instanceof TransferLeadershipMessage) {
-            return handle((TransferLeadershipMessage<ID>) message);
+            return handle((TransferLeadershipMessage<I>) message);
         } else if (message instanceof InstallSnapshotRequest) {
-            return handle((InstallSnapshotRequest<ID>) message);
+            return handle((InstallSnapshotRequest<I>) message);
         } else if (message instanceof InstallSnapshotResponse) {
-            return handle((InstallSnapshotResponse<ID>) message);
+            return handle((InstallSnapshotResponse<I>) message);
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
@@ -101,23 +101,23 @@ public abstract class ServerStateImpl<ID extends Serializable> implements Server
         // Do nothing by default, only candidates request votes
     }
 
-    protected CompletableFuture<ClientRequestResponse<ID>> handle(ClientRequestRequest<ID> clientRequestRequest) {
+    protected CompletableFuture<ClientRequestResponse<I>> handle(ClientRequestRequest<I> clientRequestRequest) {
         return CompletableFuture.completedFuture(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, currentLeader));
     }
 
-    protected CompletableFuture<RegisterClientResponse<ID>> handle(RegisterClientRequest<ID> registerClientRequest) {
+    protected CompletableFuture<RegisterClientResponse<I>> handle(RegisterClientRequest<I> registerClientRequest) {
         return CompletableFuture.completedFuture(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, currentLeader));
     }
 
-    protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
+    protected Result<I> handle(AppendEntriesRequest<I> appendEntriesRequest) {
         return complete(this);
     }
 
-    protected Result<ID> handle(AppendEntriesResponse<ID> appendEntriesResponse) {
+    protected Result<I> handle(AppendEntriesResponse<I> appendEntriesResponse) {
         return complete(this);
     }
 
-    protected Result<ID> handle(RequestVoteRequest<ID> requestVote) {
+    protected Result<I> handle(RequestVoteRequest<I> requestVote) {
         if (messageIsStale(requestVote)) {
             // we reply using the sender's term in case we're a candidate, and they interpret the response as an election victory
             LOGGER.debug("Rejecting stale vote request from {} (requestTerm={}, myTerm={})",
@@ -136,40 +136,40 @@ public abstract class ServerStateImpl<ID extends Serializable> implements Server
         return complete(this);
     }
 
-    protected Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
+    protected Result<I> handle(RequestVoteResponse<I> requestVoteResponse) {
         return complete(this);
     }
 
-    protected Result<ID> handle(InstallSnapshotRequest<ID> installSnapshotRequest) {
+    protected Result<I> handle(InstallSnapshotRequest<I> installSnapshotRequest) {
         return complete(this);
     }
 
-    protected Result<ID> handle(InstallSnapshotResponse<ID> installSnapshotResponse) {
+    protected Result<I> handle(InstallSnapshotResponse<I> installSnapshotResponse) {
         return complete(this);
     }
 
-    protected Result<ID> handle(TimeoutNowMessage<ID> timeoutNowMessage) {
+    protected Result<I> handle(TimeoutNowMessage<I> timeoutNowMessage) {
         return incomplete(serverStateFactory.createCandidate());
     }
 
-    protected Result<ID> handle(TransferLeadershipMessage<ID> transferLeadershipMessage) {
+    protected Result<I> handle(TransferLeadershipMessage<I> transferLeadershipMessage) {
         return complete(this);
     }
 
-    private boolean candidatesLogIsAtLeastUpToDateAsMine(RequestVoteRequest<ID> requestVote) {
+    private boolean candidatesLogIsAtLeastUpToDateAsMine(RequestVoteRequest<I> requestVote) {
         return log.getSummary().compareTo(new LogSummary(requestVote.getLastLogTerm(), requestVote.getLastLogIndex())) <= 0;
     }
 
-    private boolean haveNotVotedOrHaveAlreadyVotedForCandidate(RequestVoteRequest<ID> requestVote) {
-        Optional<ID> votedFor = persistentState.getVotedFor();
+    private boolean haveNotVotedOrHaveAlreadyVotedForCandidate(RequestVoteRequest<I> requestVote) {
+        Optional<I> votedFor = persistentState.getVotedFor();
         return votedFor.isEmpty() || votedFor.get().equals(requestVote.getCandidateId());
     }
 
-    protected boolean messageIsStale(RpcMessage<ID> message) {
+    protected boolean messageIsStale(RpcMessage<I> message) {
         return message.getTerm().isLessThan(persistentState.getCurrentTerm());
     }
 
-    protected boolean messageIsNotStale(RpcMessage<ID> message) {
+    protected boolean messageIsNotStale(RpcMessage<I> message) {
         return !messageIsStale(message);
     }
 
@@ -192,19 +192,19 @@ public abstract class ServerStateImpl<ID extends Serializable> implements Server
     @Override
     public CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest message) {
         if (message instanceof AddServerRequest) {
-            return this.handle((AddServerRequest<ID>) message);
+            return this.handle((AddServerRequest<I>) message);
         } else if (message instanceof RemoveServerRequest) {
-            return this.handle((RemoveServerRequest<ID>) message);
+            return this.handle((RemoveServerRequest<I>) message);
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }
     }
 
-    protected CompletableFuture<AddServerResponse> handle(AddServerRequest<ID> addServerRequest) {
+    protected CompletableFuture<AddServerResponse> handle(AddServerRequest<I> addServerRequest) {
         return CompletableFuture.completedFuture(AddServerResponse.NOT_LEADER);
     }
 
-    protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<ID> removeServerRequest) {
+    protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<I> removeServerRequest) {
         return CompletableFuture.completedFuture(RemoveServerResponse.NOT_LEADER);
     }
 }

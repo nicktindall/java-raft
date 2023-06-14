@@ -10,30 +10,30 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-public interface Cluster<ID extends Serializable> {
+public interface Cluster<I extends Serializable> {
 
     void onStart();
 
     void onStop();
 
-    boolean isQuorum(Set<ID> receivedVotes);
+    boolean isQuorum(Set<I> receivedVotes);
 
-    Set<ID> getOtherMemberIds();
+    Set<I> getOtherMemberIds();
 
-    void sendAppendEntriesRequest(Term currentTerm, ID destinationId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entriesToReplicate, int commitIndex);
+    void sendAppendEntriesRequest(Term currentTerm, I destinationId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entriesToReplicate, int commitIndex);
 
-    void sendAppendEntriesResponse(Term currentTerm, ID destinationId, boolean success, Optional<Integer> appendedIndex);
+    void sendAppendEntriesResponse(Term currentTerm, I destinationId, boolean success, Optional<Integer> appendedIndex);
 
     void sendRequestVoteRequest(Term currentTerm, int lastLogIndex, Optional<Term> lastLogTerm);
 
-    void sendRequestVoteResponse(Term currentTerm, ID destinationId, boolean granted);
+    void sendRequestVoteResponse(Term currentTerm, I destinationId, boolean granted);
 
-    void sendTimeoutNowRequest(Term currentTerm, ID destinationId);
+    void sendTimeoutNowRequest(Term currentTerm, I destinationId);
 
-    void sendInstallSnapshotResponse(Term currentTerm, ID destinationId, boolean success, int lastIndex, int endOffset);
+    void sendInstallSnapshotResponse(Term currentTerm, I destinationId, boolean success, int lastIndex, int endOffset);
 
-    void sendInstallSnapshotRequest(Term currentTerm, ID destinationId, int lastIndex, Term lastTerm,
+    void sendInstallSnapshotRequest(Term currentTerm, I destinationId, int lastIndex, Term lastTerm,
                                     ConfigurationEntry lastConfiguration, int snapshotOffset, int offset, byte[] data, boolean done);
 
-    Optional<RpcMessage<ID>> poll();
+    Optional<RpcMessage<I>> poll();
 }

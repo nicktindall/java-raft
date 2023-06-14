@@ -5,20 +5,20 @@ import au.id.tindall.distalg.raft.log.Term;
 import java.io.Serializable;
 import java.util.Optional;
 
-public class RequestVoteRequest<ID extends Serializable> extends BroadcastMessage<ID> {
+public class RequestVoteRequest<I extends Serializable> extends BroadcastMessage<I> {
 
-    private final ID candidateId;
+    private final I candidateId;
     private final int lastLogIndex;
     private final Term lastLogTerm;
 
-    public RequestVoteRequest(Term term, ID candidateId, int lastLogIndex, Optional<Term> lastLogTerm) {
+    public RequestVoteRequest(Term term, I candidateId, int lastLogIndex, Optional<Term> lastLogTerm) {
         super(term, candidateId);
         this.candidateId = candidateId;
         this.lastLogIndex = lastLogIndex;
         this.lastLogTerm = lastLogTerm.orElse(null);
     }
 
-    public ID getCandidateId() {
+    public I getCandidateId() {
         return candidateId;
     }
 

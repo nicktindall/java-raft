@@ -38,19 +38,19 @@ import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Leader<ID extends Serializable> extends ServerStateImpl<ID> {
+public class Leader<I extends Serializable> extends ServerStateImpl<I> {
 
     private static final Logger LOGGER = getLogger();
 
     private final PendingResponseRegistry pendingResponseRegistry;
-    private final ReplicationManager<ID> replicationManager;
+    private final ReplicationManager<I> replicationManager;
     private final ClientSessionStore clientSessionStore;
-    private final LeadershipTransfer<ID> leadershipTransfer;
-    private final ClusterMembershipChangeManager<ID> clusterMembershipChangeManager;
+    private final LeadershipTransfer<I> leadershipTransfer;
+    private final ClusterMembershipChangeManager<I> clusterMembershipChangeManager;
 
-    public Leader(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, PendingResponseRegistry pendingResponseRegistry,
-                  ServerStateFactory<ID> serverStateFactory, ReplicationManager<ID> replicationManager, ClientSessionStore clientSessionStore,
-                  LeadershipTransfer<ID> leadershipTransfer, ClusterMembershipChangeManager<ID> clusterMembershipChangeManager) {
+    public Leader(PersistentState<I> persistentState, Log log, Cluster<I> cluster, PendingResponseRegistry pendingResponseRegistry,
+                  ServerStateFactory<I> serverStateFactory, ReplicationManager<I> replicationManager, ClientSessionStore clientSessionStore,
+                  LeadershipTransfer<I> leadershipTransfer, ClusterMembershipChangeManager<I> clusterMembershipChangeManager) {
         super(persistentState, log, cluster, serverStateFactory, persistentState.getId());
         this.pendingResponseRegistry = pendingResponseRegistry;
         this.replicationManager = replicationManager;
@@ -60,7 +60,7 @@ public class Leader<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected CompletableFuture<RegisterClientResponse<ID>> handle(RegisterClientRequest<ID> registerClientRequest) {
+    protected CompletableFuture<RegisterClientResponse<I>> handle(RegisterClientRequest<I> registerClientRequest) {
         if (leadershipTransfer.isInProgress()) {
             return completedFuture(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, null));
         }
@@ -72,7 +72,7 @@ public class Leader<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected CompletableFuture<ClientRequestResponse<ID>> handle(ClientRequestRequest<ID> clientRequestRequest) {
+    protected CompletableFuture<ClientRequestResponse<I>> handle(ClientRequestRequest<I> clientRequestRequest) {
         if (leadershipTransfer.isInProgress()) {
             return completedFuture(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
         }
@@ -88,7 +88,7 @@ public class Leader<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected Result<ID> handle(AppendEntriesResponse<ID> appendEntriesResponse) {
+    protected Result<I> handle(AppendEntriesResponse<I> appendEntriesResponse) {
         if (messageIsNotStale(appendEntriesResponse)) {
             handleCurrentAppendResponse(appendEntriesResponse);
             if (appendEntriesResponse.isSuccess() && leadershipTransfer.isInProgress()) {
@@ -99,7 +99,7 @@ public class Leader<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected Result<ID> handle(InstallSnapshotResponse<ID> installSnapshotResponse) {
+    protected Result<I> handle(InstallSnapshotResponse<I> installSnapshotResponse) {
         if (messageIsNotStale(installSnapshotResponse)) {
             clusterMembershipChangeManager.logMessageFromFollower(installSnapshotResponse.getSource());
             if (installSnapshotResponse.isSuccess()) {
@@ -113,7 +113,7 @@ public class Leader<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected Result<ID> handle(TransferLeadershipMessage<ID> transferLeadershipMessage) {
+    protected Result<I> handle(TransferLeadershipMessage<I> transferLeadershipMessage) {
         leadershipTransfer.start();
         return complete(this);
     }
@@ -124,20 +124,20 @@ public class Leader<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected CompletableFuture<AddServerResponse> handle(AddServerRequest<ID> addServerRequest) {
+    protected CompletableFuture<AddServerResponse> handle(AddServerRequest<I> addServerRequest) {
         return clusterMembershipChangeManager.addServer(addServerRequest.getNewServer());
     }
 
     @Override
-    protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<ID> removeServerRequest) {
+    protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<I> removeServerRequest) {
         if (persistentState.getId().equals(removeServerRequest.getOldServer())) {
             return CompletableFuture.failedFuture(new UnsupportedOperationException("Can't remove current leader"));
         }
         return clusterMembershipChangeManager.removeServer(removeServerRequest.getOldServer());
     }
 
-    private void handleCurrentAppendResponse(AppendEntriesResponse<ID> appendEntriesResponse) {
-        ID remoteServerId = appendEntriesResponse.getSource();
+    private void handleCurrentAppendResponse(AppendEntriesResponse<I> appendEntriesResponse) {
+        I remoteServerId = appendEntriesResponse.getSource();
         clusterMembershipChangeManager.logMessageFromFollower(remoteServerId);
         if (appendEntriesResponse.isSuccess()) {
             int lastAppendedIndex = appendEntriesResponse.getAppendedIndex()

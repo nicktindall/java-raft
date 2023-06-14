@@ -23,12 +23,12 @@ public enum TimingWrappers {
      *
      * @param delegate               The server to wrap
      * @param warningThresholdMillis The threshold over which to warn (MS)
-     * @param <ID>                   The ID type
+     * @param <I>                   The ID type
      * @return A proxy to the server that will time method calls and warn when they exceed
      */
     @SuppressWarnings("unchecked")
-    public static <ID extends Serializable> Server<ID> wrap(Server<ID> delegate, long warningThresholdMillis) {
-        return (Server<ID>) Proxy.newProxyInstance(Server.class.getClassLoader(), new Class[]{Server.class}, (Object proxy, Method method, Object[] args) -> {
+    public static <I extends Serializable> Server<I> wrap(Server<I> delegate, long warningThresholdMillis) {
+        return (Server<I>) Proxy.newProxyInstance(Server.class.getClassLoader(), new Class[]{Server.class}, (Object proxy, Method method, Object[] args) -> {
             long startTime = System.currentTimeMillis();
             Throwable t = null;
             Object returnVal = null;
@@ -54,13 +54,13 @@ public enum TimingWrappers {
      *
      * @param delegate               The ServerState to wrap
      * @param warningThresholdMillis The threshold over which to warn (MS)
-     * @param <ID>                   The ID type
+     * @param <I>                   The ID type
      * @return A proxy to the server that will time method calls and warn when they exceed
      */
     @SuppressWarnings("unchecked")
-    public static <ID extends Serializable> ServerState<ID> wrap(ServerState<ID> delegate, long warningThresholdMillis) {
-        final AtomicReference<ServerState<ID>> theProxy = new AtomicReference<>();
-        final ServerState<ID> serverStateProxy = (ServerState<ID>) Proxy.newProxyInstance(Server.class.getClassLoader(), new Class[]{ServerState.class}, (proxy, method, args) -> {
+    public static <I extends Serializable> ServerState<I> wrap(ServerState<I> delegate, long warningThresholdMillis) {
+        final AtomicReference<ServerState<I>> theProxy = new AtomicReference<>();
+        final ServerState<I> serverStateProxy = (ServerState<I>) Proxy.newProxyInstance(Server.class.getClassLoader(), new Class[]{ServerState.class}, (proxy, method, args) -> {
             long startTime = System.currentTimeMillis();
             Throwable t = null;
             Object returnVal = null;

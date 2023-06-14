@@ -21,7 +21,7 @@ import static java.lang.Math.min;
 import static java.util.Optional.empty;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Follower<ID extends Serializable> extends ServerStateImpl<ID> {
+public class Follower<I extends Serializable> extends ServerStateImpl<I> {
 
     private static final Logger LOGGER = getLogger();
 
@@ -30,7 +30,7 @@ public class Follower<ID extends Serializable> extends ServerStateImpl<ID> {
     private Term lastReceivedSnapshotLastTerm;
     private long lastReceivedSnapshotLastIndex;
 
-    public Follower(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ID currentLeader, ElectionScheduler electionScheduler) {
+    public Follower(PersistentState<I> persistentState, Log log, Cluster<I> cluster, ServerStateFactory<I> serverStateFactory, I currentLeader, ElectionScheduler electionScheduler) {
         super(persistentState, log, cluster, serverStateFactory, currentLeader);
         this.electionScheduler = electionScheduler;
     }
@@ -52,7 +52,7 @@ public class Follower<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
+    protected Result<I> handle(AppendEntriesRequest<I> appendEntriesRequest) {
         if (appendEntriesRequest.getTerm().isGreaterThan(persistentState.getCurrentTerm())) {
             throw new IllegalStateException("Received a request from a future term! this should never happen");
         }
@@ -111,7 +111,7 @@ public class Follower<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected Result<ID> handle(InstallSnapshotRequest<ID> installSnapshotRequest) {
+    protected Result<I> handle(InstallSnapshotRequest<I> installSnapshotRequest) {
         if (installSnapshotRequest.getTerm().isGreaterThan(persistentState.getCurrentTerm())) {
             throw new IllegalStateException("Received a request from a future term! this should never happen");
         }
@@ -176,12 +176,12 @@ public class Follower<ID extends Serializable> extends ServerStateImpl<ID> {
         return complete(this);
     }
 
-    private void sendInstallSnapshotFailedResponse(InstallSnapshotRequest<ID> installSnapshotRequest) {
+    private void sendInstallSnapshotFailedResponse(InstallSnapshotRequest<I> installSnapshotRequest) {
         cluster.sendInstallSnapshotResponse(persistentState.getCurrentTerm(), installSnapshotRequest.getLeaderId(), false,
                 installSnapshotRequest.getLastIndex(), installSnapshotRequest.getOffset() + installSnapshotRequest.getData().length - 1);
     }
 
-    private void updateAndPromoteSnapshot(InstallSnapshotRequest<ID> installSnapshotRequest) {
+    private void updateAndPromoteSnapshot(InstallSnapshotRequest<I> installSnapshotRequest) {
         int bytesWritten = receivingSnapshot.writeBytes(installSnapshotRequest.getOffset(), installSnapshotRequest.getData());
         boolean success = true;
         if (installSnapshotRequest.isDone()) {

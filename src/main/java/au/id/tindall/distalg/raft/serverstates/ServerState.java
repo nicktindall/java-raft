@@ -10,11 +10,11 @@ import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import java.io.Serializable;
 import java.util.concurrent.CompletableFuture;
 
-public interface ServerState<ID extends Serializable> {
+public interface ServerState<I extends Serializable> {
 
-    CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> message);
+    CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> message);
 
-    Result<ID> handle(RpcMessage<ID> message);
+    Result<I> handle(RpcMessage<I> message);
 
     ServerStateType getServerStateType();
 

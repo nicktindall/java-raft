@@ -14,18 +14,18 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class InMemoryPersistentState<ID extends Serializable> implements PersistentState<ID> {
+public class InMemoryPersistentState<I extends Serializable> implements PersistentState<I> {
 
     private static final Logger LOGGER = getLogger();
 
-    private final ID id;
+    private final I id;
     private final LogStorage logStorage;
     private final AtomicReference<Term> currentTerm;
-    private final AtomicReference<ID> votedFor;
+    private final AtomicReference<I> votedFor;
     private InMemorySnapshot currentSnapshot;
     private List<SnapshotInstalledListener> snapshotInstalledListeners;
 
-    public InMemoryPersistentState(ID id) {
+    public InMemoryPersistentState(I id) {
         this.id = id;
         this.logStorage = new InMemoryLogStorage();
         this.currentTerm = new AtomicReference<>(new Term(0));
@@ -34,7 +34,7 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     }
 
     @Override
-    public ID getId() {
+    public I getId() {
         return id;
     }
 
@@ -56,12 +56,12 @@ public class InMemoryPersistentState<ID extends Serializable> implements Persist
     }
 
     @Override
-    public void setVotedFor(ID votedFor) {
+    public void setVotedFor(I votedFor) {
         this.votedFor.set(votedFor);
     }
 
     @Override
-    public Optional<ID> getVotedFor() {
+    public Optional<I> getVotedFor() {
         return Optional.ofNullable(votedFor.get());
     }
 

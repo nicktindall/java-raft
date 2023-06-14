@@ -20,15 +20,15 @@ import static java.util.Collections.unmodifiableSet;
 import static java.util.Optional.empty;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
+public class Candidate<I extends Serializable> extends ServerStateImpl<I> {
 
     private static final long WARNING_THRESHOLD_MS = 30;
     private static final Logger LOGGER = getLogger();
 
-    private final Set<ID> receivedVotes;
+    private final Set<I> receivedVotes;
     private final ElectionScheduler electionScheduler;
 
-    public Candidate(PersistentState<ID> persistentState, Log log, Cluster<ID> cluster, ServerStateFactory<ID> serverStateFactory, ElectionScheduler electionScheduler) {
+    public Candidate(PersistentState<I> persistentState, Log log, Cluster<I> cluster, ServerStateFactory<I> serverStateFactory, ElectionScheduler electionScheduler) {
         super(persistentState, log, cluster, serverStateFactory, null);
         this.electionScheduler = electionScheduler;
         receivedVotes = new HashSet<>();
@@ -49,7 +49,7 @@ public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected Result<ID> handle(AppendEntriesRequest<ID> appendEntriesRequest) {
+    protected Result<I> handle(AppendEntriesRequest<I> appendEntriesRequest) {
         if (messageIsStale(appendEntriesRequest)) {
             // we reply using the sender's term to avoid them following us before the election is decided
             cluster.sendAppendEntriesResponse(appendEntriesRequest.getTerm(), appendEntriesRequest.getLeaderId(), false, empty());
@@ -61,7 +61,7 @@ public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected Result<ID> handle(RequestVoteResponse<ID> requestVoteResponse) {
+    protected Result<I> handle(RequestVoteResponse<I> requestVoteResponse) {
         if (messageIsNotStale(requestVoteResponse) &&
                 requestVoteResponse.isVoteGranted()) {
             return complete(recordVoteAndClaimLeadershipIfEligible(requestVoteResponse.getSource()));
@@ -70,11 +70,11 @@ public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
     }
 
     @Override
-    protected Result<ID> handle(TimeoutNowMessage<ID> timeoutNowMessage) {
+    protected Result<I> handle(TimeoutNowMessage<I> timeoutNowMessage) {
         long startTime = System.currentTimeMillis();
         persistentState.setCurrentTermAndVotedFor(persistentState.getCurrentTerm().next(), persistentState.getId());
         long setPersistentStateDuration = System.currentTimeMillis() - startTime;
-        ServerState<ID> nextState = recordVoteAndClaimLeadershipIfEligible(persistentState.getId());
+        ServerState<I> nextState = recordVoteAndClaimLeadershipIfEligible(persistentState.getId());
         electionScheduler.resetTimeout();
         long requestVotesStart = System.currentTimeMillis();
         nextState.requestVotes();
@@ -97,7 +97,7 @@ public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
         cluster.sendRequestVoteRequest(persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm());
     }
 
-    public ServerState<ID> recordVoteAndClaimLeadershipIfEligible(ID voter) {
+    public ServerState<I> recordVoteAndClaimLeadershipIfEligible(I voter) {
         this.receivedVotes.add(voter);
         if (cluster.isQuorum(getReceivedVotes())) {
             return serverStateFactory.createLeader();
@@ -106,7 +106,7 @@ public class Candidate<ID extends Serializable> extends ServerStateImpl<ID> {
         }
     }
 
-    public Set<ID> getReceivedVotes() {
+    public Set<I> getReceivedVotes() {
         return unmodifiableSet(receivedVotes);
     }
 }

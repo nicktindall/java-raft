@@ -16,7 +16,7 @@ import java.io.Serializable;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-public interface Server<ID extends Serializable> extends Closeable {
+public interface Server<I extends Serializable> extends Closeable {
 
     boolean poll();
 
@@ -28,17 +28,17 @@ public interface Server<ID extends Serializable> extends Closeable {
 
     void stop();
 
-    CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage);
+    CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> clientRequestMessage);
 
     CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest clusterMembershipRequest);
 
-    void handle(RpcMessage<ID> message);
+    void handle(RpcMessage<I> message);
 
     void initialize();
 
     void transferLeadership();
 
-    ID getId();
+    I getId();
 
     Optional<ServerStateType> getState();
 

@@ -14,17 +14,17 @@ import java.util.Optional;
 import static java.util.Collections.emptyList;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class LogReplicator<ID extends Serializable> implements StateReplicator {
+public class LogReplicator<I extends Serializable> implements StateReplicator {
 
     private static final Logger LOGGER = getLogger();
 
     private final Log log;
     private final Term term;
-    private final Cluster<ID> cluster;
+    private final Cluster<I> cluster;
     private final int maxBatchSize;
-    private final ReplicationState<ID> replicationState;
+    private final ReplicationState<I> replicationState;
 
-    public LogReplicator(Log log, Term term, Cluster<ID> cluster, int maxBatchSize, ReplicationState<ID> replicationState) {
+    public LogReplicator(Log log, Term term, Cluster<I> cluster, int maxBatchSize, ReplicationState<I> replicationState) {
         this.log = log;
         this.term = term;
         this.cluster = cluster;

@@ -4,12 +4,12 @@ import au.id.tindall.distalg.raft.log.Term;
 
 import java.io.Serializable;
 
-public abstract class RpcMessage<ID extends Serializable> implements Serializable {
+public abstract class RpcMessage<I extends Serializable> implements Serializable {
 
     private final Term term;
-    private final ID source;
+    private final I source;
 
-    protected RpcMessage(Term term, ID source) {
+    protected RpcMessage(Term term, I source) {
         this.term = term;
         this.source = source;
     }
@@ -18,7 +18,7 @@ public abstract class RpcMessage<ID extends Serializable> implements Serializabl
         return term;
     }
 
-    public ID getSource() {
+    public I getSource() {
         return source;
     }
 

@@ -14,16 +14,16 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
-public class ReplicationManager<ID extends Serializable> implements MatchIndexAdvancedListener<ID> {
+public class ReplicationManager<I extends Serializable> implements MatchIndexAdvancedListener<I> {
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private final Configuration<ID> configuration;
-    private final SingleClientReplicatorFactory<ID> replicatorFactory;
-    private Map<ID, SingleClientReplicator<ID>> replicators;
-    private final List<MatchIndexAdvancedListener<ID>> matchIndexAdvancedListeners;
+    private final Configuration<I> configuration;
+    private final SingleClientReplicatorFactory<I> replicatorFactory;
+    private Map<I, SingleClientReplicator<I>> replicators;
+    private final List<MatchIndexAdvancedListener<I>> matchIndexAdvancedListeners;
     private boolean started;
 
-    public ReplicationManager(Configuration<ID> configuration, SingleClientReplicatorFactory<ID> replicatorFactory) {
+    public ReplicationManager(Configuration<I> configuration, SingleClientReplicatorFactory<I> replicatorFactory) {
         this.configuration = configuration;
         this.replicatorFactory = replicatorFactory;
         this.started = false;
@@ -45,12 +45,12 @@ public class ReplicationManager<ID extends Serializable> implements MatchIndexAd
         started = false;
     }
 
-    public int getMatchIndex(ID serverId) {
+    public int getMatchIndex(I serverId) {
         return replicators.get(serverId).getMatchIndex();
     }
 
-    public void logSuccessResponse(ID serverId, int lastAppendedIndex) {
-        final SingleClientReplicator<ID> replicator = replicators.get(serverId);
+    public void logSuccessResponse(I serverId, int lastAppendedIndex) {
+        final SingleClientReplicator<I> replicator = replicators.get(serverId);
         if (replicator != null) {
             replicator.logSuccessResponse(lastAppendedIndex);
         } else {
@@ -58,8 +58,8 @@ public class ReplicationManager<ID extends Serializable> implements MatchIndexAd
         }
     }
 
-    public void logSuccessSnapshotResponse(ID serverId, int lastIndex, int lastOffset) {
-        final SingleClientReplicator<ID> replicator = replicators.get(serverId);
+    public void logSuccessSnapshotResponse(I serverId, int lastIndex, int lastOffset) {
+        final SingleClientReplicator<I> replicator = replicators.get(serverId);
         if (replicator != null) {
             replicator.logSuccessSnapshotResponse(lastIndex, lastOffset);
         } else {
@@ -67,19 +67,19 @@ public class ReplicationManager<ID extends Serializable> implements MatchIndexAd
         }
     }
 
-    public int getNextIndex(ID serverId) {
+    public int getNextIndex(I serverId) {
         return replicators.get(serverId).getNextIndex();
     }
 
-    public void replicateIfTrailingIndex(ID serverId, int lastLogIndex) {
-        final SingleClientReplicator<ID> replicator = replicators.get(serverId);
+    public void replicateIfTrailingIndex(I serverId, int lastLogIndex) {
+        final SingleClientReplicator<I> replicator = replicators.get(serverId);
         if (replicator != null && replicator.getNextIndex() <= lastLogIndex) {
             replicator.replicate();
         }
     }
 
-    public void replicate(ID serverId) {
-        final SingleClientReplicator<ID> idSingleClientReplicator = replicators.get(serverId);
+    public void replicate(I serverId) {
+        final SingleClientReplicator<I> idSingleClientReplicator = replicators.get(serverId);
         if (idSingleClientReplicator != null) {
             idSingleClientReplicator.replicate();
         }
@@ -89,8 +89,8 @@ public class ReplicationManager<ID extends Serializable> implements MatchIndexAd
         replicators.values().forEach(SingleClientReplicator::replicate);
     }
 
-    public void logFailedResponse(ID serverId, Integer earliestPossibleMatchIndex) {
-        final SingleClientReplicator<ID> replicator = replicators.get(serverId);
+    public void logFailedResponse(I serverId, Integer earliestPossibleMatchIndex) {
+        final SingleClientReplicator<I> replicator = replicators.get(serverId);
         if (replicator != null) {
             replicator.logFailedResponse(earliestPossibleMatchIndex);
         } else {
@@ -105,27 +105,27 @@ public class ReplicationManager<ID extends Serializable> implements MatchIndexAd
                 .collect(toList());
     }
 
-    public void startReplicatingTo(ID followerId) {
+    public void startReplicatingTo(I followerId) {
         LOGGER.debug("Starting replicating to {}", followerId);
-        final SingleClientReplicator<ID> logReplicator = replicatorFactory.createReplicator(configuration.getLocalId(), followerId, this);
+        final SingleClientReplicator<I> logReplicator = replicatorFactory.createReplicator(configuration.getLocalId(), followerId, this);
         replicators.put(followerId, logReplicator);
         logReplicator.start();
         logReplicator.replicate();
     }
 
-    public void stopReplicatingTo(ID serverId) {
-        final SingleClientReplicator<ID> replicator = replicators.remove(serverId);
+    public void stopReplicatingTo(I serverId) {
+        final SingleClientReplicator<I> replicator = replicators.remove(serverId);
         if (replicator != null) {
             replicator.stop();
         }
     }
 
     @Override
-    public void matchIndexAdvanced(ID followerId, int newMatchIndex) {
+    public void matchIndexAdvanced(I followerId, int newMatchIndex) {
         matchIndexAdvancedListeners.forEach(l -> l.matchIndexAdvanced(followerId, newMatchIndex));
     }
 
-    public void addMatchIndexAdvancedListener(MatchIndexAdvancedListener<ID> matchIndexAdvancedListener) {
+    public void addMatchIndexAdvancedListener(MatchIndexAdvancedListener<I> matchIndexAdvancedListener) {
         matchIndexAdvancedListeners.add(matchIndexAdvancedListener);
     }
 }

@@ -16,20 +16,20 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-public abstract class MembershipChange<ID extends Serializable, R extends ClusterMembershipResponse> implements Closeable {
+public abstract class MembershipChange<I extends Serializable, R extends ClusterMembershipResponse> implements Closeable {
     protected static final int NOT_SET = Integer.MIN_VALUE;
-    private final PersistentState<ID> persistentState;
+    private final PersistentState<I> persistentState;
     protected final Log log;
-    protected final Configuration<ID> configuration;
-    protected final ID serverId;
+    protected final Configuration<I> configuration;
+    protected final I serverId;
     protected final CompletableFuture<R> responseFuture;
     protected final Supplier<Instant> timeSource;
-    protected final ReplicationManager<ID> replicationManager;
+    protected final ReplicationManager<I> replicationManager;
     protected Instant lastProgressTime;
     protected int finishedAtIndex = NOT_SET;
     protected boolean finished;
 
-    MembershipChange(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState, ReplicationManager<ID> replicationManager, ID serverId, Supplier<Instant> timeSource) {
+    MembershipChange(Log log, Configuration<I> configuration, PersistentState<I> persistentState, ReplicationManager<I> replicationManager, I serverId, Supplier<Instant> timeSource) {
         this.log = log;
         this.configuration = configuration;
         this.persistentState = persistentState;
@@ -46,7 +46,7 @@ public abstract class MembershipChange<ID extends Serializable, R extends Cluste
 
     protected abstract void onStart();
 
-    void matchIndexAdvanced(ID serverId, int lastAppendedIndex) {
+    void matchIndexAdvanced(I serverId, int lastAppendedIndex) {
         if (finishedAtIndex != NOT_SET) {
             return;
         }
@@ -62,7 +62,7 @@ public abstract class MembershipChange<ID extends Serializable, R extends Cluste
 
     protected abstract R matchIndexAdvancedInternal(int lastAppendedIndex);
 
-    void logMessageFromFollower(ID followerId) {
+    void logMessageFromFollower(I followerId) {
         if (this.serverId.equals(followerId)) {
             lastProgressTime = timeSource.get();
         }
@@ -93,7 +93,7 @@ public abstract class MembershipChange<ID extends Serializable, R extends Cluste
         return finished;
     }
 
-    protected int addServerToConfig(ID serverId) {
+    protected int addServerToConfig(I serverId) {
         Set<Serializable> newServers = new HashSet<>(configuration.getServers());
         newServers.add(serverId);
         log.appendEntries(log.getLastLogIndex(), List.of(
@@ -102,7 +102,7 @@ public abstract class MembershipChange<ID extends Serializable, R extends Cluste
         return log.getLastLogIndex();
     }
 
-    protected int removeServerFromConfig(ID serverId) {
+    protected int removeServerFromConfig(I serverId) {
         Set<Serializable> newServers = new HashSet<>(configuration.getServers());
         newServers.remove(serverId);
         log.appendEntries(log.getLastLogIndex(), List.of(

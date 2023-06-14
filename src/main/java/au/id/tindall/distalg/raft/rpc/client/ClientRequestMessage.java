@@ -2,15 +2,15 @@ package au.id.tindall.distalg.raft.rpc.client;
 
 import java.io.Serializable;
 
-public abstract class ClientRequestMessage<ID extends Serializable> {
+public abstract class ClientRequestMessage<I extends Serializable> {
 
-    private final ID destinationId;
+    private final I destinationId;
 
-    protected ClientRequestMessage(ID destinationId) {
+    protected ClientRequestMessage(I destinationId) {
         this.destinationId = destinationId;
     }
 
-    public ID getDestinationId() {
+    public I getDestinationId() {
         return destinationId;
     }
 

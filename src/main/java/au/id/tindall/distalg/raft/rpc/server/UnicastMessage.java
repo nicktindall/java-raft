@@ -4,16 +4,16 @@ import au.id.tindall.distalg.raft.log.Term;
 
 import java.io.Serializable;
 
-public class UnicastMessage<ID extends Serializable> extends RpcMessage<ID> {
+public class UnicastMessage<I extends Serializable> extends RpcMessage<I> {
 
-    private final ID destination;
+    private final I destination;
 
-    public UnicastMessage(Term term, ID source, ID destination) {
+    public UnicastMessage(Term term, I source, I destination) {
         super(term, source);
         this.destination = destination;
     }
 
-    public ID getDestination() {
+    public I getDestination() {
         return destination;
     }
 

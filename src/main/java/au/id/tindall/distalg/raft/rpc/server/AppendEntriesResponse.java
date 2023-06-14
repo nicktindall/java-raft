@@ -5,12 +5,12 @@ import au.id.tindall.distalg.raft.log.Term;
 import java.io.Serializable;
 import java.util.Optional;
 
-public class AppendEntriesResponse<ID extends Serializable> extends UnicastMessage<ID> {
+public class AppendEntriesResponse<I extends Serializable> extends UnicastMessage<I> {
 
     private final boolean success;
     private final Integer appendedIndex;
 
-    public AppendEntriesResponse(Term term, ID source, ID destination, boolean success, Optional<Integer> appendedIndex) {
+    public AppendEntriesResponse(Term term, I source, I destination, boolean success, Optional<Integer> appendedIndex) {
         super(term, source, destination);
         this.success = success;
         this.appendedIndex = appendedIndex.orElse(null);

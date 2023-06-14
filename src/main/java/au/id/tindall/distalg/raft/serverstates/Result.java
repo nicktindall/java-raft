@@ -2,20 +2,20 @@ package au.id.tindall.distalg.raft.serverstates;
 
 import java.io.Serializable;
 
-public class Result<ID extends Serializable> {
+public class Result<I extends Serializable> {
 
     private final boolean finished;
-    private final ServerState<ID> nextState;
+    private final ServerState<I> nextState;
 
-    public static <ID extends Serializable> Result<ID> complete(ServerState<ID> serverState) {
+    public static <I extends Serializable> Result<I> complete(ServerState<I> serverState) {
         return new Result<>(true, serverState);
     }
 
-    public static <ID extends Serializable> Result<ID> incomplete(ServerState<ID> serverState) {
+    public static <I extends Serializable> Result<I> incomplete(ServerState<I> serverState) {
         return new Result<>(false, serverState);
     }
 
-    public Result(boolean finished, ServerState<ID> nextState) {
+    public Result(boolean finished, ServerState<I> nextState) {
         this.finished = finished;
         this.nextState = nextState;
     }
@@ -24,7 +24,7 @@ public class Result<ID extends Serializable> {
         return finished;
     }
 
-    public ServerState<ID> getNextState() {
+    public ServerState<I> getNextState() {
         return nextState;
     }
 

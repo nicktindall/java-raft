@@ -10,9 +10,9 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.util.function.Supplier;
 
-public class RemoveServer<ID extends Serializable> extends MembershipChange<ID, RemoveServerResponse> {
+public class RemoveServer<I extends Serializable> extends MembershipChange<I, RemoveServerResponse> {
 
-    RemoveServer(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState, ReplicationManager<ID> replicationManager, ID serverId, Supplier<Instant> timeSource) {
+    RemoveServer(Log log, Configuration<I> configuration, PersistentState<I> persistentState, ReplicationManager<I> replicationManager, I serverId, Supplier<Instant> timeSource) {
         super(log, configuration, persistentState, replicationManager, serverId, timeSource);
     }
 

@@ -2,7 +2,7 @@ package au.id.tindall.distalg.raft.comms;
 
 import java.io.Serializable;
 
-public interface ClusterFactory<ID extends Serializable> {
+public interface ClusterFactory<I extends Serializable> {
 
-    Cluster<ID> createForNode(ID nodeId);
+    Cluster<I> createForNode(I nodeId);
 }

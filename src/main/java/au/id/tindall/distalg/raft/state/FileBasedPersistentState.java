@@ -42,7 +42,7 @@ import static org.apache.logging.log4j.LogManager.getLogger;
  * - serialized voted for ID (if present)
  * - EOF
  */
-public class FileBasedPersistentState<ID extends Serializable> implements PersistentState<ID>, AutoCloseable {
+public class FileBasedPersistentState<I extends Serializable> implements PersistentState<I>, AutoCloseable {
 
     private static final Logger LOGGER = getLogger();
     private static final int TRUNCATION_BUFFER = 20;
@@ -55,11 +55,11 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private final LogStorage logStorage;
     private final RandomAccessFile stateFile;
     private final MappedByteBuffer stateFileMap;
-    private final IDSerializer<ID> idSerializer;
+    private final IDSerializer<I> idSerializer;
 
-    private ID id;
+    private I id;
     private final AtomicReference<Term> currentTerm;
-    private final AtomicReference<ID> votedFor;
+    private final AtomicReference<I> votedFor;
 
     private final Function<Integer, Path> tempSnapshotPathGenerator;
     private final Path currentSnapshotPath;
@@ -68,13 +68,13 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private final AtomicInteger nextSnapshotSequence = new AtomicInteger(0);
 
 
-    public static <ID extends Serializable> FileBasedPersistentState<ID> create(Path stateDirectory, ID serverId) {
+    public static <I extends Serializable> FileBasedPersistentState<I> create(Path stateDirectory, I serverId) {
         MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(logFilePath(stateDirectory), TRUNCATION_BUFFER);
         return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath(stateDirectory),
                 tempSnapshotPathGenerator(stateDirectory), currentSnapshotPath(stateDirectory), new JavaIDSerializer<>(), serverId);
     }
 
-    public static <ID extends Serializable> FileBasedPersistentState<ID> createOrOpen(Path stateDirectory, ID serverId) throws IOException {
+    public static <I extends Serializable> FileBasedPersistentState<I> createOrOpen(Path stateDirectory, I serverId) throws IOException {
         Path logFilePath = logFilePath(stateDirectory);
         Path stateFilePath = stateFilePath(stateDirectory);
         Function<Integer, Path> tempSnapshotPathGenerator = tempSnapshotPathGenerator(stateDirectory);
@@ -116,7 +116,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     /**
      * Create a new file-based persistent state
      */
-    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempPathGenerator, Path currentSnapshotPath, IDSerializer<ID> idSerializer, ID id) {
+    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempPathGenerator, Path currentSnapshotPath, IDSerializer<I> idSerializer, I id) {
         this.currentTerm = new AtomicReference<>();
         this.votedFor = new AtomicReference<>();
         this.tempSnapshotPathGenerator = tempPathGenerator;
@@ -138,7 +138,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     /**
      * Load an existing file-based persistent state
      */
-    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempSnapshotPathGenerator, Path currentSnapshotPath, IDSerializer<ID> idSerializer) {
+    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempSnapshotPathGenerator, Path currentSnapshotPath, IDSerializer<I> idSerializer) {
         this.currentTerm = new AtomicReference<>();
         this.votedFor = new AtomicReference<>();
         this.tempSnapshotPathGenerator = tempSnapshotPathGenerator;
@@ -179,7 +179,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
         }
     }
 
-    private ID readIdFrom(int startPoint, int length) throws IOException {
+    private I readIdFrom(int startPoint, int length) throws IOException {
         if (length == 0) {
             return null;
         }
@@ -192,7 +192,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     private void writeToStateFile() {
         long startTime = System.currentTimeMillis();
         ByteBuffer idBytes = idSerializer.serialize(id);
-        ID votedForId = votedFor.get();
+        I votedForId = votedFor.get();
         ByteBuffer votedForBytes = votedForId != null ? idSerializer.serialize(votedForId) : ByteBuffer.allocate(0);
         stateFileMap.putInt(START_OF_ID_LENGTH, idBytes.capacity());
         stateFileMap.putInt(START_OF_CURRENT_TERM, currentTerm.get().getNumber());
@@ -206,7 +206,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     @Override
-    public ID getId() {
+    public I getId() {
         return id;
     }
 
@@ -228,7 +228,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     @Override
-    public void setVotedFor(ID votedFor) {
+    public void setVotedFor(I votedFor) {
         if (!Objects.equals(this.votedFor.get(), votedFor)) {
             this.votedFor.set(votedFor);
             writeToStateFile();
@@ -236,7 +236,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     @Override
-    public void setCurrentTermAndVotedFor(Term term, ID votedFor) {
+    public void setCurrentTermAndVotedFor(Term term, I votedFor) {
         Term currentTerm = this.currentTerm.get();
         if (term.isLessThan(currentTerm)) {
             throw new IllegalArgumentException("Attempted to reduce current term!");
@@ -249,7 +249,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
     }
 
     @Override
-    public Optional<ID> getVotedFor() {
+    public Optional<I> getVotedFor() {
         return Optional.ofNullable(this.votedFor.get());
     }
 

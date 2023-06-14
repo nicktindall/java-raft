@@ -4,17 +4,17 @@ import au.id.tindall.distalg.raft.cluster.Configuration;
 
 import java.io.Serializable;
 
-public class ReplicationManagerFactory<ID extends Serializable> {
+public class ReplicationManagerFactory<I extends Serializable> {
 
-    private final Configuration<ID> configuration;
-    private final SingleClientReplicatorFactory<ID> replicatorFactory;
+    private final Configuration<I> configuration;
+    private final SingleClientReplicatorFactory<I> replicatorFactory;
 
-    public ReplicationManagerFactory(Configuration<ID> configuration, SingleClientReplicatorFactory<ID> replicatorFactory) {
+    public ReplicationManagerFactory(Configuration<I> configuration, SingleClientReplicatorFactory<I> replicatorFactory) {
         this.configuration = configuration;
         this.replicatorFactory = replicatorFactory;
     }
 
-    public ReplicationManager<ID> createReplicationManager() {
+    public ReplicationManager<I> createReplicationManager() {
         return new ReplicationManager<>(configuration, replicatorFactory);
     }
 }

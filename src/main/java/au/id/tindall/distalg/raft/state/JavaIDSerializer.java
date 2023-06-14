@@ -6,16 +6,15 @@ import java.nio.ByteBuffer;
 import static au.id.tindall.distalg.raft.util.SerializationUtil.deserializeObject;
 import static au.id.tindall.distalg.raft.util.SerializationUtil.serializeObject;
 
-public class JavaIDSerializer<ID extends Serializable> implements IDSerializer<ID> {
+public class JavaIDSerializer<I extends Serializable> implements IDSerializer<I> {
 
     @Override
-    @SuppressWarnings("unchecked")
-    public ID deserialize(ByteBuffer buf) {
+    public I deserialize(ByteBuffer buf) {
         return deserializeObject(buf.array());
     }
 
     @Override
-    public ByteBuffer serialize(ID id) {
+    public ByteBuffer serialize(I id) {
         return ByteBuffer.wrap(serializeObject(id));
     }
 }

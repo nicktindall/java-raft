@@ -6,17 +6,17 @@ import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Serializable;
 
-public class LeadershipTransferFactory<ID extends Serializable> {
+public class LeadershipTransferFactory<I extends Serializable> {
 
-    private final Cluster<ID> cluster;
-    private final PersistentState<ID> persistentState;
+    private final Cluster<I> cluster;
+    private final PersistentState<I> persistentState;
 
-    public LeadershipTransferFactory(Cluster<ID> cluster, PersistentState<ID> persistentState) {
+    public LeadershipTransferFactory(Cluster<I> cluster, PersistentState<I> persistentState) {
         this.cluster = cluster;
         this.persistentState = persistentState;
     }
 
-    public LeadershipTransfer<ID> create(ReplicationManager<ID> replicationManager) {
+    public LeadershipTransfer<I> create(ReplicationManager<I> replicationManager) {
         return new LeadershipTransfer<>(cluster, persistentState, replicationManager);
     }
 }

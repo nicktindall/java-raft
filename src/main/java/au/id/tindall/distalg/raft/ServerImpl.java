@@ -31,20 +31,20 @@ import java.util.concurrent.CompletableFuture;
 import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class ServerImpl<ID extends Serializable> implements Server<ID>, Closeable {
+public class ServerImpl<I extends Serializable> implements Server<I>, Closeable {
 
     private static final int POLL_WARN_THRESHOLD_MS = 50;
     private static final Logger LOGGER = getLogger();
 
-    private final PersistentState<ID> persistentState;
-    private final ServerStateFactory<ID> serverStateFactory;
+    private final PersistentState<I> persistentState;
+    private final ServerStateFactory<I> serverStateFactory;
     private final StateMachine stateMachine;
-    private final Cluster<ID> cluster;
+    private final Cluster<I> cluster;
     private final ElectionScheduler electionScheduler;
-    private ServerState<ID> state;
+    private ServerState<I> state;
     private ServerDriver serverDriver;
 
-    public ServerImpl(PersistentState<ID> persistentState, ServerStateFactory<ID> serverStateFactory, StateMachine stateMachine, Cluster<ID> cluster, ElectionScheduler electionScheduler) {
+    public ServerImpl(PersistentState<I> persistentState, ServerStateFactory<I> serverStateFactory, StateMachine stateMachine, Cluster<I> cluster, ElectionScheduler electionScheduler) {
         this.persistentState = persistentState;
         this.serverStateFactory = serverStateFactory;
         this.stateMachine = stateMachine;
@@ -56,7 +56,7 @@ public class ServerImpl<ID extends Serializable> implements Server<ID>, Closeabl
     public synchronized boolean poll() {
         long startTimeMillis = System.currentTimeMillis();
         long pollDurationMillis = 0;
-        final Optional<RpcMessage<ID>> message = cluster.poll();
+        final Optional<RpcMessage<I>> message = cluster.poll();
         try {
             pollDurationMillis = System.currentTimeMillis() - startTimeMillis;
             message.ifPresent(this::handle);
@@ -109,7 +109,7 @@ public class ServerImpl<ID extends Serializable> implements Server<ID>, Closeabl
     }
 
     @Override
-    public synchronized CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<ID> clientRequestMessage) {
+    public synchronized CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> clientRequestMessage) {
         assertThatNodeIsRunning();
         return state.handle(clientRequestMessage);
     }
@@ -121,9 +121,9 @@ public class ServerImpl<ID extends Serializable> implements Server<ID>, Closeabl
     }
 
     @Override
-    public synchronized void handle(RpcMessage<ID> message) {
+    public synchronized void handle(RpcMessage<I> message) {
         assertThatNodeIsRunning();
-        Result<ID> result;
+        Result<I> result;
         do {
             result = state.handle(message);
             updateState(result.getNextState());
@@ -141,7 +141,7 @@ public class ServerImpl<ID extends Serializable> implements Server<ID>, Closeabl
         }
     }
 
-    private void updateState(ServerState<ID> nextState) {
+    private void updateState(ServerState<I> nextState) {
         if (state != nextState) {
             if (state != null) {
                 state.leaveState();
@@ -163,7 +163,7 @@ public class ServerImpl<ID extends Serializable> implements Server<ID>, Closeabl
     }
 
     @Override
-    public ID getId() {
+    public I getId() {
         return persistentState.getId();
     }
 

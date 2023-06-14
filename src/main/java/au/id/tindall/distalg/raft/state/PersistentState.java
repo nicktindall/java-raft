@@ -8,19 +8,19 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.Optional;
 
-public interface PersistentState<ID extends Serializable> {
+public interface PersistentState<I extends Serializable> {
 
-    ID getId();
+    I getId();
 
     void setCurrentTerm(Term term);
 
     Term getCurrentTerm();
 
-    void setVotedFor(ID votedFor);
+    void setVotedFor(I votedFor);
 
-    Optional<ID> getVotedFor();
+    Optional<I> getVotedFor();
 
-    default void setCurrentTermAndVotedFor(Term term, ID votedFor) {
+    default void setCurrentTermAndVotedFor(Term term, I votedFor) {
         setCurrentTerm(term);
         setVotedFor(votedFor);
     }

@@ -11,19 +11,19 @@ import java.util.function.Supplier;
 
 import static au.id.tindall.distalg.raft.util.ExecutorUtil.shutdownAndAwaitTermination;
 
-public class HeartbeatReplicationScheduler<ID extends Serializable> implements ReplicationScheduler {
+public class HeartbeatReplicationScheduler<I extends Serializable> implements ReplicationScheduler {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private static final int WAIT_FOR_TERMINATE_TIMEOUT_MILLISECONDS = 1_500;
 
-    private final ID serverId;
+    private final I serverId;
     private final long maxDelayBetweenMessagesInMilliseconds;
     private final ExecutorService executorService;
     private final AtomicBoolean replicationScheduled;
     private volatile boolean running;
     private Supplier<Boolean> sendAppendEntriesRequest;
 
-    public HeartbeatReplicationScheduler(ID serverId, long maxDelayBetweenMessagesInMilliseconds, ExecutorService executorService) {
+    public HeartbeatReplicationScheduler(I serverId, long maxDelayBetweenMessagesInMilliseconds, ExecutorService executorService) {
         this.serverId = serverId;
         this.maxDelayBetweenMessagesInMilliseconds = maxDelayBetweenMessagesInMilliseconds;
         this.executorService = executorService;

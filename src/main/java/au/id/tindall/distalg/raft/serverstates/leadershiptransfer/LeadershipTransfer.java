@@ -15,26 +15,26 @@ import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class LeadershipTransfer<ID extends Serializable> {
+public class LeadershipTransfer<I extends Serializable> {
     private static final Logger LOGGER = getLogger();
 
     private static final Duration MINIMUM_INTERVAL_BETWEEN_TIMEOUT_NOW_MESSAGES = Duration.ofMillis(100);
     private static final Duration INDIVIDUAL_TARGET_TIMEOUT = Duration.ofMillis(1000);
     private static final Duration LEADERSHIP_TRANSFER_TIMEOUT = Duration.ofMillis(5000);
 
-    private final ReplicationManager<ID> replicationManager;
-    private final Cluster<ID> cluster;
-    private final PersistentState<ID> persistentState;
+    private final ReplicationManager<I> replicationManager;
+    private final Cluster<I> cluster;
+    private final PersistentState<I> persistentState;
     private final Supplier<Long> currentTimeProvider;
     private Instant transferStartTime;
 
     private TransferTarget transferTarget;
 
-    public LeadershipTransfer(Cluster<ID> cluster, PersistentState<ID> persistentState, ReplicationManager<ID> replicationManager) {
+    public LeadershipTransfer(Cluster<I> cluster, PersistentState<I> persistentState, ReplicationManager<I> replicationManager) {
         this(cluster, persistentState, replicationManager, System::currentTimeMillis);
     }
 
-    public LeadershipTransfer(Cluster<ID> cluster, PersistentState<ID> persistentState, ReplicationManager<ID> replicationManager, Supplier<Long> currentTimeProvider) {
+    public LeadershipTransfer(Cluster<I> cluster, PersistentState<I> persistentState, ReplicationManager<I> replicationManager, Supplier<Long> currentTimeProvider) {
         this.cluster = cluster;
         this.replicationManager = replicationManager;
         this.persistentState = persistentState;
@@ -85,8 +85,8 @@ public class LeadershipTransfer<ID extends Serializable> {
         }
     }
 
-    private void selectLeadershipTransferTarget(Set<ID> excludedIds) {
-        ID targetId = cluster.getOtherMemberIds().stream()
+    private void selectLeadershipTransferTarget(Set<I> excludedIds) {
+        I targetId = cluster.getOtherMemberIds().stream()
                 .filter(serverId -> !excludedIds.contains(serverId))
                 .min((replicator1, replicator2) -> replicationManager.getMatchIndex(replicator2) - replicationManager.getMatchIndex(replicator1))
                 .orElseThrow(() -> new IllegalStateException("No followers to transfer to!"));
@@ -99,11 +99,11 @@ public class LeadershipTransfer<ID extends Serializable> {
     }
 
     private class TransferTarget {
-        private final ID id;
+        private final I id;
         private final Instant selectedAt;
         private Instant lastTimeoutMessageSent;
 
-        private TransferTarget(ID id) {
+        private TransferTarget(I id) {
             this.id = id;
             this.selectedAt = currentInstant();
         }

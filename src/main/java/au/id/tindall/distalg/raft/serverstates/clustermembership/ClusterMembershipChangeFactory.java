@@ -9,18 +9,18 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.util.function.Supplier;
 
-public class ClusterMembershipChangeFactory<ID extends Serializable> {
+public class ClusterMembershipChangeFactory<I extends Serializable> {
 
     private static final int DEFAULT_NUMBER_OF_CATCHUP_ROUNDS = 10;
 
     private final Log log;
-    private final Configuration<ID> configuration;
-    private final PersistentState<ID> persistentState;
-    private final ReplicationManager<ID> replicationManager;
+    private final Configuration<I> configuration;
+    private final PersistentState<I> persistentState;
+    private final ReplicationManager<I> replicationManager;
     private final Supplier<Instant> timeSource;
 
-    public ClusterMembershipChangeFactory(Log log, Configuration<ID> configuration, PersistentState<ID> persistentState,
-                                          ReplicationManager<ID> replicationManager, Supplier<Instant> timeSource) {
+    public ClusterMembershipChangeFactory(Log log, Configuration<I> configuration, PersistentState<I> persistentState,
+                                          ReplicationManager<I> replicationManager, Supplier<Instant> timeSource) {
         this.log = log;
         this.configuration = configuration;
         this.persistentState = persistentState;
@@ -28,11 +28,11 @@ public class ClusterMembershipChangeFactory<ID extends Serializable> {
         this.timeSource = timeSource;
     }
 
-    public AddServer<ID> createAddServer(ID newServerId) {
+    public AddServer<I> createAddServer(I newServerId) {
         return new AddServer<>(log, configuration, persistentState, replicationManager, newServerId, DEFAULT_NUMBER_OF_CATCHUP_ROUNDS, timeSource);
     }
 
-    public RemoveServer<ID> createRemoveServer(ID serverToRemove) {
+    public RemoveServer<I> createRemoveServer(I serverToRemove) {
         return new RemoveServer<>(log, configuration, persistentState, replicationManager, serverToRemove, timeSource);
     }
 }
