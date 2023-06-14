@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -55,7 +56,7 @@ public class MessageStats {
             objectOutputStream.writeObject(rpcMessage);
             return byteArrayOutputStream.size() - initialSize;
         } catch (IOException ex) {
-            throw new RuntimeException("Couldn't get message size", ex);
+            throw new UncheckedIOException("Couldn't get message size", ex);
         }
     }
 

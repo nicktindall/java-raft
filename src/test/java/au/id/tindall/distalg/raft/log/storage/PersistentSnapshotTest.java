@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -36,7 +37,7 @@ class PersistentSnapshotTest {
             loadedSnapshot.readInto(ByteBuffer.wrap(contentBytesRead), 0);
             assertThat(contentBytesRead).isEqualTo(contentBytes);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -66,7 +67,7 @@ class PersistentSnapshotTest {
                         expectedEndPosition));
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -84,7 +85,7 @@ class PersistentSnapshotTest {
             persistentSnapshot.writeBytes(6, "!!!".getBytes());
             persistentSnapshot.finalise();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
 
         try (PersistentSnapshot loadedSnapshot = PersistentSnapshot.load(snapshotPath)) {
@@ -95,7 +96,7 @@ class PersistentSnapshotTest {
             loadedSnapshot.readInto(ByteBuffer.wrap(contentBytesRead), 0);
             assertThat(new String(contentBytesRead)).isEqualTo("Faster!!!");
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -111,7 +112,7 @@ class PersistentSnapshotTest {
             persistentSnapshot.finalise();
             return persistentSnapshot;
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 }

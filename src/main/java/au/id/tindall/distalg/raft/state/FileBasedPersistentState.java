@@ -11,6 +11,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.Serializable;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -130,7 +131,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
             this.currentTerm.set(new Term(0));
             writeToStateFile();
         } catch (IOException e) {
-            throw new RuntimeException("Unable to create new state file", e);
+            throw new UncheckedIOException("Unable to create new state file", e);
         }
     }
 
@@ -150,7 +151,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
             this.idSerializer = idSerializer;
             readFromStateFile();
         } catch (IOException e) {
-            throw new RuntimeException("Unable to open existing state file", e);
+            throw new UncheckedIOException("Unable to open existing state file", e);
         }
     }
 
@@ -174,7 +175,7 @@ public class FileBasedPersistentState<ID extends Serializable> implements Persis
             id = readIdFrom(START_OF_ID, idLength);
             votedFor.set(readIdFrom(START_OF_ID + idLength, votedForLength));
         } catch (IOException e) {
-            throw new RuntimeException("Error reading from state file", e);
+            throw new UncheckedIOException("Error reading from state file", e);
         }
     }
 

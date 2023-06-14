@@ -73,7 +73,7 @@ public class MonotonicCounterClient {
                 pauseMillis(100L);
             }
         }
-        throw new RuntimeException("Maximum retries exceeded!");
+        throw new IllegalStateException("Maximum retries exceeded!");
     }
 
     private CompletableFuture<? extends ClientResponseMessage> send(Function<Long, ClientRequestMessage<Long>> request) {
@@ -87,7 +87,7 @@ public class MonotonicCounterClient {
             }
             retries++;
         }
-        throw new RuntimeException("Maximum retries exceeded, failing sending...");
+        throw new IllegalStateException("Maximum retries exceeded, failing sending...");
     }
 
     private Server<Long> findLeader() {

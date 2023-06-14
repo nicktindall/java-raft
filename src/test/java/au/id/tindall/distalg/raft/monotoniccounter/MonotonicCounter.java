@@ -99,7 +99,7 @@ public class MonotonicCounter implements StateMachine {
             md5.update(snapshot);
             return md5.digest();
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("This won't happen");
+            throw new IllegalStateException("This won't happen");
         }
     }
 

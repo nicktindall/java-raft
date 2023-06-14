@@ -9,6 +9,7 @@ import au.id.tindall.distalg.raft.util.IOUtil;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -60,7 +61,7 @@ public class PersistentLogStorage implements LogStorage {
         try {
             logFileChannel = FileChannel.open(logFilePath, READ, WRITE, CREATE, SYNC);
         } catch (IOException e) {
-            throw new RuntimeException("Error opening log file for writing", e);
+            throw new UncheckedIOException("Error opening log file for writing", e);
         }
         reIndex();
     }
@@ -80,7 +81,7 @@ public class PersistentLogStorage implements LogStorage {
             entryEndIndex = entryEndIndex.subList(0, fromIndex - getPrevIndex());
             nextIndex.set(fromIndex);
         } catch (IOException ex) {
-            throw new RuntimeException("Error truncating log", ex);
+            throw new UncheckedIOException("Error truncating log", ex);
         }
     }
 
@@ -196,7 +197,7 @@ public class PersistentLogStorage implements LogStorage {
             this.prevIndex = firstIndex - 1;
             this.nextIndex.set(localNextIndex);
         } catch (IOException ex) {
-            throw new RuntimeException("Error reading log", ex);
+            throw new UncheckedIOException("Error reading log", ex);
         }
     }
 
@@ -210,7 +211,7 @@ public class PersistentLogStorage implements LogStorage {
             });
             return fileChannel.position();
         } catch (IOException ex) {
-            throw new RuntimeException("Error writing to log", ex);
+            throw new UncheckedIOException("Error writing to log", ex);
         }
     }
 
@@ -223,7 +224,7 @@ public class PersistentLogStorage implements LogStorage {
             logFileChannel.read(buffer, offset + 8);
             return entrySerializer.deserialize(buffer.array());
         } catch (IOException ex) {
-            throw new RuntimeException("Error reading log entry", ex);
+            throw new UncheckedIOException("Error reading log entry", ex);
         }
     }
 }

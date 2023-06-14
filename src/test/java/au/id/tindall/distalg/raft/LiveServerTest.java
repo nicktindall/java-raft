@@ -164,7 +164,7 @@ class LiveServerTest {
             allServers.put(id, server);
             return server;
         } catch (IOException e) {
-            throw new RuntimeException("Error creating persistent state");
+            throw new UncheckedIOException("Error creating persistent state", e);
         }
     }
 
@@ -347,7 +347,7 @@ class LiveServerTest {
                 }
             }
         } catch (ExecutionException | InterruptedException e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException(e);
         }
     }
 
@@ -371,7 +371,7 @@ class LiveServerTest {
                 }
             }
         } catch (ExecutionException | InterruptedException e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException(e);
         }
     }
 
