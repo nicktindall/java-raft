@@ -10,22 +10,15 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Supplier;
 
 import static java.lang.String.format;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class Log implements SnapshotInstalledListener {
 
     private static final Logger LOGGER = getLogger();
-    private static final int LOCK_ACQUIRE_WARNING_TIME_MS = 50;
 
-    private final ReadWriteLock readWriteLock;
     private final List<EntryCommittedEventHandler> entryCommittedEventHandlers;
     private final List<EntryAppendedEventHandler> entryAppendedEventHandlers;
     private final List<CommitIndexAdvancedHandler> commitIndexAdvancedHandlers;
@@ -38,7 +31,6 @@ public class Log implements SnapshotInstalledListener {
     }
 
     public Log(LogStorage logStorage) {
-        readWriteLock = new ReentrantReadWriteLock();
         storage = logStorage;
         commitIndex = 0;
         entryCommittedEventHandlers = new ArrayList<>();
@@ -47,35 +39,30 @@ public class Log implements SnapshotInstalledListener {
     }
 
     public Optional<Integer> updateCommitIndex(List<Integer> matchIndices, Term currentTerm) {
-        return doWrite(() -> {
-            int clusterSize = matchIndices.size() + 1;
-            List<Integer> matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder = matchIndices.stream()
-                    .filter(index -> index > commitIndex)
-                    .filter(index -> getEntry(index).getTerm().equals(currentTerm))
-                    .sorted()
-                    .collect(toList());
-            int majorityThreshold = clusterSize / 2;
-            if (matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder.size() + 1 > majorityThreshold) {
-                Integer newCommitIndex = matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder
-                        .get(matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder.size() - majorityThreshold);
-                advanceCommitIndex(newCommitIndex);
-                return Optional.of(newCommitIndex);
-            }
-            return Optional.empty();
-        });
+        int clusterSize = matchIndices.size() + 1;
+        List<Integer> matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder = matchIndices.stream()
+                .filter(index -> index > commitIndex)
+                .filter(index -> getEntry(index).getTerm().equals(currentTerm))
+                .sorted()
+                .toList();
+        int majorityThreshold = clusterSize / 2;
+        if (matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder.size() + 1 > majorityThreshold) {
+            Integer newCommitIndex = matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder
+                    .get(matchIndicesFromTheCurrentTermHigherThanTheCommitIndexInAscendingOrder.size() - majorityThreshold);
+            advanceCommitIndex(newCommitIndex);
+            return Optional.of(newCommitIndex);
+        }
+        return Optional.empty();
     }
 
     public void appendEntries(int prevLogIndex, List<LogEntry> newEntries) {
-        doWrite(() -> {
-            if (prevLogIndex != 0 && hasEntry(prevLogIndex) == EntryStatus.AFTER_END) {
-                throw new IllegalArgumentException(format("Attempted to append after index %s when length is %s", prevLogIndex, storage.size()));
-            }
-            for (int offset = 0; offset < newEntries.size(); offset++) {
-                int appendIndex = prevLogIndex + 1 + offset;
-                appendEntry(appendIndex, newEntries.get(offset));
-            }
-            return null;
-        });
+        if (prevLogIndex != 0 && hasEntry(prevLogIndex) == EntryStatus.AFTER_END) {
+            throw new IllegalArgumentException(format("Attempted to append after index %s when length is %s", prevLogIndex, storage.size()));
+        }
+        for (int offset = 0; offset < newEntries.size(); offset++) {
+            int appendIndex = prevLogIndex + 1 + offset;
+            appendEntry(appendIndex, newEntries.get(offset));
+        }
     }
 
     private void appendEntry(int appendIndex, LogEntry entry) {
@@ -105,14 +92,6 @@ public class Log implements SnapshotInstalledListener {
         }
     }
 
-    public boolean tryReadLock() {
-        return readWriteLock.readLock().tryLock();
-    }
-
-    public void releaseReadLock() {
-        readWriteLock.readLock().unlock();
-    }
-
     class AttemptToAppendBeforeCommitIndexException extends IllegalStateException {
         public AttemptToAppendBeforeCommitIndexException(int appendIndex, LogEntry entryAtIndex, LogEntry entry) {
             super(format("Attempt made to truncate prior to commit index, this is a bug. appendIndex=%,d, commitIndex=%,d, prevIndex=%,d, entryAtIndex=%s, entry=%s",
@@ -121,83 +100,72 @@ public class Log implements SnapshotInstalledListener {
     }
 
     public boolean containsPreviousEntry(int prevLogIndex, Term prevLogTerm) {
-        return doRead(() -> {
-            switch (hasEntry(prevLogIndex)) {
-                case PRESENT:
-                    return getEntry(prevLogIndex).getTerm().equals(prevLogTerm);
-                case BEFORE_START:
-                    return storage.getPrevIndex() == prevLogIndex && storage.getPrevTerm().equals(prevLogTerm);
-                default:
-                    return false;
-            }
-        });
+        switch (hasEntry(prevLogIndex)) {
+            case PRESENT:
+                return getEntry(prevLogIndex).getTerm().equals(prevLogTerm);
+            case BEFORE_START:
+                return storage.getPrevIndex() == prevLogIndex && storage.getPrevTerm().equals(prevLogTerm);
+            default:
+                return false;
+        }
     }
 
     public List<LogEntry> getEntries() {
-        return doRead(storage::getEntries);
+        return storage.getEntries();
     }
 
     public int getLastLogIndex() {
-        return doRead(storage::getLastLogIndex);
+        return storage.getLastLogIndex();
     }
 
     public int getNextLogIndex() {
-        return doRead(storage::getNextLogIndex);
+        return storage.getNextLogIndex();
     }
 
     public int getPrevIndex() {
-        return doRead(storage::getPrevIndex);
+        return storage.getPrevIndex();
     }
 
     public Term getPrevTerm() {
-        return doRead(storage::getPrevTerm);
+        return storage.getPrevTerm();
     }
 
     public Optional<Term> getLastLogTerm() {
-        return doRead(storage::getLastLogTerm);
+        return storage.getLastLogTerm();
     }
 
     public LogSummary getSummary() {
-        return doRead(() -> new LogSummary(getLastLogTerm(), getLastLogIndex()));
+        return new LogSummary(getLastLogTerm(), getLastLogIndex());
     }
 
     public EntryStatus hasEntry(int index) {
-        return doRead(() -> {
-            validateIndex(index);
-            return storage.hasEntry(index);
-        });
+        validateIndex(index);
+        return storage.hasEntry(index);
     }
 
     public LogEntry getEntry(int index) {
-        return doRead(() -> {
-            validateIndex(index);
-            return storage.getEntry(index);
-        });
+        validateIndex(index);
+        return storage.getEntry(index);
     }
 
     public List<LogEntry> getEntries(int index, int limit) {
-        return doRead(() -> {
-            validateIndex(index);
-            int toIndex = Math.min(storage.getNextLogIndex(), index + limit);
-            return storage.getEntries(index, toIndex);
-        });
+        validateIndex(index);
+        int toIndex = Math.min(storage.getNextLogIndex(), index + limit);
+        return storage.getEntries(index, toIndex);
     }
 
     public int getCommitIndex() {
-        return doRead(() -> commitIndex);
+        return commitIndex;
     }
 
     public void advanceCommitIndex(int newCommitIndex) {
-        doWrite(() -> {
-            if (newCommitIndex > this.commitIndex) {
-                range(this.commitIndex, newCommitIndex)
-                        .map(i -> i + 1)
-                        .forEach(this::notifyCommittedListeners);
-                this.commitIndex = newCommitIndex;
-                notifyCommitIndexAdvancedListener(newCommitIndex);
-            }
-            return null;
-        });
+        if (newCommitIndex > this.commitIndex) {
+            range(this.commitIndex, newCommitIndex)
+                    .map(i -> i + 1)
+                    .forEach(this::notifyCommittedListeners);
+            this.commitIndex = newCommitIndex;
+            notifyCommitIndexAdvancedListener(newCommitIndex);
+        }
     }
 
     public void addEntryCommittedEventHandler(EntryCommittedEventHandler eventHandler) {
@@ -246,36 +214,11 @@ public class Log implements SnapshotInstalledListener {
         }
     }
 
-    private <V> V doRead(Supplier<V> function) {
-        return acquireLockAnd(readWriteLock.readLock(), function);
-    }
-
-    private <V> V doWrite(Supplier<V> function) {
-        return acquireLockAnd(readWriteLock.writeLock(), function);
-    }
-
-    private <V> V acquireLockAnd(Lock lock, Supplier<V> function) {
-        long startTimeNanos = System.nanoTime();
-        lock.lock();
-        long timeTakenToAcquireNanos = System.nanoTime() - startTimeNanos;
-        if (timeTakenToAcquireNanos > LOCK_ACQUIRE_WARNING_TIME_MS * 1_000_000) {
-            LOGGER.warn("Took {}ms to acquire to acquire {}", (timeTakenToAcquireNanos / 1_000_000), lock.getClass().getSimpleName());
-        }
-        try {
-            return function.get();
-        } finally {
-            lock.unlock();
-        }
-    }
-
     @Override
     public void onSnapshotInstalled(Snapshot snapshot) {
-        doWrite(() -> {
-            if (snapshot.getLastIndex() > commitIndex) {
-                LOGGER.debug("Advancing commit index from {} to {} due to snapshot", commitIndex, snapshot.getLastIndex());
-                this.commitIndex = snapshot.getLastIndex();
-            }
-            return null;
-        });
+        if (snapshot.getLastIndex() > commitIndex) {
+            LOGGER.debug("Advancing commit index from {} to {} due to snapshot", commitIndex, snapshot.getLastIndex());
+            this.commitIndex = snapshot.getLastIndex();
+        }
     }
 }

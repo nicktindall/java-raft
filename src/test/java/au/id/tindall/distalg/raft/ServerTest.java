@@ -1,8 +1,11 @@
 package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.comms.Inbox;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
+import au.id.tindall.distalg.raft.elections.ElectionTimeoutProcessor;
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.processors.InboxProcessor;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
@@ -56,12 +59,16 @@ class ServerTest {
     private Cluster<Long> cluster;
     @Mock
     private ElectionScheduler electionScheduler;
+    private TestProcessorManager processorManager;
+    @Mock
+    private Inbox<Long> inbox;
 
     private Server<Long> server;
 
     @BeforeEach
     void setUp() {
-        server = new ServerImpl<>(persistentState, serverStateFactory, stateMachine, cluster, electionScheduler);
+        processorManager = new TestProcessorManager();
+        server = new ServerImpl<>(persistentState, serverStateFactory, stateMachine, cluster, electionScheduler, processorManager, inbox);
     }
 
     @Nested
@@ -93,6 +100,13 @@ class ServerTest {
         void willEnterInitialState() {
             verify(serverState).enterState();
         }
+
+        @Test
+        void willThrowIfAlreadyStarted() {
+            assertThatThrownBy(() -> server.start())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Can't start, server is already started!");
+        }
     }
 
     @Nested
@@ -106,13 +120,13 @@ class ServerTest {
         }
 
         @Test
-        void willLeaveCurrentState() {
-            verify(serverState).leaveState();
+        void willStopInboxProcessor() {
+            verify(processorManager.getProcessorController(InboxProcessor.class)).stopAndWait();
         }
 
         @Test
-        void willNullifyServerState() {
-            assertThat(server.getState()).isEmpty();
+        void willStopElectionTimeoutProcessor() {
+            verify(processorManager.getProcessorController(ElectionTimeoutProcessor.class)).stopAndWait();
         }
     }
 
@@ -273,7 +287,11 @@ class ServerTest {
             @Test
             void willStopServerThenClose() {
                 server.close();
-                verify(serverState).leaveState();
+                verify(processorManager.getProcessorController(InboxProcessor.class)).stopAndWait();
+                verify(processorManager.getProcessorController(ElectionTimeoutProcessor.class)).stopAndWait();
+                verify(serverStateFactory).close();
+                verify(persistentState).close();
+                assertThat(processorManager.isClosed()).isTrue();
             }
         }
 

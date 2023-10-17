@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft.replication;
 
+import au.id.tindall.distalg.raft.TestProcessorManager;
 import au.id.tindall.distalg.raft.cluster.Configuration;
+import au.id.tindall.distalg.raft.processors.ReplicationProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -32,11 +35,13 @@ class ReplicationManagerTest {
     private SingleClientReplicatorFactory<Integer> singleClientReplicatorFactory;
     @Mock
     private Configuration<Integer> configuration;
+    private TestProcessorManager processorManager;
 
     private ReplicationManager<Integer> replicationManager;
 
     @BeforeEach
     void setUp() {
+        processorManager = new TestProcessorManager();
         when(configuration.getLocalId()).thenReturn(LOCAL_ID);
         when(configuration.getOtherServerIds()).thenReturn(Set.of(1, 2));
         replicationManager = new ReplicationManager<>(configuration, singleClientReplicatorFactory);
@@ -49,7 +54,7 @@ class ReplicationManagerTest {
 
         @Test
         void willCreateAndStartReplicatorsForAllFollowers() {
-            replicationManager.start();
+            replicationManager.start(processorManager);
             verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 1, replicationManager);
             verify(singleClientReplicatorFactory).createReplicator(LOCAL_ID, 2, replicationManager);
             verify(logReplicatorOne).start();
@@ -62,14 +67,15 @@ class ReplicationManagerTest {
 
         @BeforeEach
         void setUp() {
-            replicationManager.start();
+            replicationManager.start(processorManager);
         }
 
         @Test
-        void willStopAllReplicators() {
+        void willStopAllReplicatorsAndProcessor() {
             replicationManager.stop();
             verify(logReplicatorOne).stop();
             verify(logReplicatorTwo).stop();
+            verify(processorManager.getProcessorController(ReplicationProcessor.class)).stop();
         }
     }
 
@@ -78,7 +84,7 @@ class ReplicationManagerTest {
 
         @BeforeEach
         void setUp() {
-            replicationManager.start();
+            replicationManager.start(processorManager);
             when(singleClientReplicatorFactory.createReplicator(LOCAL_ID, 3, replicationManager)).thenReturn(logReplicatorThree);
         }
 
@@ -98,19 +104,19 @@ class ReplicationManagerTest {
 
         @BeforeEach
         void setUp() {
-            replicationManager.start();
+            replicationManager.start(processorManager);
         }
 
         @Test
         void willStopAndRemoveReplicatorForPeer() {
             replicationManager.stopReplicatingTo(2);
 
-            logReplicatorTwo.stop();
+            verify(logReplicatorTwo).stop();
         }
 
         @Test
         void willDoNothingWhenIdIsNotPresent() {
-            replicationManager.stopReplicatingTo(LOCAL_ID);
+            assertThatNoException().isThrownBy(() -> replicationManager.stopReplicatingTo(LOCAL_ID));
         }
     }
 
@@ -120,7 +126,7 @@ class ReplicationManagerTest {
 
         @BeforeEach
         void setUp() {
-            replicationManager.start();
+            replicationManager.start(processorManager);
         }
 
         @Test
@@ -129,6 +135,11 @@ class ReplicationManagerTest {
 
             verify(logReplicatorOne).replicate();
             verify(logReplicatorTwo, never()).replicate();
+        }
+
+        @Test
+        void WillNotFailWhenSingleFollowerIsMissing() {
+            assertThatNoException().isThrownBy(() -> replicationManager.replicate(7));
         }
 
         @Test
@@ -141,11 +152,39 @@ class ReplicationManagerTest {
     }
 
     @Nested
+    class ReplicateIfDue {
+
+        @BeforeEach
+        void setUp() {
+            replicationManager.start(processorManager);
+        }
+
+        @Test
+        void willDelegateToAllReplicators() {
+            replicationManager.replicateIfDue();
+
+            verify(logReplicatorOne).replicateIfDue();
+            verify(logReplicatorTwo).replicateIfDue();
+        }
+
+        @Test
+        void willReturnTrueWhenAnyReplicatorReturnsTrue() {
+            when(logReplicatorOne.replicateIfDue()).thenReturn(true);
+            assertThat(replicationManager.replicateIfDue()).isTrue();
+        }
+
+        @Test
+        void willReturnFalseWhenAllReplicatorReturnFalse() {
+            assertThat(replicationManager.replicateIfDue()).isFalse();
+        }
+    }
+
+    @Nested
     class GetFollowerMatchIndices {
 
         @BeforeEach
         void setUp() {
-            replicationManager.start();
+            replicationManager.start(processorManager);
         }
 
         @Test
@@ -163,7 +202,7 @@ class ReplicationManagerTest {
 
         @BeforeEach
         void setUp() {
-            replicationManager.start();
+            replicationManager.start(processorManager);
         }
 
         @Test
@@ -190,7 +229,20 @@ class ReplicationManagerTest {
         @Test
         void willNotFailWhenLoggingSuccessResponseForMissingFollower() {
             replicationManager.stopReplicatingTo(1);
-            replicationManager.logSuccessResponse(1, 123);
+            assertThatNoException().isThrownBy(() -> replicationManager.logSuccessResponse(1, 123));
+        }
+
+        @Test
+        void willLogSuccessSnapshotResponse() {
+            replicationManager.logSuccessSnapshotResponse(1, 123, 456);
+
+            verify(logReplicatorOne).logSuccessSnapshotResponse(123, 456);
+        }
+
+        @Test
+        void willNotFailWhenLoggingSuccessSnapshotResponseForMissingFollower() {
+            replicationManager.stopReplicatingTo(1);
+            assertThatNoException().isThrownBy(() -> replicationManager.logSuccessSnapshotResponse(1, 123, 456));
         }
 
         @Test
@@ -203,7 +255,7 @@ class ReplicationManagerTest {
         @Test
         void willNotFailWhenLoggingFailedResponseForMissingFollower() {
             replicationManager.stopReplicatingTo(1);
-            replicationManager.logFailedResponse(1, 123);
+            assertThatNoException().isThrownBy(() -> replicationManager.logFailedResponse(1, 123));
         }
     }
 
@@ -212,7 +264,7 @@ class ReplicationManagerTest {
 
         @BeforeEach
         void setUp() {
-            replicationManager.start();
+            replicationManager.start(processorManager);
         }
 
         @Test
@@ -232,7 +284,7 @@ class ReplicationManagerTest {
 
         @Test
         void willDoNothingWhenIdIsNotPresent() {
-            replicationManager.replicateIfTrailingIndex(LOCAL_ID, 2);
+            assertThatNoException().isThrownBy(() -> replicationManager.replicateIfTrailingIndex(LOCAL_ID, 2));
         }
     }
 }

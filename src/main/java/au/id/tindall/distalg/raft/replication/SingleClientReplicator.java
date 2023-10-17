@@ -19,26 +19,35 @@ public class SingleClientReplicator<I extends Serializable> {
         this.snapshotReplicatorFactory = snapshotReplicatorFactory;
         this.stateReplicator = logReplicatorFactory.createLogReplicator(replicationState);
         this.replicationState = replicationState;
-        replicationScheduler.setSendAppendEntriesRequest(() -> this.sendNextReplicationMessage(true));
     }
 
-    private synchronized boolean sendNextReplicationMessage(boolean force) {
+    private void sendNextReplicationMessage(boolean force) {
         final StateReplicator.ReplicationResult replicationResult = stateReplicator.sendNextReplicationMessage(force);
         switch (replicationResult) {
             case SWITCH_TO_LOG_REPLICATION:
                 stateReplicator = logReplicatorFactory.createLogReplicator(replicationState);
-                return sendNextReplicationMessage(force);
+                sendNextReplicationMessage(force);
+                break;
             case SWITCH_TO_SNAPSHOT_REPLICATION:
                 stateReplicator = snapshotReplicatorFactory.createSnapshotReplicator(replicationState);
-                return sendNextReplicationMessage(force);
-            case COULD_NOT_REPLICATE:
-            case SKIPPED:
-                return false;
+                sendNextReplicationMessage(force);
+                break;
             case SUCCESS:
-                return true;
+                replicationScheduler.replicated();
+                // fall through
+            case SKIPPED:
+                break;
             default:
                 throw new IllegalStateException("Unexpected ReplicationResult " + replicationResult);
         }
+    }
+
+    public boolean replicateIfDue() {
+        if (replicationScheduler.replicationIsDue()) {
+            sendNextReplicationMessage(true);
+            return true;
+        }
+        return false;
     }
 
     public void start() {

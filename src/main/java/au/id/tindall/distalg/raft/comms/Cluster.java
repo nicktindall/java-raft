@@ -3,7 +3,6 @@ package au.id.tindall.distalg.raft.comms;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
-import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 
 import java.io.Serializable;
 import java.util.List;
@@ -30,5 +29,4 @@ public interface Cluster<I extends Serializable> {
     void sendInstallSnapshotRequest(Term currentTerm, I destinationId, int lastIndex, Term lastTerm,
                                     ConfigurationEntry lastConfiguration, int snapshotOffset, int offset, byte[] data, boolean done);
 
-    Optional<RpcMessage<I>> poll();
 }

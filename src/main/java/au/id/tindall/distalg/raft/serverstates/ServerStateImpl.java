@@ -13,10 +13,10 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipRequest;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
@@ -190,7 +190,7 @@ public abstract class ServerStateImpl<I extends Serializable> implements ServerS
     }
 
     @Override
-    public CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest message) {
+    public CompletableFuture<? extends ServerAdminResponse> handle(ServerAdminRequest message) {
         if (message instanceof AddServerRequest) {
             return this.handle((AddServerRequest<I>) message);
         } else if (message instanceof RemoveServerRequest) {

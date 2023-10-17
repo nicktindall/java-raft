@@ -4,11 +4,12 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Optional;
 
-public interface PersistentState<I extends Serializable> {
+public interface PersistentState<I extends Serializable> extends Closeable {
 
     I getId();
 
@@ -38,5 +39,9 @@ public interface PersistentState<I extends Serializable> {
     void addSnapshotInstalledListener(SnapshotInstalledListener listener);
 
     void initialize();
+
+    @Override
+    default void close() {
+    }
 }
 

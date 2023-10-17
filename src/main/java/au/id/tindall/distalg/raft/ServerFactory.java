@@ -10,6 +10,9 @@ import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
+import au.id.tindall.distalg.raft.processors.ProcessorManager;
+import au.id.tindall.distalg.raft.processors.ProcessorManagerFactory;
+import au.id.tindall.distalg.raft.processors.RaftProcessorGroup;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
@@ -43,18 +46,20 @@ public class ServerFactory<I extends Serializable> {
     private final int maxClientSessions;
     private final CommandExecutorFactory commandExecutorFactory;
     private final StateMachineFactory stateMachineFactory;
-    private final ElectionSchedulerFactory electionSchedulerFactory;
+    private final ElectionSchedulerFactory<I> electionSchedulerFactory;
     private final int maxBatchSize;
     private final ReplicationSchedulerFactory<I> replicationSchedulerFactory;
     private final Duration electionTimeout;
     private final SnapshotterFactory snapshotterFactory;
+    private final ProcessorManagerFactory processorManagerFactory;
+    private final InboxFactory<I> inboxFactory;
     private final boolean timing;
 
     public ServerFactory(ClusterFactory<I> clusterFactory, LogFactory logFactory, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                          ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
-                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory electionSchedulerFactory,
+                         CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory<I> electionSchedulerFactory,
                          int maxBatchSize, ReplicationSchedulerFactory<I> replicationSchedulerFactory, Duration electionTimeout, SnapshotterFactory snapshotterFactory,
-                         boolean timing) {
+                         boolean timing, ProcessorManagerFactory processorManagerFactory, InboxFactory<I> inboxFactory) {
         this.clusterFactory = clusterFactory;
         this.logFactory = logFactory;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
@@ -68,6 +73,8 @@ public class ServerFactory<I extends Serializable> {
         this.electionTimeout = electionTimeout;
         this.snapshotterFactory = snapshotterFactory;
         this.timing = timing;
+        this.processorManagerFactory = processorManagerFactory;
+        this.inboxFactory = inboxFactory;
     }
 
     public Server<I> create(PersistentState<I> persistentState, Set<I> initialPeers) {
@@ -83,8 +90,8 @@ public class ServerFactory<I extends Serializable> {
         Snapshotter snapshotter = snapshotterFactory.create(log, clientSessionStore, stateMachine, persistentState, snapshotHeuristic);
         CommandExecutor commandExecutor = commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter);
         commandExecutor.startListeningForCommittedCommands(log);
-        ElectionScheduler electionScheduler = electionSchedulerFactory.createElectionScheduler();
-        Cluster<I> cluster = clusterFactory.createForNode(persistentState.getId());
+        ElectionScheduler electionScheduler = electionSchedulerFactory.createElectionScheduler(persistentState.getId());
+        Cluster<I> cluster = clusterFactory.createCluster(persistentState.getId());
         final Configuration<I> configuration = new Configuration<>(persistentState.getId(), initialPeers, electionTimeout);
         LeadershipTransferFactory<I> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState, configuration);
         LogReplicatorFactory<I> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize);
@@ -99,9 +106,10 @@ public class ServerFactory<I extends Serializable> {
         ReplicationManagerFactory<I> replicationManagerFactory = new ReplicationManagerFactory<>(configuration, singleClientReplicatorFactory);
         ClusterMembershipChangeManagerFactory<I> clusterMembershipChangeManagerFactory = new ClusterMembershipChangeManagerFactory<>(log,
                 persistentState, configuration);
+        final ProcessorManager<RaftProcessorGroup> processorManager = processorManagerFactory.create(persistentState.getId());
         final ServerStateFactory<I> idServerStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
-                clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory, timing, configuration);
-        Server<I> server = new ServerImpl<>(persistentState, idServerStateFactory, stateMachine, cluster, electionScheduler);
+                clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory, timing, processorManager, configuration);
+        Server<I> server = new ServerImpl<>(persistentState, idServerStateFactory, stateMachine, cluster, electionScheduler, processorManager, inboxFactory.createInbox(persistentState.getId()));
         server.initialize();
         return server;
     }

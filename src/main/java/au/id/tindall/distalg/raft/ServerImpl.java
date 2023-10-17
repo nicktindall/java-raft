@@ -2,16 +2,21 @@ package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.driver.NoOpServerDriver;
-import au.id.tindall.distalg.raft.driver.ServerDriver;
+import au.id.tindall.distalg.raft.comms.Inbox;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
+import au.id.tindall.distalg.raft.elections.ElectionTimeoutProcessor;
 import au.id.tindall.distalg.raft.exceptions.AlreadyRunningException;
 import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Log;
+import au.id.tindall.distalg.raft.processors.InboxProcessor;
+import au.id.tindall.distalg.raft.processors.ProcessorController;
+import au.id.tindall.distalg.raft.processors.ProcessorManager;
+import au.id.tindall.distalg.raft.processors.RaftProcessorGroup;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipRequest;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.TransferLeadershipRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
@@ -33,7 +38,6 @@ import static org.apache.logging.log4j.LogManager.getLogger;
 
 public class ServerImpl<I extends Serializable> implements Server<I>, Closeable {
 
-    private static final int POLL_WARN_THRESHOLD_MS = 50;
     private static final Logger LOGGER = getLogger();
 
     private final PersistentState<I> persistentState;
@@ -41,36 +45,25 @@ public class ServerImpl<I extends Serializable> implements Server<I>, Closeable 
     private final StateMachine stateMachine;
     private final Cluster<I> cluster;
     private final ElectionScheduler electionScheduler;
+    private final ProcessorManager<RaftProcessorGroup> processorManager;
+    private final Inbox<I> inbox;
     private ServerState<I> state;
-    private ServerDriver serverDriver;
+    private ProcessorController inboxProcessorController;
+    private ProcessorController electionTimeoutProcessorController;
 
-    public ServerImpl(PersistentState<I> persistentState, ServerStateFactory<I> serverStateFactory, StateMachine stateMachine, Cluster<I> cluster, ElectionScheduler electionScheduler) {
+    public ServerImpl(PersistentState<I> persistentState, ServerStateFactory<I> serverStateFactory, StateMachine stateMachine, Cluster<I> cluster,
+                      ElectionScheduler electionScheduler, ProcessorManager<RaftProcessorGroup> processorManager, Inbox<I> inbox) {
         this.persistentState = persistentState;
         this.serverStateFactory = serverStateFactory;
         this.stateMachine = stateMachine;
         this.cluster = cluster;
         this.electionScheduler = electionScheduler;
+        this.processorManager = processorManager;
+        this.inbox = inbox;
     }
 
     @Override
-    public synchronized boolean poll() {
-        long startTimeMillis = System.currentTimeMillis();
-        long pollDurationMillis = 0;
-        final Optional<RpcMessage<I>> message = cluster.poll();
-        try {
-            pollDurationMillis = System.currentTimeMillis() - startTimeMillis;
-            message.ifPresent(this::handle);
-            return message.isPresent();
-        } finally {
-            long totalDurationMillis = System.currentTimeMillis() - startTimeMillis;
-            if (totalDurationMillis > POLL_WARN_THRESHOLD_MS) {
-                LOGGER.warn("Message handling took {}ms, polling took {}ms, message was {}", totalDurationMillis, pollDurationMillis, message.orElse(null));
-            }
-        }
-    }
-
-    @Override
-    public synchronized boolean timeoutNowIfDue() {
+    public boolean timeoutNowIfDue() {
         if (electionScheduler.shouldTimeout()) {
             LOGGER.debug("Election timeout occurred: server {}", persistentState.getId());
             electionTimeout();
@@ -81,47 +74,53 @@ public class ServerImpl<I extends Serializable> implements Server<I>, Closeable 
 
     @Override
     public synchronized void start() {
-        start(NoOpServerDriver.INSTANCE);
-    }
-
-    @Override
-    public synchronized void start(ServerDriver serverDriver) {
-        if (state != null) {
+        if (inboxProcessorController != null) {
             throw new AlreadyRunningException("Can't start, server is already started!");
         }
-        if (this.serverDriver != null) {
-            closeQuietly(this.serverDriver);
-        }
-        this.serverDriver = serverDriver;
-        updateState(serverStateFactory.createInitialState());
-        serverDriver.start(this);
-        cluster.onStart();
+        inboxProcessorController = processorManager.runProcessor(new InboxProcessor<>(this, inbox, this::initialise, this::terminate));
+        electionTimeoutProcessorController = processorManager.runProcessor(new ElectionTimeoutProcessor<>(this));
     }
 
     @Override
     public synchronized void stop() {
-        if (state == null) {
+        if (inboxProcessorController == null) {
             throw new NotRunningException("Can't stop, server is not started");
         }
-        serverDriver.stop();
+        inboxProcessorController.stopAndWait();
+        inboxProcessorController = null;
+        electionTimeoutProcessorController.stopAndWait();
+        electionTimeoutProcessorController = null;
+    }
+
+    private void initialise() {
+        cluster.onStart();
+        updateState(serverStateFactory.createInitialState());
+    }
+
+    private void terminate() {
         updateState(null);
         cluster.onStop();
     }
 
     @Override
-    public synchronized CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> clientRequestMessage) {
+    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> clientRequestMessage) {
         assertThatNodeIsRunning();
         return state.handle(clientRequestMessage);
     }
 
     @Override
-    public synchronized CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest clusterMembershipRequest) {
+    public CompletableFuture<? extends ServerAdminResponse> handle(ServerAdminRequest serverAdminRequest) {
         assertThatNodeIsRunning();
-        return state.handle(clusterMembershipRequest);
+        if (serverAdminRequest instanceof TransferLeadershipRequest) {
+            transferLeadership();
+            return CompletableFuture.completedFuture(null);
+        } else {
+            return state.handle(serverAdminRequest);
+        }
     }
 
     @Override
-    public synchronized void handle(RpcMessage<I> message) {
+    public void handle(RpcMessage<I> message) {
         assertThatNodeIsRunning();
         Result<I> result;
         do {
@@ -131,7 +130,7 @@ public class ServerImpl<I extends Serializable> implements Server<I>, Closeable 
     }
 
     @Override
-    public synchronized void initialize() {
+    public void initialize() {
         persistentState.initialize();
     }
 
@@ -158,7 +157,7 @@ public class ServerImpl<I extends Serializable> implements Server<I>, Closeable 
     }
 
     @Override
-    public synchronized void transferLeadership() {
+    public void transferLeadership() {
         handle(new TransferLeadershipMessage<>(persistentState.getCurrentTerm(), persistentState.getId()));
     }
 
@@ -190,11 +189,14 @@ public class ServerImpl<I extends Serializable> implements Server<I>, Closeable 
 
     @Override
     public void close() {
-        synchronized (this) {
-            if (state != null) {
-                stop();
-            }
+        if (state != null) {
+            stop();
         }
-        closeQuietly(serverStateFactory, serverDriver, persistentState);
+        closeQuietly(inbox, serverStateFactory, persistentState, processorManager);
+    }
+
+    @Override
+    public Inbox<I> getInbox() {
+        return inbox;
     }
 }

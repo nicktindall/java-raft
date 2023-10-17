@@ -3,8 +3,8 @@ package au.id.tindall.distalg.raft.serverstates;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipRequest;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ClusterMembershipResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminResponse;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 
 import java.io.Serializable;
@@ -24,7 +24,7 @@ public interface ServerState<I extends Serializable> {
 
     void leaveState();
 
-    CompletableFuture<? extends ClusterMembershipResponse> handle(ClusterMembershipRequest message);
+    CompletableFuture<? extends ServerAdminResponse> handle(ServerAdminRequest message);
 
     void requestVotes();
 }

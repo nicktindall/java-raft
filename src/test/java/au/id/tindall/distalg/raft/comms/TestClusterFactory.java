@@ -1,6 +1,6 @@
 package au.id.tindall.distalg.raft.comms;
 
-import au.id.tindall.distalg.raft.Server;
+import au.id.tindall.distalg.raft.InboxFactory;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
@@ -19,36 +19,36 @@ import org.apache.logging.log4j.Logger;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class TestClusterFactory implements ClusterFactory<Long> {
+public class TestClusterFactory implements ClusterFactory<Long>, InboxFactory<Long> {
 
     private static final long SEND_WARN_THRESHOLD_US = 10_000;
     private static final Logger LOGGER = getLogger();
 
     private final SendingStrategy sendingStrategy;
-    private final Map<Long, Server<Long>> servers;
+    private final Map<Long, QueueingInbox> servers;
     private final MessageStats messageStats;
 
-    public TestClusterFactory(SendingStrategy sendingStrategy, Map<Long, Server<Long>> servers) {
+    public TestClusterFactory(SendingStrategy sendingStrategy) {
         this.sendingStrategy = sendingStrategy;
-        this.servers = servers;
+        this.servers = new ConcurrentHashMap<>();
         this.messageStats = new MessageStats();
     }
 
     @Override
-    public Cluster<Long> createForNode(Long localId) {
+    public Cluster<Long> createCluster(Long localId) {
         return new Cluster<>() {
 
             @Override
             public void onStart() {
-                sendingStrategy.onStart(localId);
+                servers.get(localId).reset();
             }
 
             @Override
             public void onStop() {
-                sendingStrategy.onStop(localId);
             }
 
             @Override
@@ -85,11 +85,6 @@ public class TestClusterFactory implements ClusterFactory<Long> {
             public void sendInstallSnapshotRequest(Term currentTerm, Long destinationId, int lastIndex, Term lastTerm, ConfigurationEntry lastConfiguration, int snapshotOffset, int offset, byte[] data, boolean done) {
                 dispatch(new InstallSnapshotRequest<>(currentTerm, localId, destinationId, lastIndex, lastTerm, lastConfiguration, snapshotOffset, offset, data, done));
             }
-
-            @Override
-            public Optional<RpcMessage<Long>> poll() {
-                return Optional.ofNullable(sendingStrategy.poll(localId));
-            }
         };
     }
 
@@ -102,13 +97,13 @@ public class TestClusterFactory implements ClusterFactory<Long> {
         if (message instanceof BroadcastMessage) {
             LOGGER.trace("Broadcasting {} from Server {}", message.getClass().getSimpleName(), message.getSource());
             servers.values().forEach(server -> {
-                sendingStrategy.send(server.getId(), message);
+                server.send(message);
                 messageStats.recordMessageSent(message);
             });
         } else if (message instanceof UnicastMessage) {
             final Long destinationId = ((UnicastMessage<Long>) message).getDestination();
             LOGGER.trace("Sending {} from Server {} to Server {}", message.getClass().getSimpleName(), message.getSource(), destinationId);
-            sendingStrategy.send(destinationId, message);
+            servers.get(destinationId).send(message);
             messageStats.recordMessageSent(message);
         } else {
             throw new IllegalStateException("Unknown message type: " + message.getClass().getName());
@@ -117,5 +112,10 @@ public class TestClusterFactory implements ClusterFactory<Long> {
         if (sendDurationMicros > SEND_WARN_THRESHOLD_US) {
             LOGGER.warn("Sending to cluster took {}us", sendDurationMicros);
         }
+    }
+
+    @Override
+    public Inbox<Long> createInbox(Long node) {
+        return servers.computeIfAbsent(node, n -> new QueueingInbox(n, sendingStrategy));
     }
 }

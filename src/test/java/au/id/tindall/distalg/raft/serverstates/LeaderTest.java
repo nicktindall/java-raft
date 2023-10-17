@@ -11,6 +11,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import au.id.tindall.distalg.raft.processors.ProcessorManager;
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
@@ -87,6 +88,8 @@ class LeaderTest {
     private ReplicationManager<Long> replicationManager;
     @Mock
     private ClusterMembershipChangeManager<Long> clusterMembershipChangeManager;
+    @Mock
+    private ProcessorManager processorManager;
 
     private Leader<Long> leader;
 
@@ -96,7 +99,7 @@ class LeaderTest {
         lenient().when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
         lenient().when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager,
-                clientSessionStore, leadershipTransfer, clusterMembershipChangeManager);
+                clientSessionStore, leadershipTransfer, clusterMembershipChangeManager, processorManager);
     }
 
     @Nested
@@ -109,7 +112,7 @@ class LeaderTest {
 
         @Test
         void willStartReplicators() {
-            verify(replicationManager).start();
+            verify(replicationManager).start(processorManager);
         }
 
         @Test

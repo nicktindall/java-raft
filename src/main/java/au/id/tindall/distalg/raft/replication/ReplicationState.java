@@ -36,11 +36,9 @@ public class ReplicationState<I extends Serializable> {
 
     public void updateIndices(int matchIndex, int nextIndex) {
         int oldMatchIndex;
-        synchronized (this) {
-            oldMatchIndex = this.matchIndex;
-            this.matchIndex = matchIndex;
-            this.nextIndex = nextIndex;
-        }
+        oldMatchIndex = this.matchIndex;
+        this.matchIndex = matchIndex;
+        this.nextIndex = nextIndex;
         if (oldMatchIndex < matchIndex) {
             matchIndexAdvancedListener.matchIndexAdvanced(followerId, matchIndex);
         }
@@ -49,17 +47,15 @@ public class ReplicationState<I extends Serializable> {
     public void logSuccessResponse(int lastAppendedIndex) {
         int oldMatchIndex;
         int newMatchIndex;
-        synchronized (this) {
-            oldMatchIndex = matchIndex;
-            nextIndex = Math.max(lastAppendedIndex + 1, nextIndex);
-            matchIndex = newMatchIndex = Math.max(lastAppendedIndex, matchIndex);
-        }
+        oldMatchIndex = matchIndex;
+        nextIndex = Math.max(lastAppendedIndex + 1, nextIndex);
+        matchIndex = newMatchIndex = Math.max(lastAppendedIndex, matchIndex);
         if (oldMatchIndex < newMatchIndex) {
             matchIndexAdvancedListener.matchIndexAdvanced(followerId, newMatchIndex);
         }
     }
 
-    public synchronized void logFailedResponse(Integer earliestPossibleMatchIndex) {
+    public void logFailedResponse(Integer earliestPossibleMatchIndex) {
         LOGGER.debug("Got failed response from {}, earliest possible match index: {}", followerId, earliestPossibleMatchIndex);
         if (earliestPossibleMatchIndex != null) {
             nextIndex = earliestPossibleMatchIndex;

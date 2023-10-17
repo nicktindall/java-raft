@@ -1,57 +1,44 @@
 package au.id.tindall.distalg.raft.comms;
 
-import au.id.tindall.distalg.raft.Server;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 
 public class QueuedSendingStrategy implements SendingStrategy {
 
-    private List<DestinationAndMessage> messageQueue;
+    private final Map<Long, Queue<RpcMessage<Long>>> queues;
 
     public QueuedSendingStrategy() {
-        messageQueue = new ArrayList<>();
+        queues = new HashMap<>();
     }
 
     @Override
     public void send(Long destinationId, RpcMessage<Long> message) {
-        messageQueue.add(new DestinationAndMessage(destinationId, message));
+        final Queue<RpcMessage<Long>> serverQueue = queues.get(destinationId);
+        if (serverQueue != null) {
+            serverQueue.offer(message);
+        }
     }
 
     @Override
     public RpcMessage<Long> poll(Long serverId) {
-        throw new UnsupportedOperationException("Use flush/fullyFlush");
+        final Queue<RpcMessage<Long>> serverQueue = queues.get(serverId);
+        if (serverQueue != null) {
+            return serverQueue.poll();
+        }
+        return null;
     }
 
     @Override
     public void onStop(Long localId) {
+        queues.remove(localId);
     }
 
     @Override
     public void onStart(Long localId) {
-    }
-
-    public void flush(Map<Long, Server<Long>> serverMap) {
-        List<DestinationAndMessage> oldMessages = messageQueue;
-        messageQueue = new ArrayList<>();
-        oldMessages.forEach(msg -> serverMap.get(msg.destinationId).handle(msg.message));
-    }
-
-    public void fullyFlush(Map<Long, Server<Long>> serverMap) {
-        while (!messageQueue.isEmpty()) {
-            flush(serverMap);
-        }
-    }
-
-    private static class DestinationAndMessage {
-        private final Long destinationId;
-        private final RpcMessage<Long> message;
-
-        public DestinationAndMessage(Long destinationId, RpcMessage<Long> message) {
-            this.destinationId = destinationId;
-            this.message = message;
-        }
+        queues.put(localId, new LinkedList<>());
     }
 }

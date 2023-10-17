@@ -1,15 +1,6 @@
 package au.id.tindall.distalg.raft.replication;
 
-import java.util.function.Supplier;
-
 public class SynchronousReplicationScheduler implements ReplicationScheduler {
-
-    private Supplier<Boolean> sendAppendEntriesRequest;
-
-    @Override
-    public void setSendAppendEntriesRequest(Supplier<Boolean> sendAppendEntriesRequest) {
-        this.sendAppendEntriesRequest = sendAppendEntriesRequest;
-    }
 
     @Override
     public void start() {
@@ -22,7 +13,12 @@ public class SynchronousReplicationScheduler implements ReplicationScheduler {
     }
 
     @Override
-    public void replicate() {
-        sendAppendEntriesRequest.get();
+    public boolean replicationIsDue() {
+        return false;
+    }
+
+    @Override
+    public void replicated() {
+        // Do nothing
     }
 }

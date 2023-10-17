@@ -6,7 +6,6 @@ public interface StateReplicator {
         SUCCESS,
         SWITCH_TO_LOG_REPLICATION,
         SWITCH_TO_SNAPSHOT_REPLICATION,
-        COULD_NOT_REPLICATE,
         SKIPPED
     }
 

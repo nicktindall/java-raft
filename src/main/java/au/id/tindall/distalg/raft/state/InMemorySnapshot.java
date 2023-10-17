@@ -39,7 +39,7 @@ public class InMemorySnapshot implements Snapshot {
     }
 
     @Override
-    public synchronized int readInto(ByteBuffer byteBuffer, int fromOffset) {
+    public int readInto(ByteBuffer byteBuffer, int fromOffset) {
         if (fromOffset > contents.limit()) {
             return 0;
         }
@@ -57,7 +57,7 @@ public class InMemorySnapshot implements Snapshot {
     }
 
     @Override
-    public synchronized int writeBytes(int offset, byte[] chunk) {
+    public int writeBytes(int offset, byte[] chunk) {
         int bytesWritten = chunk.length;
         growBufferIfNecessary(offset + chunk.length);
         contents.position(offset).put(chunk);

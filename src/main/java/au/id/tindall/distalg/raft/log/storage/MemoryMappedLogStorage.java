@@ -122,7 +122,7 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
     }
 
     @Override
-    public synchronized void installSnapshot(Snapshot snapshot) {
+    public void installSnapshot(Snapshot snapshot) {
         long startTime = System.nanoTime();
         BufferedTruncationCalculator.TruncationDetails td = calculateTruncation(snapshot, this, truncationBuffer);
         final List<Integer> blocksToDelete = logBlocks.entrySet().stream()
@@ -285,7 +285,7 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
             }
         }
 
-        public synchronized LogBlock getLogBlock() {
+        public LogBlock getLogBlock() {
             try {
                 if (logBlock == null) {
                     logBlock = new LogBlock(createRandomAccessFile());

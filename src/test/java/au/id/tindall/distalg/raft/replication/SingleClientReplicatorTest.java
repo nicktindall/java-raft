@@ -9,15 +9,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.function.Supplier;
 
-import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.COULD_NOT_REPLICATE;
 import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SKIPPED;
 import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SUCCESS;
 import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SWITCH_TO_LOG_REPLICATION;
 import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -48,20 +45,11 @@ class SingleClientReplicatorTest {
     void setUp() {
         lenient().when(snapshotReplicatorFactory.createSnapshotReplicator(replicationState)).thenReturn(snapshotReplicator);
         lenient().when(logReplicatorFactory.createLogReplicator(replicationState)).thenReturn(logReplicator);
-        doAnswer(iom -> {
-            heartbeatReplication = iom.getArgument(0);
-            return null;
-        }).when(replicationScheduler).setSendAppendEntriesRequest(any());
         replicator = new SingleClientReplicator<>(replicationScheduler, logReplicatorFactory, snapshotReplicatorFactory, replicationState);
     }
 
     @Nested
     class Constructor {
-
-        @Test
-        void willPopulateHeartbeatMethod() {
-            verify(replicationScheduler).setSendAppendEntriesRequest(any());
-        }
 
         @Test
         void willInitialiseLogReplicator() {
@@ -142,24 +130,24 @@ class SingleClientReplicatorTest {
             verify(logReplicator).sendNextReplicationMessage(anyBoolean());
             verify(snapshotReplicator, never()).sendNextReplicationMessage(anyBoolean());
         }
-
-        @Test
-        void willDoNothingWhenCouldNotReplicate() {
-            when(logReplicator.sendNextReplicationMessage(false)).thenReturn(COULD_NOT_REPLICATE);
-            replicator.replicate();
-            verify(logReplicator).sendNextReplicationMessage(anyBoolean());
-            verify(snapshotReplicator, never()).sendNextReplicationMessage(anyBoolean());
-        }
     }
 
     @Nested
-    class HeartbeatReplication {
+    class ReplicateIfDue {
 
         @Test
-        void willForceReplication() {
-            when(logReplicator.sendNextReplicationMessage(anyBoolean())).thenReturn(SUCCESS);
-            assertThat(heartbeatReplication.get()).isTrue();
+        void willInitiateForcedReplicationWhenDue() {
+            when(replicationScheduler.replicationIsDue()).thenReturn(true);
+            when(logReplicator.sendNextReplicationMessage(true)).thenReturn(SUCCESS);
+            replicator.replicateIfDue();
             verify(logReplicator).sendNextReplicationMessage(true);
+        }
+
+        @Test
+        void willNotReplicateWhenNotDue() {
+            when(replicationScheduler.replicationIsDue()).thenReturn(false);
+            replicator.replicateIfDue();
+            verify(logReplicator, never()).sendNextReplicationMessage(anyBoolean());
         }
     }
 }

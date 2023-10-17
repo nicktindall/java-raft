@@ -2,18 +2,18 @@ package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
+import au.id.tindall.distalg.raft.comms.ClusterAdminClient;
 import au.id.tindall.distalg.raft.comms.DelayedMultipathSendingStrategy;
 import au.id.tindall.distalg.raft.comms.TestClusterFactory;
-import au.id.tindall.distalg.raft.driver.SingleThreadedServerDriver;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounter;
 import au.id.tindall.distalg.raft.monotoniccounter.MonotonicCounterClient;
+import au.id.tindall.distalg.raft.processors.ProcessorManagerFactoryImpl;
+import au.id.tindall.distalg.raft.processors.SleepStrategies;
 import au.id.tindall.distalg.raft.replication.HeartbeatReplicationSchedulerFactory;
-import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
-import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 import au.id.tindall.distalg.raft.snapshotting.DumbRegularIntervalSnapshotHeuristic;
@@ -101,6 +101,7 @@ class LiveServerTest {
     private DelayedMultipathSendingStrategy delayedMultipathSendingStrategy;
     private ScheduledExecutorService testExecutorService;
     private AtomicReference<RuntimeException> testFailure;
+    private ClusterAdminClient clusterAdminClient;
     @TempDir
     Path stateFileDirectory;
 
@@ -134,12 +135,13 @@ class LiveServerTest {
             createServerAndState(serverId, ALL_SERVER_IDS);
         }
         startServers();
+        clusterAdminClient = new ClusterAdminClient(allServers);
     }
 
     private void setUpFactories() {
         allServers = new ConcurrentHashMap<>();
         delayedMultipathSendingStrategy = new DelayedMultipathSendingStrategy(PACKET_DROP_PROBABILITY, MINIMUM_MESSAGE_DELAY_MICROS, MAXIMUM_MESSAGE_DELAY_MICROS);
-        clusterFactory = new TestClusterFactory(delayedMultipathSendingStrategy, allServers);
+        clusterFactory = new TestClusterFactory(delayedMultipathSendingStrategy);
         serverFactory = new ServerFactory<>(
                 clusterFactory,
                 new LogFactory(),
@@ -153,7 +155,9 @@ class LiveServerTest {
                 new HeartbeatReplicationSchedulerFactory<>(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS),
                 Duration.ofMillis(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS),
                 Snapshotter::new,
-                true
+                true,
+                new ProcessorManagerFactoryImpl(LONG_RUN_TEST ? SleepStrategies::threadSleep : SleepStrategies::yielding),
+                clusterFactory
         );
     }
 
@@ -207,15 +211,7 @@ class LiveServerTest {
         Server<Long> oldLeader = getLeaderWithRetries();
         oldLeader.stop();
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
-        oldLeader.start(createServerDriver());
-    }
-
-    private static SingleThreadedServerDriver createServerDriver() {
-        if (LONG_RUN_TEST) {
-            return SingleThreadedServerDriver.lazy();
-        } else {
-            return SingleThreadedServerDriver.busy();
-        }
+        oldLeader.start();
     }
 
     @Test
@@ -328,8 +324,8 @@ class LiveServerTest {
                 final Optional<Server<Long>> leader = getLeader();
                 if (leader.isPresent()) {
                     LOGGER.info("Adding server {}, (new set={})", newServerId, newServersView);
-                    server.start(createServerDriver());
-                    final AddServerResponse response = (AddServerResponse) leader.get().handle(new AddServerRequest<>(newServerId)).get();
+                    server.start();
+                    AddServerResponse response = clusterAdminClient.addNewServer(newServerId);
                     switch (response.getStatus()) {
                         case TIMEOUT:
                         case NOT_LEADER:
@@ -358,7 +354,7 @@ class LiveServerTest {
                 final Optional<Server<Long>> leader = getLeader();
                 if (leader.isPresent()) {
                     LOGGER.info("Removing server {}", server.getId());
-                    final RemoveServerResponse response = (RemoveServerResponse) leader.get().handle(new RemoveServerRequest<>(server.getId())).get();
+                    final RemoveServerResponse response = clusterAdminClient.removeServer(server.getId());
                     if (response.getStatus() == OK) {
                         LOGGER.info("Server {} remove succeeded, shutting down", server.getId());
                         allServers.remove(server.getId());
@@ -408,7 +404,7 @@ class LiveServerTest {
             // Start a new node pointing to the same persistent state files
             Server<Long> newCurrentLeader = createServerAndState(killedServerId, ALL_SERVER_IDS);
             allServers.put(killedServerId, newCurrentLeader);
-            newCurrentLeader.start(createServerDriver());
+            newCurrentLeader.start();
             LOGGER.info("Server " + killedServerId + " restarted");
         } catch (Exception e) {
             testFailure.set(new RuntimeException("Killing leader failed!", e));
@@ -420,9 +416,9 @@ class LiveServerTest {
             Server<Long> currentLeader = getLeaderWithRetries();
             long currentLeaderId = currentLeader.getId();
             LOGGER.info("Telling server {} to transfer leadership", currentLeaderId);
-            currentLeader.transferLeadership();
+            clusterAdminClient.transferLeadership();
             await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | ExecutionException | InterruptedException e) {
             testFailure.set(new RuntimeException("Error triggering leadership transfer", e));
         }
     }
@@ -473,7 +469,7 @@ class LiveServerTest {
     }
 
     private void startServers() {
-        allServers.values().forEach(s -> s.start(createServerDriver()));
+        allServers.values().forEach(Server::start);
     }
 
     private void stopServers() {

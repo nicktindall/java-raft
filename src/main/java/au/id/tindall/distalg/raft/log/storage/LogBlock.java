@@ -99,7 +99,7 @@ public class LogBlock implements Closeable {
 
     private void initialiseState() throws IOException {
         final int totalSize = START_OF_INDEX + indexSize() + (maxEntries * ESTIMATED_MAX_ENTRY_SIZE);
-        LOGGER.info("Initialising block to {}MB", totalSize / (1024 * 1024));
+        LOGGER.debug("Initialising block to {}MB", totalSize / (1024 * 1024));
         this.mbb = this.blockRandomAccessFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, totalSize);
         this.mbb.putInt(MAX_ENTRIES_INDEX, maxEntries);
         this.mbb.putInt(PREV_INDEX_INDEX, prevIndex);

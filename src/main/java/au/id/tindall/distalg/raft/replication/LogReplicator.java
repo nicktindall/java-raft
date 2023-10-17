@@ -36,39 +36,31 @@ public class LogReplicator<I extends Serializable> implements StateReplicator {
 
     @Override
     public ReplicationResult sendNextReplicationMessage(boolean force) {
-        if (log.tryReadLock()) {
-            try {
-                int nextIndexToSend = replicationState.getNextIndex();    // This can change, take a copy
-                int prevLogIndex = nextIndexToSend - 1;
-                if (log.hasEntry(nextIndexToSend) == EntryStatus.BEFORE_START) {
-                    LOGGER.debug("Switching to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
-                            replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
-                    return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
-                }
-                try {
-                    Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
-                    List<LogEntry> entriesToReplicate = getEntriesToReplicate(log, nextIndexToSend);
-                    int lastIndexBeingSent = nextIndexToSend + entriesToReplicate.size() - 1;
-                    int commitIndex = log.getCommitIndex();
-                    if (!force && lastIndexBeingSent <= lastIndexSent && commitIndex == lastCommitIndexSent) {
-                        return ReplicationResult.SKIPPED;
-                    }
-                    cluster.sendAppendEntriesRequest(term, replicationState.getFollowerId(),
-                            prevLogIndex, prevLogTerm, entriesToReplicate,
-                            log.getCommitIndex());
-                    this.lastIndexSent = lastIndexBeingSent;
-                    this.lastCommitIndexSent = commitIndex;
-                    return ReplicationResult.SUCCESS;
-                } catch (IndexOutOfBoundsException e) {
-                    LOGGER.debug("Concurrent truncation caused switch to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
-                            replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
-                    return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
-                }
-            } finally {
-                log.releaseReadLock();
+        int nextIndexToSend = replicationState.getNextIndex();
+        int prevLogIndex = nextIndexToSend - 1;
+        if (log.hasEntry(nextIndexToSend) == EntryStatus.BEFORE_START) {
+            LOGGER.debug("Switching to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
+                    replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
+            return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
+        }
+        try {
+            Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
+            List<LogEntry> entriesToReplicate = getEntriesToReplicate(log, nextIndexToSend);
+            int lastIndexBeingSent = nextIndexToSend + entriesToReplicate.size() - 1;
+            int commitIndex = log.getCommitIndex();
+            if (!force && lastIndexBeingSent <= lastIndexSent && commitIndex == lastCommitIndexSent) {
+                return ReplicationResult.SKIPPED;
             }
-        } else {
-            return ReplicationResult.COULD_NOT_REPLICATE;
+            cluster.sendAppendEntriesRequest(term, replicationState.getFollowerId(),
+                    prevLogIndex, prevLogTerm, entriesToReplicate,
+                    commitIndex);
+            this.lastIndexSent = lastIndexBeingSent;
+            this.lastCommitIndexSent = commitIndex;
+            return ReplicationResult.SUCCESS;
+        } catch (IndexOutOfBoundsException e) {
+            LOGGER.debug("Concurrent truncation caused switch to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",
+                    replicationState.getFollowerId(), nextIndexToSend, replicationState.getMatchIndex(), log.getPrevIndex());
+            return ReplicationResult.SWITCH_TO_SNAPSHOT_REPLICATION;
         }
     }
 

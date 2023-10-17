@@ -1,4 +1,4 @@
 package au.id.tindall.distalg.raft.rpc.clustermembership;
 
-public interface ClusterMembershipRequest {
+public interface ServerAdminRequest {
 }

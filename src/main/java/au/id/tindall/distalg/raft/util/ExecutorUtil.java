@@ -15,14 +15,15 @@ public enum ExecutorUtil {
      * Shut down an executor service and await termination, warning if it doesn't shut down in time, or if we're
      * interrupted waiting for it to shut down
      *
-     * @param executorService       The ExecutorService
-     * @param timeoutInMilliseconds The timeout, in milliseconds
+     * @param executorService The ExecutorService
+     * @param timeout         The timeout
+     * @param timeoutUnits    The timeout units
      */
-    public static void shutdownAndAwaitTermination(ExecutorService executorService, long timeoutInMilliseconds) {
+    public static void shutdownAndAwaitTermination(ExecutorService executorService, long timeout, TimeUnit timeoutUnits) {
         executorService.shutdown();
         try {
-            if (!executorService.awaitTermination(timeoutInMilliseconds, TimeUnit.MILLISECONDS)) {
-                LOGGER.warn("ExecutorService didn't shutdown in {}ms", timeoutInMilliseconds);
+            if (!executorService.awaitTermination(timeout, timeoutUnits)) {
+                LOGGER.warn("ExecutorService didn't shutdown in {} {}", timeout, timeoutUnits);
             }
         } catch (InterruptedException e) {
             LOGGER.warn("Interrupted waiting for ExecutorService to terminate");

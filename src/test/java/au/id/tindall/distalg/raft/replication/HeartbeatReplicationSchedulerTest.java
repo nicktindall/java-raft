@@ -1,93 +1,99 @@
 package au.id.tindall.distalg.raft.replication;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.concurrent.Executors;
-import java.util.function.Supplier;
+import java.util.concurrent.atomic.AtomicLong;
 
-import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMillis;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ExtendWith(MockitoExtension.class)
 class HeartbeatReplicationSchedulerTest {
 
-    private static final long SERVER_ID = 1234;
-
-    @Mock
-    private Supplier<Boolean> sendAppendEntriesRequest;
+    private static final long MAX_DELAY_BETWEEN_MESSAGES_MS = 500;
 
     private HeartbeatReplicationScheduler scheduler;
+    private AtomicLong currentTimeProvider;
 
     @BeforeEach
     void setUp() {
-        lenient().when(sendAppendEntriesRequest.get()).thenReturn(true);
+        currentTimeProvider = new AtomicLong(System.currentTimeMillis());
+        scheduler = new HeartbeatReplicationScheduler(MAX_DELAY_BETWEEN_MESSAGES_MS, currentTimeProvider::get);
+    }
+
+    @Test
+    void startWillThrowWhenAlreadyStarted() {
+        scheduler.start();
+        assertThatThrownBy(() -> scheduler.start())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Attempted to start replication scheduler twice");
+    }
+
+    @Test
+    void stopWillThrowWhenAlreadyStopped() {
+        assertThatThrownBy(() -> scheduler.stop())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Attempted to stop non-running replication scheduler");
     }
 
     @Nested
-    class WhenRunning {
+    class WhenStarted {
 
-        @Test
-        void willSendRegularHeartbeats() {
-            scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, 500, Executors.newSingleThreadExecutor());
-            scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
+        @BeforeEach
+        void setUp() {
             scheduler.start();
-            await().atMost(2, SECONDS).untilAsserted(() ->
-                    verify(sendAppendEntriesRequest, atLeast(2)).get()
-            );
+        }
+
+        @Nested
+        class ReplicationIsDue {
+
+            @Test
+            void willReturnFalseWhenAMessageWasSentWithinTimeout() {
+                scheduler.replicated();
+                currentTimeProvider.addAndGet(MAX_DELAY_BETWEEN_MESSAGES_MS - 1);
+                assertThat(scheduler.replicationIsDue()).isFalse();
+            }
+
+            @Test
+            void willReturnTrueWhenNoMessageWasSentWithinTimeout() {
+                scheduler.replicated();
+                currentTimeProvider.addAndGet(MAX_DELAY_BETWEEN_MESSAGES_MS + 1);
+                assertThat(scheduler.replicationIsDue()).isTrue();
+            }
         }
 
         @Test
-        void willSendAppendEntriesRequestsOnDemand() {
-            scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, Long.MAX_VALUE, Executors.newSingleThreadExecutor());
-            scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
-            scheduler.start();
-            scheduler.replicate();
-            await().atMost(1, SECONDS).untilAsserted(() ->
-                    verify(sendAppendEntriesRequest).get()
-            );
-            Mockito.clearInvocations(sendAppendEntriesRequest);
-            scheduler.replicate();
-            await().atMost(1, SECONDS).untilAsserted(() ->
-                    verify(sendAppendEntriesRequest).get()
-            );
-        }
-
-        @AfterEach
-        void tearDown() {
+        void stopWillStopScheduler() {
+            scheduler.replicated();
             scheduler.stop();
+            currentTimeProvider.addAndGet(MAX_DELAY_BETWEEN_MESSAGES_MS + 1);
+            assertThat(scheduler.replicationIsDue()).isFalse();
         }
     }
 
     @Nested
-    class WhenNotRunning {
+    class WhenStopped {
 
-        @Test
-        void willNotSendRegularHeartbeats() {
-            scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, 100, Executors.newSingleThreadExecutor());
-            scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
-            pauseMillis(500L);
-            verifyNoInteractions(sendAppendEntriesRequest);
-        }
+        @Nested
+        class ReplicationIsDue {
 
-        @Test
-        void willNotSendAppendEntriesRequestsOnDemand() {
-            scheduler = new HeartbeatReplicationScheduler<>(SERVER_ID, Long.MAX_VALUE, Executors.newSingleThreadExecutor());
-            scheduler.setSendAppendEntriesRequest(sendAppendEntriesRequest);
-            scheduler.replicate();
-            pauseMillis(1000L);
-            verifyNoInteractions(sendAppendEntriesRequest);
+            @Test
+            void willReturnFalseWhenAMessageWasSentWithinTimeout() {
+                scheduler.replicated();
+                currentTimeProvider.addAndGet(MAX_DELAY_BETWEEN_MESSAGES_MS - 1);
+                assertThat(scheduler.replicationIsDue()).isFalse();
+            }
+
+            @Test
+            void willReturnFalseWhenNoMessageWasSentWithinTimeout() {
+                scheduler.replicated();
+                currentTimeProvider.addAndGet(MAX_DELAY_BETWEEN_MESSAGES_MS + 1);
+                assertThat(scheduler.replicationIsDue()).isFalse();
+            }
         }
     }
 }

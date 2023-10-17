@@ -8,6 +8,8 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import au.id.tindall.distalg.raft.processors.ProcessorManager;
+import au.id.tindall.distalg.raft.processors.RaftProcessorGroup;
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
@@ -42,6 +44,7 @@ public class Leader<I extends Serializable> extends ServerStateImpl<I> {
 
     private static final Logger LOGGER = getLogger();
 
+    private final ProcessorManager<RaftProcessorGroup> processorManager;
     private final PendingResponseRegistry pendingResponseRegistry;
     private final ReplicationManager<I> replicationManager;
     private final ClientSessionStore clientSessionStore;
@@ -50,13 +53,15 @@ public class Leader<I extends Serializable> extends ServerStateImpl<I> {
 
     public Leader(PersistentState<I> persistentState, Log log, Cluster<I> cluster, PendingResponseRegistry pendingResponseRegistry,
                   ServerStateFactory<I> serverStateFactory, ReplicationManager<I> replicationManager, ClientSessionStore clientSessionStore,
-                  LeadershipTransfer<I> leadershipTransfer, ClusterMembershipChangeManager<I> clusterMembershipChangeManager) {
+                  LeadershipTransfer<I> leadershipTransfer, ClusterMembershipChangeManager<I> clusterMembershipChangeManager,
+                  ProcessorManager<RaftProcessorGroup> processorManager) {
         super(persistentState, log, cluster, serverStateFactory, persistentState.getId());
         this.pendingResponseRegistry = pendingResponseRegistry;
         this.replicationManager = replicationManager;
         this.clientSessionStore = clientSessionStore;
         this.leadershipTransfer = leadershipTransfer;
         this.clusterMembershipChangeManager = clusterMembershipChangeManager;
+        this.processorManager = processorManager;
     }
 
     @Override
@@ -162,7 +167,7 @@ public class Leader<I extends Serializable> extends ServerStateImpl<I> {
     public void enterState() {
         LOGGER.debug("Server entering Leader state (term={}, lastIndex={}, lastTerm={})",
                 persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm());
-        replicationManager.start();
+        replicationManager.start(processorManager);
         replicationManager.replicate();
         log.addEntryCommittedEventHandler(clusterMembershipChangeManager);
     }

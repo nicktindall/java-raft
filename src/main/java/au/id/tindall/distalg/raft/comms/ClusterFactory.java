@@ -4,5 +4,5 @@ import java.io.Serializable;
 
 public interface ClusterFactory<I extends Serializable> {
 
-    Cluster<I> createForNode(I nodeId);
+    Cluster<I> createCluster(I nodeId);
 }

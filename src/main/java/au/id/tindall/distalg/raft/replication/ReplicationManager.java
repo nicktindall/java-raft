@@ -1,6 +1,10 @@
 package au.id.tindall.distalg.raft.replication;
 
 import au.id.tindall.distalg.raft.cluster.Configuration;
+import au.id.tindall.distalg.raft.processors.ProcessorController;
+import au.id.tindall.distalg.raft.processors.ProcessorManager;
+import au.id.tindall.distalg.raft.processors.RaftProcessorGroup;
+import au.id.tindall.distalg.raft.processors.ReplicationProcessor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -21,6 +25,7 @@ public class ReplicationManager<I extends Serializable> implements MatchIndexAdv
     private final SingleClientReplicatorFactory<I> replicatorFactory;
     private Map<I, SingleClientReplicator<I>> replicators;
     private final List<MatchIndexAdvancedListener<I>> matchIndexAdvancedListeners;
+    private ProcessorController processorController;
     private boolean started;
 
     public ReplicationManager(Configuration<I> configuration, SingleClientReplicatorFactory<I> replicatorFactory) {
@@ -30,19 +35,21 @@ public class ReplicationManager<I extends Serializable> implements MatchIndexAdv
         this.matchIndexAdvancedListeners = new ArrayList<>();
     }
 
-    public void start() {
+    public void start(ProcessorManager<RaftProcessorGroup> processorManager) {
         assert replicators == null;
         assert !started;
         replicators = new ConcurrentHashMap<>(configuration.getOtherServerIds().stream()
                 .collect(toMap(identity(), followerId -> replicatorFactory.createReplicator(configuration.getLocalId(), followerId, this))));
         replicators.values().forEach(SingleClientReplicator::start);
         started = true;
+        processorController = processorManager.runProcessor(new ReplicationProcessor<>(this));
     }
 
     public void stop() {
         assert started;
         replicators.values().forEach(SingleClientReplicator::stop);
         started = false;
+        processorController.stop();
     }
 
     public int getMatchIndex(I serverId) {
@@ -79,9 +86,9 @@ public class ReplicationManager<I extends Serializable> implements MatchIndexAdv
     }
 
     public void replicate(I serverId) {
-        final SingleClientReplicator<I> idSingleClientReplicator = replicators.get(serverId);
-        if (idSingleClientReplicator != null) {
-            idSingleClientReplicator.replicate();
+        final SingleClientReplicator<I> clientReplicator = replicators.get(serverId);
+        if (clientReplicator != null) {
+            clientReplicator.replicate();
         }
     }
 
@@ -127,5 +134,10 @@ public class ReplicationManager<I extends Serializable> implements MatchIndexAdv
 
     public void addMatchIndexAdvancedListener(MatchIndexAdvancedListener<I> matchIndexAdvancedListener) {
         matchIndexAdvancedListeners.add(matchIndexAdvancedListener);
+    }
+
+    public boolean replicateIfDue() {
+        return replicators.values().stream().map(SingleClientReplicator::replicateIfDue)
+                .reduce(false, (existing, next) -> existing || next);
     }
 }

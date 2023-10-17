@@ -6,11 +6,15 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.comms.ClusterFactory;
+import au.id.tindall.distalg.raft.comms.Inbox;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogFactory;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
+import au.id.tindall.distalg.raft.processors.ProcessorManager;
+import au.id.tindall.distalg.raft.processors.ProcessorManagerFactory;
+import au.id.tindall.distalg.raft.processors.RaftProcessorGroup;
 import au.id.tindall.distalg.raft.replication.LogReplicatorFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationManagerFactory;
 import au.id.tindall.distalg.raft.replication.ReplicationSchedulerFactory;
@@ -34,6 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.Serializable;
 import java.time.Duration;
 import java.util.Set;
 
@@ -75,7 +80,7 @@ class ServerFactoryTest {
     @Mock
     private StateMachine stateMachine;
     @Mock
-    private ElectionSchedulerFactory electionSchedulerFactory;
+    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
     @Mock
     private ElectionScheduler electionScheduler;
     @Mock
@@ -90,21 +95,31 @@ class ServerFactoryTest {
     private Snapshotter snapshotter;
     @Mock
     private SnapshotHeuristic snapshotHeuristic;
+    @Mock
+    private ProcessorManager<RaftProcessorGroup> processorManager;
+    @Mock
+    private ProcessorManagerFactory processorManagerFactory;
+    @Mock
+    private InboxFactory<Long> inboxFactory;
+    @Mock
+    private Inbox<Long> inbox;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
     void setUp() {
+        when(inboxFactory.createInbox(SERVER_ID)).thenReturn(inbox);
         when(persistentState.getId()).thenReturn(SERVER_ID);
         when(persistentState.getLogStorage()).thenReturn(logStorage);
         when(clientSessionStoreFactory.create(MAX_CLIENT_SESSIONS)).thenReturn(clientSessionStore);
-        when(clusterFactory.createForNode(SERVER_ID)).thenReturn(cluster);
+        when(clusterFactory.createCluster(SERVER_ID)).thenReturn(cluster);
         when(logFactory.createLog(logStorage)).thenReturn(log);
         when(stateMachineFactory.createStateMachine()).thenReturn(stateMachine);
-        when(electionSchedulerFactory.createElectionScheduler()).thenReturn(electionScheduler);
+        when(electionSchedulerFactory.createElectionScheduler(SERVER_ID)).thenReturn(electionScheduler);
         when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter)).thenReturn(commandExecutor);
         when(snapshotterFactory.create(eq(log), eq(clientSessionStore), eq(stateMachine), eq(persistentState), any(SnapshotHeuristic.class))).thenReturn(snapshotter);
+        when(processorManagerFactory.create(any(Serializable.class))).thenReturn(processorManager);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT, snapshotterFactory, false);
+                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT, snapshotterFactory, false, processorManagerFactory, inboxFactory);
     }
 
     @Test
@@ -130,11 +145,14 @@ class ServerFactoryTest {
                                 ),
                                 new ClusterMembershipChangeManagerFactory<>(log, persistentState, configuration),
                                 false,
+                                processorManager,
                                 configuration
                         ),
                         stateMachine,
                         cluster,
-                        electionScheduler)
+                        electionScheduler,
+                        processorManager,
+                        inbox)
         );
     }
 

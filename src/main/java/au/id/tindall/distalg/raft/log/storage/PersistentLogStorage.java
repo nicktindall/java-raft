@@ -111,7 +111,7 @@ public class PersistentLogStorage implements LogStorage {
     }
 
     @Override
-    public synchronized void installSnapshot(Snapshot snapshot) {
+    public void installSnapshot(Snapshot snapshot) {
         long startTime = System.nanoTime();
         try {
             BufferedTruncationCalculator.TruncationDetails td = calculateTruncation(snapshot, this, truncationBuffer);

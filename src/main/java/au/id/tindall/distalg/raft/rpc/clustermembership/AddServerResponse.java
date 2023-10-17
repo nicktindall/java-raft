@@ -1,6 +1,6 @@
 package au.id.tindall.distalg.raft.rpc.clustermembership;
 
-public enum AddServerResponse implements ClusterMembershipResponse {
+public enum AddServerResponse implements ServerAdminResponse {
     OK(Status.OK),
     TIMEOUT(Status.TIMEOUT),
     NOT_LEADER(Status.NOT_LEADER);
