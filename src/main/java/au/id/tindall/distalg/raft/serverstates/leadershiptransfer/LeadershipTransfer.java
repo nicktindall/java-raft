@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.serverstates.leadershiptransfer;
 
+import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.state.PersistentState;
@@ -26,19 +27,21 @@ public class LeadershipTransfer<I extends Serializable> {
     private final Cluster<I> cluster;
     private final PersistentState<I> persistentState;
     private final Supplier<Long> currentTimeProvider;
+    private final Configuration<I> configuration;
     private Instant transferStartTime;
 
     private TransferTarget transferTarget;
 
-    public LeadershipTransfer(Cluster<I> cluster, PersistentState<I> persistentState, ReplicationManager<I> replicationManager) {
-        this(cluster, persistentState, replicationManager, System::currentTimeMillis);
+    public LeadershipTransfer(Cluster<I> cluster, PersistentState<I> persistentState, ReplicationManager<I> replicationManager, Configuration<I> configuration) {
+        this(cluster, persistentState, replicationManager, configuration, System::currentTimeMillis);
     }
 
-    public LeadershipTransfer(Cluster<I> cluster, PersistentState<I> persistentState, ReplicationManager<I> replicationManager, Supplier<Long> currentTimeProvider) {
+    public LeadershipTransfer(Cluster<I> cluster, PersistentState<I> persistentState, ReplicationManager<I> replicationManager, Configuration<I> configuration, Supplier<Long> currentTimeProvider) {
         this.cluster = cluster;
         this.replicationManager = replicationManager;
         this.persistentState = persistentState;
         this.currentTimeProvider = currentTimeProvider;
+        this.configuration = configuration;
     }
 
     public boolean isInProgress() {
@@ -71,7 +74,7 @@ public class LeadershipTransfer<I extends Serializable> {
     private void selectNewTargetIfTimeoutHasBeenExceededAndThereAreOthersAvailable() {
         if (transferTarget.hasTimedOut()) {
             LOGGER.debug("Leadership transfer to {} has timed out, selecting new target", transferTarget);
-            if (cluster.getOtherMemberIds().size() > 1) {
+            if (configuration.getOtherServerIds().size() > 1) {
                 selectLeadershipTransferTarget(singleton(transferTarget.id));
             }
         }
@@ -86,7 +89,7 @@ public class LeadershipTransfer<I extends Serializable> {
     }
 
     private void selectLeadershipTransferTarget(Set<I> excludedIds) {
-        I targetId = cluster.getOtherMemberIds().stream()
+        I targetId = configuration.getOtherServerIds().stream()
                 .filter(serverId -> !excludedIds.contains(serverId))
                 .min((replicator1, replicator2) -> replicationManager.getMatchIndex(replicator2) - replicationManager.getMatchIndex(replicator1))
                 .orElseThrow(() -> new IllegalStateException("No followers to transfer to!"));

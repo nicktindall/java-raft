@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.serverstates.leadershiptransfer;
 
+import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
@@ -39,15 +40,17 @@ public class LeadershipTransferTest {
     private LogStorage logStorage;
     @Mock
     private ReplicationManager<Long> replicationManager;
+    @Mock
+    private Configuration<Long> configuration;
 
     private LeadershipTransfer<Long> leadershipTransfer;
     private long currentTimeMillis;
 
     @BeforeEach
     void setUp() {
-        leadershipTransfer = new LeadershipTransfer<>(cluster, persistentState, replicationManager, this::currentTimeMillis);
+        leadershipTransfer = new LeadershipTransfer<>(cluster, persistentState, replicationManager, configuration, this::currentTimeMillis);
 
-        lenient().when(cluster.getOtherMemberIds()).thenReturn(Set.of(LEADING_REPLICATOR_ID, LAGGING_REPLICATOR_ID));
+        lenient().when(configuration.getOtherServerIds()).thenReturn(Set.of(LEADING_REPLICATOR_ID, LAGGING_REPLICATOR_ID));
         lenient().when(replicationManager.getMatchIndex(LEADING_REPLICATOR_ID)).thenReturn(LAST_LOG_INDEX - 1);
         lenient().when(replicationManager.getMatchIndex(LAGGING_REPLICATOR_ID)).thenReturn(LAST_LOG_INDEX - 2);
 

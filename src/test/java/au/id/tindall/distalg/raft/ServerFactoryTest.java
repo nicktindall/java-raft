@@ -121,7 +121,7 @@ class ServerFactoryTest {
                                 clientSessionStore,
                                 commandExecutor,
                                 electionScheduler,
-                                new LeadershipTransferFactory<>(cluster, persistentState),
+                                new LeadershipTransferFactory<>(cluster, persistentState, configuration),
                                 new ReplicationManagerFactory<>(configuration,
                                         new SingleClientReplicatorFactory<>(replicationSchedulerFactory,
                                                 new LogReplicatorFactory<>(log, persistentState, cluster, MAX_BATCH_SIZE),
@@ -129,7 +129,8 @@ class ServerFactoryTest {
                                                 new ReplicationStateFactory<>(log))
                                 ),
                                 new ClusterMembershipChangeManagerFactory<>(log, persistentState, configuration),
-                                false
+                                false,
+                                configuration
                         ),
                         stateMachine,
                         cluster,

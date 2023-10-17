@@ -2,6 +2,7 @@ package au.id.tindall.distalg.raft.serverstates;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
+import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
@@ -33,11 +34,12 @@ public class ServerStateFactory<I extends Serializable> implements Closeable {
     private final ReplicationManagerFactory<I> replicationManagerFactory;
     private final ClusterMembershipChangeManagerFactory<I> clusterMembershipChangeManagerFactory;
     private final boolean timing;
+    private final Configuration<I> configuration;
 
     public ServerStateFactory(PersistentState<I> persistentState, Log log, Cluster<I> cluster, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                               ClientSessionStore clientSessionStore, CommandExecutor commandExecutor, ElectionScheduler electionScheduler,
                               LeadershipTransferFactory<I> leadershipTransferFactory, ReplicationManagerFactory<I> replicationManagerFactory,
-                              ClusterMembershipChangeManagerFactory<I> clusterMembershipChangeManagerFactory, boolean timing) {
+                              ClusterMembershipChangeManagerFactory<I> clusterMembershipChangeManagerFactory, boolean timing, Configuration<I> configuration) {
         this.persistentState = persistentState;
         this.log = log;
         this.cluster = cluster;
@@ -49,6 +51,7 @@ public class ServerStateFactory<I extends Serializable> implements Closeable {
         this.replicationManagerFactory = replicationManagerFactory;
         this.clusterMembershipChangeManagerFactory = clusterMembershipChangeManagerFactory;
         this.timing = timing;
+        this.configuration = configuration;
     }
 
     public ServerState<I> createLeader() {
@@ -70,7 +73,7 @@ public class ServerStateFactory<I extends Serializable> implements Closeable {
     }
 
     public ServerState<I> createCandidate() {
-        final Candidate<I> candidateState = new Candidate<>(persistentState, log, cluster, this, electionScheduler);
+        final Candidate<I> candidateState = new Candidate<>(persistentState, log, cluster, this, electionScheduler, configuration);
         return timing ? TimingWrappers.wrap(candidateState, WARNING_THRESHOLD_MILLIS) : candidateState;
     }
 

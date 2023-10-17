@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.serverstates;
 
+import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
@@ -57,16 +58,18 @@ class CandidateTest {
     private ElectionScheduler electionScheduler;
     @Mock
     private PersistentState<Long> persistentState;
+    @Mock
+    private Configuration<Long> configuration;
 
     @Test
     void receivedVotes_WillBeInitializedEmpty() {
-        Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+        Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
         assertThat(candidateState.getReceivedVotes()).isEmpty();
     }
 
     @Test
     void getReceivedVotes_WillReturnUnmodifiableSet() {
-        Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+        Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
         assertThatCode(
                 () -> candidateState.getReceivedVotes().add(OTHER_SERVER_ID)
         ).isInstanceOf(UnsupportedOperationException.class);
@@ -75,7 +78,7 @@ class CandidateTest {
     @Test
     void requestVotes_WillBroadcastRequestVoteRpc() {
         when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
-        Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+        Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
         candidateState.requestVotes();
         verify(cluster).sendRequestVoteRequest(TERM_2, 0, Optional.empty());
     }
@@ -88,7 +91,7 @@ class CandidateTest {
         @BeforeEach
         void setUp() {
             when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
-            candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+            candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
             candidateState.enterState();
         }
 
@@ -105,7 +108,7 @@ class CandidateTest {
 
         @BeforeEach
         void setUp() {
-            candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+            candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
             candidateState.leaveState();
         }
 
@@ -124,9 +127,9 @@ class CandidateTest {
         @BeforeEach
         void setUp() {
             when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
-            when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(false);
+            when(configuration.isQuorum(Set.of(SERVER_ID))).thenReturn(false);
 
-            candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+            candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
             candidateState.recordVoteAndClaimLeadershipIfEligible(SERVER_ID);
         }
 
@@ -135,7 +138,7 @@ class CandidateTest {
 
             @BeforeEach
             void setUp() {
-                when(cluster.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(false);
+                when(configuration.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(false);
 
                 result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
             }
@@ -156,7 +159,7 @@ class CandidateTest {
 
             @BeforeEach
             void setUp() {
-                when(cluster.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(true);
+                when(configuration.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(true);
                 when(serverStateFactory.createLeader()).thenReturn(leader);
 
                 result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
@@ -170,11 +173,11 @@ class CandidateTest {
 
         @Test
         void willIgnoreResponse_WhenItIsStale() {
-            reset(cluster);
+            reset(configuration);
             Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true));
 
             verifyNoMoreInteractions(serverStateFactory);
-            verify(cluster, never()).isQuorum(anySet());
+            verify(configuration, never()).isQuorum(anySet());
             assertThat(candidateState.getReceivedVotes()).doesNotContain(OTHER_SERVER_ID);
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(candidateState));
         }
@@ -192,7 +195,7 @@ class CandidateTest {
         void willTransitionToFollowerAndContinueProcessingMessage_WhenTermIsGreaterThanOrEqualToLocalTerm() {
             when(serverStateFactory.createFollower(OTHER_SERVER_ID)).thenReturn(follower);
 
-            Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+            Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
             Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
 
             assertThat(result).usingRecursiveComparison().isEqualTo(incomplete(follower));
@@ -200,7 +203,7 @@ class CandidateTest {
 
         @Test
         void willRespondUnsuccessful_WhenRequestIsStale() {
-            Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+            Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
             Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
 
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(candidateState));
@@ -221,10 +224,10 @@ class CandidateTest {
             void setUp() {
                 when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
                 when(persistentState.getId()).thenReturn(SERVER_ID);
-                when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(false);
+                when(configuration.isQuorum(Set.of(SERVER_ID))).thenReturn(false);
                 when(log.getLastLogIndex()).thenReturn(LAST_LOG_INDEX);
                 when(log.getLastLogTerm()).thenReturn(Optional.of(TERM_0));
-                candidate = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+                candidate = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
             }
 
             @Test
@@ -257,9 +260,9 @@ class CandidateTest {
             void setUp() {
                 when(persistentState.getCurrentTerm()).thenReturn(TERM_1);
                 when(persistentState.getId()).thenReturn(SERVER_ID);
-                when(cluster.isQuorum(Set.of(SERVER_ID))).thenReturn(true);
+                when(configuration.isQuorum(Set.of(SERVER_ID))).thenReturn(true);
                 when(serverStateFactory.createLeader()).thenReturn(leader);
-                candidate = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler);
+                candidate = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
             }
 
             @Test

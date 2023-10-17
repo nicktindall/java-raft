@@ -19,8 +19,6 @@ import org.apache.logging.log4j.Logger;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
@@ -39,14 +37,6 @@ public class TestClusterFactory implements ClusterFactory<Long> {
         this.messageStats = new MessageStats();
     }
 
-    public boolean isQuorum(Set<Long> receivedVotes) {
-        return receivedVotes.size() > (servers.size() / 2f);
-    }
-
-    public Set<Long> getMemberIds() {
-        return servers.keySet();
-    }
-
     @Override
     public Cluster<Long> createForNode(Long localId) {
         return new Cluster<>() {
@@ -59,18 +49,6 @@ public class TestClusterFactory implements ClusterFactory<Long> {
             @Override
             public void onStop() {
                 sendingStrategy.onStop(localId);
-            }
-
-            @Override
-            public boolean isQuorum(Set<Long> receivedVotes) {
-                return TestClusterFactory.this.isQuorum(receivedVotes);
-            }
-
-            @Override
-            public Set<Long> getOtherMemberIds() {
-                return TestClusterFactory.this.getMemberIds().stream()
-                        .filter(id -> !id.equals(localId))
-                        .collect(Collectors.toSet());
             }
 
             @Override

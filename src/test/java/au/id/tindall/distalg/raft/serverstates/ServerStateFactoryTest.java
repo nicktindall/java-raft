@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.serverstates;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
+import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
@@ -55,6 +56,8 @@ class ServerStateFactoryTest {
     private ReplicationManager<Long> replicationManager;
     @Mock
     private ClusterMembershipChangeManagerFactory<Long> clusterMembershipChangeManagerFactory;
+    @Mock
+    private Configuration<Long> configuration;
 
     @Mock
     private ClusterMembershipChangeManager<Long> clusterMembershipChangeManager;
@@ -62,7 +65,7 @@ class ServerStateFactoryTest {
     @BeforeEach
     void setUp() {
         serverStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory, clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory,
-                replicationManagerFactory, clusterMembershipChangeManagerFactory, false);
+                replicationManagerFactory, clusterMembershipChangeManagerFactory, false, configuration);
     }
 
     @Test
@@ -85,6 +88,6 @@ class ServerStateFactoryTest {
     @Test
     void willCreateCandidateState() {
         assertThat(serverStateFactory.createCandidate())
-                .usingRecursiveComparison().isEqualTo(new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler));
+                .usingRecursiveComparison().isEqualTo(new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration));
     }
 }

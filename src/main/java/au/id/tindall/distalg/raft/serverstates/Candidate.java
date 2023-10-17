@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.serverstates;
 
+import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
@@ -27,10 +28,12 @@ public class Candidate<I extends Serializable> extends ServerStateImpl<I> {
 
     private final Set<I> receivedVotes;
     private final ElectionScheduler electionScheduler;
+    private final Configuration<I> configuration;
 
-    public Candidate(PersistentState<I> persistentState, Log log, Cluster<I> cluster, ServerStateFactory<I> serverStateFactory, ElectionScheduler electionScheduler) {
+    public Candidate(PersistentState<I> persistentState, Log log, Cluster<I> cluster, ServerStateFactory<I> serverStateFactory, ElectionScheduler electionScheduler, Configuration<I> configuration) {
         super(persistentState, log, cluster, serverStateFactory, null);
         this.electionScheduler = electionScheduler;
+        this.configuration = configuration;
         receivedVotes = new HashSet<>();
     }
 
@@ -99,7 +102,7 @@ public class Candidate<I extends Serializable> extends ServerStateImpl<I> {
 
     public ServerState<I> recordVoteAndClaimLeadershipIfEligible(I voter) {
         this.receivedVotes.add(voter);
-        if (cluster.isQuorum(getReceivedVotes())) {
+        if (configuration.isQuorum(getReceivedVotes())) {
             return serverStateFactory.createLeader();
         } else {
             return this;

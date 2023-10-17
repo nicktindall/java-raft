@@ -8,17 +8,12 @@ import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 public interface Cluster<I extends Serializable> {
 
     void onStart();
 
     void onStop();
-
-    boolean isQuorum(Set<I> receivedVotes);
-
-    Set<I> getOtherMemberIds();
 
     void sendAppendEntriesRequest(Term currentTerm, I destinationId, int prevLogIndex, Optional<Term> prevLogTerm, List<LogEntry> entriesToReplicate, int commitIndex);
 

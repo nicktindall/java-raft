@@ -85,12 +85,12 @@ public class ServerFactory<I extends Serializable> {
         commandExecutor.startListeningForCommittedCommands(log);
         ElectionScheduler electionScheduler = electionSchedulerFactory.createElectionScheduler();
         Cluster<I> cluster = clusterFactory.createForNode(persistentState.getId());
-        LeadershipTransferFactory<I> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState);
+        final Configuration<I> configuration = new Configuration<>(persistentState.getId(), initialPeers, electionTimeout);
+        LeadershipTransferFactory<I> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState, configuration);
         LogReplicatorFactory<I> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize);
         SnapshotReplicatorFactory<I> snapshotReplicatorFactory = new SnapshotReplicatorFactory<>(persistentState, cluster);
         ReplicationStateFactory<I> replicationStateFactory = new ReplicationStateFactory<>(log);
         SingleClientReplicatorFactory<I> singleClientReplicatorFactory = new SingleClientReplicatorFactory<>(replicationSchedulerFactory, logReplicatorFactory, snapshotReplicatorFactory, replicationStateFactory);
-        final Configuration<I> configuration = new Configuration<>(persistentState.getId(), initialPeers, electionTimeout);
         log.addEntryAppendedEventHandler(configuration);
         persistentState.addSnapshotInstalledListener(configuration);
         persistentState.addSnapshotInstalledListener(log);
@@ -100,7 +100,7 @@ public class ServerFactory<I extends Serializable> {
         ClusterMembershipChangeManagerFactory<I> clusterMembershipChangeManagerFactory = new ClusterMembershipChangeManagerFactory<>(log,
                 persistentState, configuration);
         final ServerStateFactory<I> idServerStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
-                clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory, timing);
+                clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory, timing, configuration);
         Server<I> server = new ServerImpl<>(persistentState, idServerStateFactory, stateMachine, cluster, electionScheduler);
         server.initialize();
         return server;
