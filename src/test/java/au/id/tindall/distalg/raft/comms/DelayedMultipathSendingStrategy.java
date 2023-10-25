@@ -131,7 +131,8 @@ public class DelayedMultipathSendingStrategy implements SendingStrategy {
             if (ThreadLocalRandom.current().nextFloat() < percentDropped) {
                 // Drop it
             } else {
-                messageQueue.add(messageSlotPool.get(rpcMessage, ThreadLocalRandom.current().nextLong(minLatencyNanos, maxLatencyNanos)));
+                long latency = (minLatencyNanos == maxLatencyNanos) ? minLatencyNanos : ThreadLocalRandom.current().nextLong(minLatencyNanos, maxLatencyNanos);
+                messageQueue.add(messageSlotPool.get(rpcMessage, latency));
             }
         }
 
