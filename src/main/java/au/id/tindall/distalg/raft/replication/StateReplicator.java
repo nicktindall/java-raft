@@ -6,10 +6,11 @@ public interface StateReplicator {
         SUCCESS,
         SWITCH_TO_LOG_REPLICATION,
         SWITCH_TO_SNAPSHOT_REPLICATION,
-        COULD_NOT_REPLICATE
+        COULD_NOT_REPLICATE,
+        SKIPPED
     }
 
-    ReplicationResult sendNextReplicationMessage();
+    ReplicationResult sendNextReplicationMessage(boolean force);
 
     void logSuccessSnapshotResponse(int lastIndex, int lastOffset);
 }

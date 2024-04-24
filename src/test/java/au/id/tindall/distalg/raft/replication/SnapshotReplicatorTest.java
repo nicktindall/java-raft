@@ -17,11 +17,16 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SKIPPED;
 import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SUCCESS;
 import static au.id.tindall.distalg.raft.replication.StateReplicator.ReplicationResult.SWITCH_TO_LOG_REPLICATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -57,7 +62,7 @@ class SnapshotReplicatorTest {
         @Test
         void willDoNothingAndStayInCurrentStateWhenThereIsNoCurrentSnapshot() {
             when(persistentState.getCurrentSnapshot()).thenReturn(Optional.empty());
-            assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
+            assertThat(snapshotReplicator.sendNextReplicationMessage(false)).isEqualTo(SUCCESS);
             verifyNoInteractions(cluster);
         }
 
@@ -77,51 +82,65 @@ class SnapshotReplicatorTest {
 
             @Test
             void theFirstChunkIsSentOnInitialSend() {
-                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
+                assertThat(snapshotReplicator.sendNextReplicationMessage(false)).isEqualTo(SUCCESS);
                 verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                         null, 0, 0, Arrays.copyOf(snapshotBytes, SNAPSHOT_CHUNK_LENGTH), false);
             }
 
             @Test
             void theNextChunkIsSentAfterReceiptIsAcknowledged() {
-                snapshotReplicator.sendNextReplicationMessage();
+                snapshotReplicator.sendNextReplicationMessage(false);
                 reset(cluster);
                 snapshotReplicator.logSuccessSnapshotResponse(currentSnapshot.getLastIndex(), 350);
-                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
+                assertThat(snapshotReplicator.sendNextReplicationMessage(false)).isEqualTo(SUCCESS);
                 verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                         null, 0, 351, Arrays.copyOfRange(snapshotBytes, 351, SNAPSHOT_CHUNK_LENGTH + 351), false);
             }
 
             @Test
             void indicatesWhenTheLastChunkIsBeingSent() {
-                snapshotReplicator.sendNextReplicationMessage();
+                snapshotReplicator.sendNextReplicationMessage(false);
                 reset(cluster);
                 snapshotReplicator.logSuccessSnapshotResponse(currentSnapshot.getLastIndex(), 8192);
-                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
+                assertThat(snapshotReplicator.sendNextReplicationMessage(false)).isEqualTo(SUCCESS);
                 verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                         null, 0, 8193, Arrays.copyOfRange(snapshotBytes, 8193, snapshotBytes.length), true);
             }
 
             @Test
             void transitionsToLogReplicationAfterTheLastByteIsAcknowledged() {
-                snapshotReplicator.sendNextReplicationMessage();
+                snapshotReplicator.sendNextReplicationMessage(false);
                 reset(cluster);
                 snapshotReplicator.logSuccessSnapshotResponse(currentSnapshot.getLastIndex(), SNAPSHOT_LENGTH_BYTES);
-                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SWITCH_TO_LOG_REPLICATION);
+                assertThat(snapshotReplicator.sendNextReplicationMessage(false)).isEqualTo(SWITCH_TO_LOG_REPLICATION);
                 verifyNoInteractions(cluster);
             }
 
             @Test
             void beginsSendingNewSnapshotFromStartWhenSnapshotChanges() throws IOException {
-                snapshotReplicator.sendNextReplicationMessage();
+                snapshotReplicator.sendNextReplicationMessage(false);
                 verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                         null, 0, 0, Arrays.copyOf(snapshotBytes, SNAPSHOT_CHUNK_LENGTH), false);
                 snapshotReplicator.logSuccessSnapshotResponse(currentSnapshot.getLastIndex(), 4096);
                 currentSnapshot = createRandomSnapshot(NEW_LAST_INDEX); // create new snapshot
                 when(persistentState.getCurrentSnapshot()).thenReturn(Optional.of(currentSnapshot));
-                assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
+                assertThat(snapshotReplicator.sendNextReplicationMessage(false)).isEqualTo(SUCCESS);
                 verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                         null, 0, 0, Arrays.copyOf(snapshotBytes, SNAPSHOT_CHUNK_LENGTH), false);
+            }
+
+            @Test
+            void willNotReSendSameChunkTwiceWhenNotForced() {
+                assertThat(snapshotReplicator.sendNextReplicationMessage(false)).isEqualTo(SUCCESS);
+                assertThat(snapshotReplicator.sendNextReplicationMessage(false)).isEqualTo(SKIPPED);
+                verify(cluster).sendInstallSnapshotRequest(any(), any(), anyInt(), any(), any(), anyInt(), anyInt(), any(), anyBoolean());
+            }
+
+            @Test
+            void willReSendSameChunkTwiceWhenForced() {
+                assertThat(snapshotReplicator.sendNextReplicationMessage(true)).isEqualTo(SUCCESS);
+                assertThat(snapshotReplicator.sendNextReplicationMessage(true)).isEqualTo(SUCCESS);
+                verify(cluster, times(2)).sendInstallSnapshotRequest(any(), any(), anyInt(), any(), any(), anyInt(), anyInt(), any(), anyBoolean());
             }
         }
     }
@@ -140,11 +159,11 @@ class SnapshotReplicatorTest {
 
         @Test
         void ignoresResponsesForNonCurrentSnapshots() {
-            snapshotReplicator.sendNextReplicationMessage();
+            snapshotReplicator.sendNextReplicationMessage(false);
             reset(cluster);
             snapshotReplicator.logSuccessSnapshotResponse(LAST_INDEX, 350);
             snapshotReplicator.logSuccessSnapshotResponse(LAST_INDEX - 100, 3500); // this is ignored because lastIndex is not current
-            assertThat(snapshotReplicator.sendNextReplicationMessage()).isEqualTo(SUCCESS);
+            assertThat(snapshotReplicator.sendNextReplicationMessage(false)).isEqualTo(SUCCESS);
             verify(cluster).sendInstallSnapshotRequest(CURRENT_TERM, FOLLOWER_ID, currentSnapshot.getLastIndex(), currentSnapshot.getLastTerm(),
                     null, 0, 351, Arrays.copyOfRange(snapshotBytes, 351, SNAPSHOT_CHUNK_LENGTH + 351), false);
         }

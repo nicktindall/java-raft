@@ -19,19 +19,20 @@ public class SingleClientReplicator<I extends Serializable> {
         this.snapshotReplicatorFactory = snapshotReplicatorFactory;
         this.stateReplicator = logReplicatorFactory.createLogReplicator(replicationState);
         this.replicationState = replicationState;
-        replicationScheduler.setSendAppendEntriesRequest(this::sendNextReplicationMessage);
+        replicationScheduler.setSendAppendEntriesRequest(() -> this.sendNextReplicationMessage(true));
     }
 
-    private synchronized boolean sendNextReplicationMessage() {
-        final StateReplicator.ReplicationResult replicationResult = stateReplicator.sendNextReplicationMessage();
+    private synchronized boolean sendNextReplicationMessage(boolean force) {
+        final StateReplicator.ReplicationResult replicationResult = stateReplicator.sendNextReplicationMessage(force);
         switch (replicationResult) {
             case SWITCH_TO_LOG_REPLICATION:
                 stateReplicator = logReplicatorFactory.createLogReplicator(replicationState);
-                return sendNextReplicationMessage();
+                return sendNextReplicationMessage(force);
             case SWITCH_TO_SNAPSHOT_REPLICATION:
                 stateReplicator = snapshotReplicatorFactory.createSnapshotReplicator(replicationState);
-                return sendNextReplicationMessage();
+                return sendNextReplicationMessage(force);
             case COULD_NOT_REPLICATE:
+            case SKIPPED:
                 return false;
             case SUCCESS:
                 return true;
@@ -49,7 +50,7 @@ public class SingleClientReplicator<I extends Serializable> {
     }
 
     public void replicate() {
-        replicationScheduler.replicate();
+        sendNextReplicationMessage(false);
     }
 
     public void logSuccessResponse(int lastAppendedIndex) {

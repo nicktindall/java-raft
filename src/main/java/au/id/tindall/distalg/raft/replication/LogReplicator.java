@@ -23,6 +23,8 @@ public class LogReplicator<I extends Serializable> implements StateReplicator {
     private final Cluster<I> cluster;
     private final int maxBatchSize;
     private final ReplicationState<I> replicationState;
+    private int lastIndexSent = -1;
+    private int lastCommitIndexSent = -1;
 
     public LogReplicator(Log log, Term term, Cluster<I> cluster, int maxBatchSize, ReplicationState<I> replicationState) {
         this.log = log;
@@ -33,7 +35,7 @@ public class LogReplicator<I extends Serializable> implements StateReplicator {
     }
 
     @Override
-    public ReplicationResult sendNextReplicationMessage() {
+    public ReplicationResult sendNextReplicationMessage(boolean force) {
         if (log.tryReadLock()) {
             try {
                 int nextIndexToSend = replicationState.getNextIndex();    // This can change, take a copy
@@ -46,9 +48,16 @@ public class LogReplicator<I extends Serializable> implements StateReplicator {
                 try {
                     Optional<Term> prevLogTerm = getTermAtIndex(log, prevLogIndex);
                     List<LogEntry> entriesToReplicate = getEntriesToReplicate(log, nextIndexToSend);
+                    int lastIndexBeingSent = nextIndexToSend + entriesToReplicate.size() - 1;
+                    int commitIndex = log.getCommitIndex();
+                    if (!force && lastIndexBeingSent <= lastIndexSent && commitIndex == lastCommitIndexSent) {
+                        return ReplicationResult.SKIPPED;
+                    }
                     cluster.sendAppendEntriesRequest(term, replicationState.getFollowerId(),
                             prevLogIndex, prevLogTerm, entriesToReplicate,
                             log.getCommitIndex());
+                    this.lastIndexSent = lastIndexBeingSent;
+                    this.lastCommitIndexSent = commitIndex;
                     return ReplicationResult.SUCCESS;
                 } catch (IndexOutOfBoundsException e) {
                     LOGGER.debug("Concurrent truncation caused switch to snapshot replication. follower: {}, nextIndex: {}, matchIndex: {}, prevIndex: {}",

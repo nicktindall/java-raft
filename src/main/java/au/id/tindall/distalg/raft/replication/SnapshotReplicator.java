@@ -29,6 +29,7 @@ public class SnapshotReplicator<I extends Serializable> implements StateReplicat
     private int currentSnapshotLastIndex = -1;
     private Term currentSnapshotLastTerm = null;
     private int lastOffsetConfirmed = -1;
+    private int lastOffsetSent = -1;
 
     public SnapshotReplicator(Term term, Cluster<I> cluster, PersistentState<I> persistentState, ReplicationState<I> replicationState) {
         this.term = term;
@@ -38,9 +39,12 @@ public class SnapshotReplicator<I extends Serializable> implements StateReplicat
     }
 
     @Override
-    public ReplicationResult sendNextReplicationMessage() {
+    public ReplicationResult sendNextReplicationMessage(boolean force) {
         final Optional<Snapshot> currentSnapshot = persistentState.getCurrentSnapshot();
         final AtomicReference<ReplicationResult> returnValue = new AtomicReference<>(ReplicationResult.SUCCESS);
+        if (!force && lastOffsetSent > lastOffsetConfirmed) {
+            return ReplicationResult.SKIPPED;
+        }
         currentSnapshot.ifPresentOrElse(snapshot -> {
             if (sendingANewSnapshot(snapshot)) {
                 resetSendingState(snapshot);
@@ -58,6 +62,7 @@ public class SnapshotReplicator<I extends Serializable> implements StateReplicat
                 }
                 cluster.sendInstallSnapshotRequest(term, replicationState.getFollowerId(), snapshot.getLastIndex(), snapshot.getLastTerm(),
                         snapshot.getLastConfig(), snapshot.getSnapshotOffset(), nextOffset, Arrays.copyOf(buffer.array(), bytesRead), buffer.hasRemaining());
+                lastOffsetSent = nextOffset;
             } catch (RuntimeException e) {
                 LOGGER.warn("Error sending snapshot chunk", e);
             }
