@@ -3,7 +3,7 @@ import org.apache.tools.ant.util.TeeOutputStream
 plugins {
     id 'java'
     id 'jacoco'
-    id 'org.sonarqube' version '4.4.0.3356'
+    id 'org.sonarqube' version '5.0.0.4638'
 }
 
 sonar {
