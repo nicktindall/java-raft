@@ -56,12 +56,13 @@ public abstract class ServerStateImpl<I extends Serializable> implements ServerS
         this.currentLeader = currentLeader;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> message) {
+    public <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<I, R> message) {
         if (message instanceof RegisterClientRequest) {
-            return handle((RegisterClientRequest<I>) message);
+            return (CompletableFuture<R>) handle((RegisterClientRequest<I>) message);
         } else if (message instanceof ClientRequestRequest) {
-            return handle(((ClientRequestRequest<I>) message));
+            return (CompletableFuture<R>) handle(((ClientRequestRequest<I>) message));
         } else {
             throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         }

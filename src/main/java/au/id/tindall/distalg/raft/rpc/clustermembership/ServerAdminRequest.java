@@ -1,4 +1,5 @@
 package au.id.tindall.distalg.raft.rpc.clustermembership;
 
-public interface ServerAdminRequest {
+@SuppressWarnings("unused")
+public interface ServerAdminRequest<R extends ServerAdminResponse> {
 }

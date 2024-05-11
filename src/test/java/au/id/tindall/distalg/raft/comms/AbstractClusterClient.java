@@ -27,7 +27,7 @@ public abstract class AbstractClusterClient {
         this.serverConnections = new HashMap<>();
     }
 
-    protected CompletableFuture<ServerAdminResponse> sendServerAdminRequest(Function<Long, ServerAdminRequest> request) {
+    protected <R extends ServerAdminResponse> CompletableFuture<R> sendServerAdminRequest(Function<Long, ServerAdminRequest<R>> request) {
         int retries = 0;
         while (retries < MAX_RETRIES) {
             Server<Long> leader = findLeader();
@@ -42,7 +42,7 @@ public abstract class AbstractClusterClient {
         throw new IllegalStateException("Maximum retries exceeded, failing sending...");
     }
 
-    protected CompletableFuture<ClientResponseMessage> sendClientRequest(Function<Long, ClientRequestMessage<Long>> request) {
+    protected <R extends ClientResponseMessage> CompletableFuture<R> sendClientRequest(Function<Long, ClientRequestMessage<Long, R>> request) {
         int retries = 0;
         while (retries < MAX_RETRIES) {
             Server<Long> leader = findLeader();

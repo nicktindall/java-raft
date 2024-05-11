@@ -12,7 +12,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface ServerState<I extends Serializable> {
 
-    CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> message);
+    <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<I, R> message);
 
     Result<I> handle(RpcMessage<I> message);
 
@@ -24,7 +24,7 @@ public interface ServerState<I extends Serializable> {
 
     void leaveState();
 
-    CompletableFuture<? extends ServerAdminResponse> handle(ServerAdminRequest message);
+    <R extends ServerAdminResponse> CompletableFuture<R> handle(ServerAdminRequest<R> message);
 
     void requestVotes();
 }

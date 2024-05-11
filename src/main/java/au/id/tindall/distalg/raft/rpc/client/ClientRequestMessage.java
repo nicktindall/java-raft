@@ -2,7 +2,8 @@ package au.id.tindall.distalg.raft.rpc.client;
 
 import java.io.Serializable;
 
-public abstract class ClientRequestMessage<I extends Serializable> {
+@SuppressWarnings("unused")
+public abstract class ClientRequestMessage<I extends Serializable, R extends ClientResponseMessage> {
 
     private final I destinationId;
 

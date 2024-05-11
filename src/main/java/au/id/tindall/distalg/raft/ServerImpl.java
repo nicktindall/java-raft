@@ -103,13 +103,13 @@ public class ServerImpl<I extends Serializable> implements Server<I>, Closeable 
     }
 
     @Override
-    public CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> clientRequestMessage) {
+    public <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<I, R> clientRequestMessage) {
         assertThatNodeIsRunning();
         return state.handle(clientRequestMessage);
     }
 
     @Override
-    public CompletableFuture<? extends ServerAdminResponse> handle(ServerAdminRequest serverAdminRequest) {
+    public <R extends ServerAdminResponse> CompletableFuture<R> handle(ServerAdminRequest<R> serverAdminRequest) {
         assertThatNodeIsRunning();
         if (serverAdminRequest instanceof TransferLeadershipRequest) {
             transferLeadership();

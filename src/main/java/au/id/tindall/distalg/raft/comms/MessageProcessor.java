@@ -11,9 +11,9 @@ import java.util.concurrent.CompletableFuture;
 
 public interface MessageProcessor<I extends Serializable> {
 
-    CompletableFuture<? extends ClientResponseMessage> handle(ClientRequestMessage<I> clientRequestMessage);
+    <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<I, R> clientRequestMessage);
 
-    CompletableFuture<? extends ServerAdminResponse> handle(ServerAdminRequest serverAdminRequest);
+    <R extends ServerAdminResponse> CompletableFuture<R> handle(ServerAdminRequest<R> serverAdminRequest);
 
     void handle(RpcMessage<I> message);
 }

@@ -14,8 +14,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class ClientConnection<I extends Serializable> implements Closeable {
 
-    private final Queue<SARHolder> clusterMembershipRequests;
-    private final Queue<CRHolder<I>> clientRequests;
+    private final Queue<SARHolder<?>> clusterMembershipRequests;
+    private final Queue<CRHolder<I, ?>> clientRequests;
     private final Object closingMutex = new Object();
     private boolean closed = false;
 
@@ -24,23 +24,23 @@ public class ClientConnection<I extends Serializable> implements Closeable {
         clusterMembershipRequests = new ConcurrentLinkedQueue<>();
     }
 
-    public CompletableFuture<ClientResponseMessage> send(ClientRequestMessage<I> clientRequestMessage) {
+    public <R extends ClientResponseMessage> CompletableFuture<R> send(ClientRequestMessage<I, R> clientRequestMessage) {
         synchronized (closingMutex) {
             if (closed) {
                 throw new ConnectionClosedException();
             }
-            CRHolder<I> holder = new CRHolder<>(clientRequestMessage);
+            CRHolder<I, R> holder = new CRHolder<>(clientRequestMessage);
             clientRequests.offer(holder);
             return holder.response;
         }
     }
 
-    public CompletableFuture<ServerAdminResponse> send(ServerAdminRequest serverAdminRequest) {
+    public <R extends ServerAdminResponse> CompletableFuture<R> send(ServerAdminRequest<R> serverAdminRequest) {
         synchronized (closingMutex) {
             if (closed) {
                 throw new ConnectionClosedException();
             }
-            final SARHolder e = new SARHolder(serverAdminRequest);
+            final SARHolder<R> e = new SARHolder<>(serverAdminRequest);
             clusterMembershipRequests.offer(e);
             return e.response;
         }
@@ -50,15 +50,16 @@ public class ClientConnection<I extends Serializable> implements Closeable {
         return closed;
     }
 
-    public boolean processAMessage(MessageProcessor<I> messageProcessor) {
-        final SARHolder sarHolder = clusterMembershipRequests.poll();
+    @SuppressWarnings("unchecked")
+    public <S extends ServerAdminResponse, C extends ClientResponseMessage> boolean processAMessage(MessageProcessor<I> messageProcessor) {
+        final SARHolder<S> sarHolder = (SARHolder<S>) clusterMembershipRequests.poll();
         if (sarHolder != null) {
             messageProcessor.handle(sarHolder.serverAdminRequest)
                     .thenAccept(sarHolder.response::complete);
             return true;
         }
 
-        final CRHolder<I> crHolder = clientRequests.poll();
+        final CRHolder<I, C> crHolder = (CRHolder<I, C>) clientRequests.poll();
         if (crHolder != null) {
             messageProcessor.handle(crHolder.request)
                     .thenAccept(crHolder.response::complete);
@@ -80,22 +81,22 @@ public class ClientConnection<I extends Serializable> implements Closeable {
         }
     }
 
-    private static class CRHolder<I extends Serializable> {
-        private final ClientRequestMessage<I> request;
-        private final CompletableFuture<ClientResponseMessage> response;
+    private static class CRHolder<I extends Serializable, R extends ClientResponseMessage> {
+        private final ClientRequestMessage<I, R> request;
+        private final CompletableFuture<R> response;
 
-        private CRHolder(ClientRequestMessage<I> clusterMembershipRequest) {
+        private CRHolder(ClientRequestMessage<I, R> clusterMembershipRequest) {
             this.request = clusterMembershipRequest;
             this.response = new CompletableFuture<>();
         }
     }
 
-    private static class SARHolder {
+    private static class SARHolder<R extends ServerAdminResponse> {
 
-        private final ServerAdminRequest serverAdminRequest;
-        private final CompletableFuture<ServerAdminResponse> response;
+        private final ServerAdminRequest<R> serverAdminRequest;
+        private final CompletableFuture<R> response;
 
-        private SARHolder(ServerAdminRequest serverAdminRequest) {
+        private SARHolder(ServerAdminRequest<R> serverAdminRequest) {
             this.serverAdminRequest = serverAdminRequest;
             this.response = new CompletableFuture<>();
         }

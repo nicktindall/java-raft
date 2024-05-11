@@ -17,11 +17,11 @@ public class ClusterAdminClient extends AbstractClusterClient {
     }
 
     public AddServerResponse addNewServer(long newServerId) throws ExecutionException, InterruptedException {
-        return ((AddServerResponse) sendServerAdminRequest(id -> new AddServerRequest<>(newServerId)).get());
+        return sendServerAdminRequest(id -> new AddServerRequest<>(newServerId)).get();
     }
 
     public RemoveServerResponse removeServer(long newServerId) throws ExecutionException, InterruptedException {
-        return ((RemoveServerResponse) sendServerAdminRequest(id -> new RemoveServerRequest<>(newServerId)).get());
+        return sendServerAdminRequest(id -> new RemoveServerRequest<>(newServerId)).get();
     }
 
     public void transferLeadership() throws ExecutionException, InterruptedException {
