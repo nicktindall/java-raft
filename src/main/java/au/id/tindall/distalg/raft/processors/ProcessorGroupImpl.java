@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.IntStream;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
@@ -30,36 +31,66 @@ class ProcessorGroupImpl<G extends Enum<G>> implements ProcessorGroup<G> {
     public Processor.ProcessResult runSingleIteration() {
         addAllNewProcessors();
         Processor.ProcessResult iterationResult = Processor.ProcessResult.IDLE;
-        for (int i = 0; i < processors.size(); i++) {
-            try {
-                final Processor<G> processor = processors.get(i);
-                final Processor.ProcessResult result = processor.process();
-                if (result == Processor.ProcessResult.FINISHED) {
-                    LOGGER.debug("{} processor completed", processor.getName());
-                    processors.remove(i).afterLast();
-                    i--;
-                } else if (result == Processor.ProcessResult.BUSY) {
-                    iterationResult = result;
-                }
-            } catch (RuntimeException e) {
-                LOGGER.error("Error running processor", e);
+        int index = 0;
+        while (index < processors.size()) {
+            Processor.ProcessResult processResult = runSingleProcessor(index);
+            switch (processResult) {
+                case FINISHED:
+                    safelyRemoveProcessor(index);
+                    break;
+                case BUSY:
+                    iterationResult = Processor.ProcessResult.BUSY;
+                    // fall through
+                case IDLE:
+                    index++;
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected result: " + processResult);
             }
         }
         return iterationResult;
     }
 
+    private Processor.ProcessResult runSingleProcessor(int index) {
+        try {
+            final Processor<G> processor = processors.get(index);
+            final Processor.ProcessResult result = processor.process();
+            if (result == Processor.ProcessResult.FINISHED) {
+                LOGGER.debug("{} processor completed", processor.getName());
+            }
+            return result;
+        } catch (RuntimeException e) {
+            LOGGER.error("Error running processor: {}", processors.get(index).getName(), e);
+            return Processor.ProcessResult.FINISHED;
+        }
+    }
+
+    private void safelyRemoveProcessor(int index) {
+        Processor<G> removed = processors.remove(index);
+        try {
+            removed.afterLast();
+        } catch (RuntimeException e) {
+            LOGGER.error("Error removing processor: {}", removed.getName(), e);
+        }
+    }
+
     @Override
     public void finalise() {
-        processors.forEach(Processor::afterLast);
-        processors.clear();
+        IntStream.range(0, processors.size())
+                .forEach(i -> safelyRemoveProcessor(0));
+        assert processors.isEmpty() : "Processors should be empty";
     }
 
     private void addAllNewProcessors() {
         while (true) {
             Processor<G> newProcessor = newProcessors.poll();
             if (newProcessor != null) {
-                processors.add(newProcessor);
-                newProcessor.beforeFirst();
+                try {
+                    newProcessor.beforeFirst();
+                    processors.add(newProcessor);
+                } catch (RuntimeException e) {
+                    LOGGER.error("Error adding new processor: {}", newProcessor.getName(), e);
+                }
             } else {
                 return;
             }
