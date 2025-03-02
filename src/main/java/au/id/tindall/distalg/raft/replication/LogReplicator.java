@@ -7,14 +7,13 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
 import static java.util.Collections.emptyList;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class LogReplicator<I extends Serializable> implements StateReplicator {
+public class LogReplicator<I> implements StateReplicator {
 
     private static final Logger LOGGER = getLogger();
 

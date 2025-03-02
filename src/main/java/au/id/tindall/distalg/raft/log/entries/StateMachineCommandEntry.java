@@ -1,10 +1,15 @@
 package au.id.tindall.distalg.raft.log.entries;
 
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.serialisation.MessageIdentifier;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
 import java.util.Arrays;
 
 public class StateMachineCommandEntry extends LogEntry {
+
+    private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("StateMachineCommandEntry", StateMachineCommandEntry.class);
 
     private final int clientId;
     private final int lastResponseReceived;
@@ -17,6 +22,14 @@ public class StateMachineCommandEntry extends LogEntry {
         this.lastResponseReceived = lastResponseReceived;
         this.clientSequenceNumber = clientSequenceNumber;
         this.command = Arrays.copyOf(command, command.length);
+    }
+
+    public StateMachineCommandEntry(StreamingInput streamingInput) {
+        super(streamingInput);
+        this.clientId = streamingInput.readInteger();
+        this.lastResponseReceived = streamingInput.readInteger();
+        this.clientSequenceNumber = streamingInput.readInteger();
+        this.command = streamingInput.readBytes();
     }
 
     public int getClientId() {
@@ -33,6 +46,20 @@ public class StateMachineCommandEntry extends LogEntry {
 
     public byte[] getCommand() {
         return Arrays.copyOf(command, command.length);
+    }
+
+    @Override
+    public MessageIdentifier getMessageIdentifier() {
+        return MESSAGE_IDENTIFIER;
+    }
+
+    @Override
+    public void writeTo(StreamingOutput streamingOutput) {
+        super.writeTo(streamingOutput);
+        streamingOutput.writeInteger(clientId);
+        streamingOutput.writeInteger(lastResponseReceived);
+        streamingOutput.writeInteger(clientSequenceNumber);
+        streamingOutput.writeBytes(command);
     }
 
     @Override

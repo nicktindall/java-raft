@@ -1,7 +1,5 @@
 package au.id.tindall.distalg.raft.processors;
 
-import java.io.Serializable;
-
 public interface ProcessorGroup<G extends Enum<G>> {
 
     Processor.ProcessResult runSingleIteration();
@@ -10,7 +8,7 @@ public interface ProcessorGroup<G extends Enum<G>> {
 
     void add(Processor<G> processor);
 
-    Serializable getServerID();
+    Object getServerID();
 
     G getGroup();
 }

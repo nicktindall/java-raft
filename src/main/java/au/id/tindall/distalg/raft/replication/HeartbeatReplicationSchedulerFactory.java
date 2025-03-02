@@ -1,8 +1,6 @@
 package au.id.tindall.distalg.raft.replication;
 
-import java.io.Serializable;
-
-public class HeartbeatReplicationSchedulerFactory<I extends Serializable> implements ReplicationSchedulerFactory<I> {
+public class HeartbeatReplicationSchedulerFactory<I> implements ReplicationSchedulerFactory<I> {
 
     private final long maxDelayBetweenMessagesInMilliseconds;
 

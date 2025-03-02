@@ -1,10 +1,11 @@
 package au.id.tindall.distalg.raft.rpc.server;
 
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.serialisation.Streamable;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
-import java.io.Serializable;
-
-public abstract class RpcMessage<I extends Serializable> implements Serializable {
+public abstract class RpcMessage<I> implements Streamable {
 
     private final Term term;
     private final I source;
@@ -14,12 +15,22 @@ public abstract class RpcMessage<I extends Serializable> implements Serializable
         this.source = source;
     }
 
+    protected RpcMessage(StreamingInput streamingInput) {
+        this(streamingInput.readStreamable(), streamingInput.readIdentifier());
+    }
+
     public Term getTerm() {
         return term;
     }
 
     public I getSource() {
         return source;
+    }
+
+    @Override
+    public void writeTo(StreamingOutput streamingOutput) {
+        streamingOutput.writeStreamable(term);
+        streamingOutput.writeIdentifier(source);
     }
 
     @Override

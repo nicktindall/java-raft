@@ -6,7 +6,6 @@ import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
@@ -16,7 +15,7 @@ import static java.util.Collections.emptySet;
 import static java.util.Collections.singleton;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class LeadershipTransfer<I extends Serializable> {
+public class LeadershipTransfer<I> {
     private static final Logger LOGGER = getLogger();
 
     private static final Duration MINIMUM_INTERVAL_BETWEEN_TIMEOUT_NOW_MESSAGES = Duration.ofMillis(100);

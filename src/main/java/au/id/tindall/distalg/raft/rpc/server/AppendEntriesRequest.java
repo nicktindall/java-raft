@@ -2,14 +2,19 @@ package au.id.tindall.distalg.raft.rpc.server;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.serialisation.MessageIdentifier;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
-import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static java.util.List.copyOf;
 
-public class AppendEntriesRequest<I extends Serializable> extends RpcMessage<I> {
+public class AppendEntriesRequest<I> extends RpcMessage<I> {
+
+    private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("AppendEntriesRequest", AppendEntriesRequest.class);
 
     private final I leaderId;
     private final int prevLogIndex;
@@ -24,6 +29,16 @@ public class AppendEntriesRequest<I extends Serializable> extends RpcMessage<I> 
         this.prevLogTerm = prevLogTerm.orElse(null);
         this.entries = copyOf(entries);
         this.leaderCommit = leaderCommit;
+    }
+
+    @SuppressWarnings("unused")
+    public AppendEntriesRequest(StreamingInput streamingInput) {
+        super(streamingInput);
+        this.leaderId = streamingInput.readIdentifier();
+        this.prevLogIndex = streamingInput.readInteger();
+        this.prevLogTerm = streamingInput.readNullable(StreamingInput::readStreamable);
+        this.entries = streamingInput.readList(ArrayList::new, StreamingInput::readStreamable);
+        this.leaderCommit = streamingInput.readInteger();
     }
 
     public I getLeaderId() {
@@ -44,6 +59,21 @@ public class AppendEntriesRequest<I extends Serializable> extends RpcMessage<I> 
 
     public int getLeaderCommit() {
         return leaderCommit;
+    }
+
+    @Override
+    public MessageIdentifier getMessageIdentifier() {
+        return MESSAGE_IDENTIFIER;
+    }
+
+    @Override
+    public void writeTo(StreamingOutput streamingOutput) {
+        super.writeTo(streamingOutput);
+        streamingOutput.writeIdentifier(leaderId);
+        streamingOutput.writeInteger(prevLogIndex);
+        streamingOutput.writeNullable(prevLogTerm, StreamingOutput::writeStreamable);
+        streamingOutput.writeList(entries, StreamingOutput::writeStreamable);
+        streamingOutput.writeInteger(leaderCommit);
     }
 
     @Override

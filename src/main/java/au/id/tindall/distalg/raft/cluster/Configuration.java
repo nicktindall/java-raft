@@ -7,7 +7,6 @@ import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.state.SnapshotInstalledListener;
 
-import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashSet;
@@ -16,7 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class Configuration<I extends Serializable> implements EntryAppendedEventHandler, SnapshotInstalledListener {
+public class Configuration<I> implements EntryAppendedEventHandler, SnapshotInstalledListener {
 
     private final I localId;
     private final Set<I> servers;

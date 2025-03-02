@@ -2,9 +2,12 @@ package au.id.tindall.distalg.raft.log.storage;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
+import au.id.tindall.distalg.raft.serialisation.ByteBufferIO;
+import au.id.tindall.distalg.raft.serialisation.IDSerializer;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.util.IOUtil;
-import au.id.tindall.distalg.raft.util.SerializationUtil;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Closeable;
@@ -18,7 +21,6 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import static au.id.tindall.distalg.raft.util.SerializationUtil.serializeObject;
 import static org.apache.logging.log4j.status.StatusLogger.getLogger;
 
 public class PersistentSnapshot implements Snapshot, Closeable {
@@ -28,8 +30,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     private static final int LAST_INDEX_OFFSET = HEADER.length();
     private static final int LAST_TERM_OFFSET = LAST_INDEX_OFFSET + 4;
     private static final int STATE_ORDINAL_OFFSET = LAST_TERM_OFFSET + 4;
-    private static final int CONFIG_LENGTH_OFFSET = STATE_ORDINAL_OFFSET + 4;
-    private static final int CONTENTS_START_OFFSET = CONFIG_LENGTH_OFFSET + 4;
+    private static final int CONTENTS_START_OFFSET = STATE_ORDINAL_OFFSET + 4;
     private static final int CONTENTS_LENGTH_OFFSET = CONTENTS_START_OFFSET + 4;
     private static final int DIGEST_OFFSET = CONTENTS_LENGTH_OFFSET + 8;
     private static final int SNAPSHOT_OFFSET_OFFSET = DIGEST_OFFSET + 16;
@@ -178,16 +179,14 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     }
 
     @SuppressWarnings("java:S2095")
-    public static PersistentSnapshot create(Path path, int lastIndex, Term lastTerm, ConfigurationEntry configurationEntry) throws IOException {
-        byte[] configEntry = serializeObject(configurationEntry);
+    public static PersistentSnapshot create(IDSerializer idSerializer, Path path, int lastIndex, Term lastTerm, ConfigurationEntry configurationEntry) throws IOException {
         ByteBuffer byteBuffer = ByteBuffer.allocate(HEADER_BUFFER_LENGTH);
         byteBuffer.put(ByteBuffer.wrap(HEADER.getBytes(StandardCharsets.UTF_8)));
         byteBuffer.putInt(LAST_INDEX_OFFSET, lastIndex);
         byteBuffer.putInt(LAST_TERM_OFFSET, lastTerm.getNumber());
         byteBuffer.put(STATE_ORDINAL_OFFSET, (byte) PersistentSnapshot.State.INITIALISED.ordinal());
-        byteBuffer.putInt(CONFIG_LENGTH_OFFSET, configEntry.length); // Length
         byteBuffer.position(CONFIG_OFFSET);
-        byteBuffer.put(configEntry);
+        writeConfigurationEntry(idSerializer, byteBuffer, configurationEntry);
         final int contentsStartIndex = byteBuffer.position();
         byteBuffer.putInt(CONTENTS_START_OFFSET, contentsStartIndex);
         FileChannel fileChannel = FileChannel.open(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, StandardOpenOption.READ);
@@ -197,7 +196,7 @@ public class PersistentSnapshot implements Snapshot, Closeable {
     }
 
     @SuppressWarnings("java:S2095")
-    public static PersistentSnapshot load(Path path) throws IOException {
+    public static PersistentSnapshot load(IDSerializer idSerializer, Path path) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(HEADER_BUFFER_LENGTH);
         FileChannel fileChannel = FileChannel.open(path, StandardOpenOption.READ);
         fileChannel.read(buffer);
@@ -209,15 +208,21 @@ public class PersistentSnapshot implements Snapshot, Closeable {
         buffer.limit(HEADER_BUFFER_LENGTH);
         int lastIndex = buffer.getInt(LAST_INDEX_OFFSET);
         Term lastTerm = new Term(buffer.getInt(LAST_TERM_OFFSET));
-        int configLength = buffer.getInt(CONFIG_LENGTH_OFFSET);
         long contentsLength = buffer.getLong(CONTENTS_LENGTH_OFFSET);
-        ConfigurationEntry entry;
-        byte[] configBytesArray = new byte[configLength];
-        buffer.position(CONFIG_OFFSET);
-        buffer.get(configBytesArray);
-        entry = SerializationUtil.deserializeObject(configBytesArray);
+        ConfigurationEntry entry = readConfigurationEntry(idSerializer, buffer);
         final PersistentSnapshot persistentSnapshot = new PersistentSnapshot(path, fileChannel, lastIndex, lastTerm, entry, buffer.getInt(CONTENTS_START_OFFSET), contentsLength);
         persistentSnapshot.snapshotOffset = buffer.getInt(SNAPSHOT_OFFSET_OFFSET);
         return persistentSnapshot;
+    }
+
+    private static void writeConfigurationEntry(IDSerializer idSerializer, ByteBuffer buffer, ConfigurationEntry entry) {
+        final ByteBufferIO byteBufferIO = ByteBufferIO.wrap(idSerializer, buffer);
+        byteBufferIO.writeNullable(entry, StreamingOutput::writeStreamable);
+    }
+
+    private static ConfigurationEntry readConfigurationEntry(IDSerializer idSerializer, ByteBuffer buffer) {
+        final ByteBufferIO byteBufferIO = ByteBufferIO.wrap(idSerializer, buffer);
+        byteBufferIO.setReadPosition(CONFIG_OFFSET);
+        return byteBufferIO.readNullable(StreamingInput::readStreamable);
     }
 }

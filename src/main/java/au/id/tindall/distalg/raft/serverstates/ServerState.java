@@ -5,10 +5,9 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 
-import java.io.Serializable;
 import java.util.concurrent.CompletableFuture;
 
-public interface ServerState<I extends Serializable> {
+public interface ServerState<I> {
 
     <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<R> message);
 

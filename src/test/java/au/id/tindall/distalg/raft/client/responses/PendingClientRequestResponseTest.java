@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.Serializable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -16,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(MockitoExtension.class)
 class PendingClientRequestResponseTest {
 
-    private PendingClientRequestResponse<Serializable> response;
+    private PendingClientRequestResponse<Object> response;
 
     @BeforeEach
     void setUp() {
@@ -25,7 +24,7 @@ class PendingClientRequestResponseTest {
 
     @Test
     void shouldReturnFuture() {
-        CompletableFuture<ClientRequestResponse<Serializable>> responseFuture = response.getResponseFuture();
+        CompletableFuture<ClientRequestResponse<Object>> responseFuture = response.getResponseFuture();
         assertThat(responseFuture)
                 .isNotNull()
                 .isNotCompleted();

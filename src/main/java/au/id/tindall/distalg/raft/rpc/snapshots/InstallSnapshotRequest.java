@@ -3,10 +3,13 @@ package au.id.tindall.distalg.raft.rpc.snapshots;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.serialisation.MessageIdentifier;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
-import java.io.Serializable;
+public class InstallSnapshotRequest<I> extends RpcMessage<I> {
 
-public class InstallSnapshotRequest<I extends Serializable> extends RpcMessage<I> {
+    private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("InstallSnapshotRequest", InstallSnapshotRequest.class);
 
     private final I leaderId;
     private final int lastIndex;
@@ -29,6 +32,19 @@ public class InstallSnapshotRequest<I extends Serializable> extends RpcMessage<I
         this.offset = offset;
         this.data = data;
         this.done = done;
+    }
+
+    @SuppressWarnings("unused")
+    public InstallSnapshotRequest(StreamingInput streamingInput) {
+        super(streamingInput);
+        this.leaderId = streamingInput.readIdentifier();
+        this.lastIndex = streamingInput.readInteger();
+        this.lastTerm = streamingInput.readStreamable();
+        this.lastConfig = streamingInput.readStreamable();
+        this.offset = streamingInput.readInteger();
+        this.snapshotOffset = streamingInput.readInteger();
+        this.data = streamingInput.readBytes();
+        this.done = streamingInput.readBoolean();
     }
 
     public I getLeaderId() {
@@ -61,6 +77,24 @@ public class InstallSnapshotRequest<I extends Serializable> extends RpcMessage<I
 
     public boolean isDone() {
         return done;
+    }
+
+    @Override
+    public MessageIdentifier getMessageIdentifier() {
+        return MESSAGE_IDENTIFIER;
+    }
+
+    @Override
+    public void writeTo(StreamingOutput streamingOutput) {
+        super.writeTo(streamingOutput);
+        streamingOutput.writeIdentifier(leaderId);
+        streamingOutput.writeInteger(lastIndex);
+        streamingOutput.writeStreamable(lastTerm);
+        streamingOutput.writeStreamable(lastConfig);
+        streamingOutput.writeIdentifier(offset);
+        streamingOutput.writeInteger(snapshotOffset);
+        streamingOutput.writeBytes(data);
+        streamingOutput.writeBoolean(done);
     }
 
     @Override

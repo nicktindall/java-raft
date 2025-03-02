@@ -3,9 +3,7 @@ package au.id.tindall.distalg.raft.replication;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
-import java.io.Serializable;
-
-public class SnapshotReplicatorFactory<I extends Serializable> {
+public class SnapshotReplicatorFactory<I> {
 
     private final PersistentState<I> persistentState;
     private final Cluster<I> cluster;

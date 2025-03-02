@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.log.storage;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.serialisation.IntegerIDSerializer;
 import au.id.tindall.distalg.raft.state.InMemorySnapshot;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -19,13 +20,13 @@ class PersistentLogStorageTest extends AbstractLogStorageTest<PersistentLogStora
     @Override
     protected PersistentLogStorage createLogStorage() throws IOException {
         tempFile = File.createTempFile("logFileTest", "append");
-        return new PersistentLogStorage(tempFile.toPath(), 0);
+        return new PersistentLogStorage(IntegerIDSerializer.INSTANCE, tempFile.toPath(), 0);
     }
 
     @Override
     protected PersistentLogStorage createLogStorageWithTruncationBuffer(int truncationBuffer) throws IOException {
         tempFile = File.createTempFile("logFileTest", "append");
-        return new PersistentLogStorage(tempFile.toPath(), truncationBuffer);
+        return new PersistentLogStorage(IntegerIDSerializer.INSTANCE, tempFile.toPath(), truncationBuffer);
     }
 
     @Test
@@ -57,7 +58,7 @@ class PersistentLogStorageTest extends AbstractLogStorageTest<PersistentLogStora
         assertThat(storage.getPrevIndex()).isEqualTo(35);
         assertThat(storage.getLastLogIndex()).isEqualTo(100);
 
-        storage = new PersistentLogStorage(tempFile.toPath());
+        storage = new PersistentLogStorage(IntegerIDSerializer.INSTANCE, tempFile.toPath());
         assertThat(storage.getPrevIndex()).isEqualTo(35);
         assertThat(storage.getLastLogIndex()).isEqualTo(100);
     }

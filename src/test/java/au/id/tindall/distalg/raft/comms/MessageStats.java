@@ -2,13 +2,11 @@ package au.id.tindall.distalg.raft.comms;
 
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.serialisation.ByteBufferIO;
+import au.id.tindall.distalg.raft.serialisation.LongIDSerializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -22,6 +20,7 @@ public class MessageStats {
     private static final Logger LOGGER = LogManager.getLogger();
 
     private final Map<String, Integer> messageCounts = new ConcurrentSkipListMap<>();
+    private final ThreadLocal<ByteBufferIO> bbioTL = ThreadLocal.withInitial(() -> ByteBufferIO.elastic(LongIDSerializer.INSTANCE));
     private long totalMessageBytes = 0;
     private long managementOverheadMessageBytes = 0;
 
@@ -49,15 +48,10 @@ public class MessageStats {
     }
 
     private long messageSizeInBytes(RpcMessage<Long> rpcMessage) {
-        try {
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
-            int initialSize = byteArrayOutputStream.size();
-            objectOutputStream.writeObject(rpcMessage);
-            return byteArrayOutputStream.size() - initialSize;
-        } catch (IOException ex) {
-            throw new UncheckedIOException("Couldn't get message size", ex);
-        }
+        final ByteBufferIO byteBufferIO = bbioTL.get();
+        byteBufferIO.setWritePosition(0);
+        byteBufferIO.writeStreamable(rpcMessage);
+        return byteBufferIO.getWritePosition();
     }
 
     /**

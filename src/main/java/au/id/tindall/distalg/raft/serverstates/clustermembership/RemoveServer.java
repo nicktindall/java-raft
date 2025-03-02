@@ -6,11 +6,10 @@ import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
-import java.io.Serializable;
 import java.time.Instant;
 import java.util.function.Supplier;
 
-public class RemoveServer<I extends Serializable> extends MembershipChange<I, RemoveServerResponse> {
+public class RemoveServer<I> extends MembershipChange<I, RemoveServerResponse> {
 
     RemoveServer(Log log, Configuration<I> configuration, PersistentState<I> persistentState, ReplicationManager<I> replicationManager, I serverId, Supplier<Instant> timeSource) {
         super(log, configuration, persistentState, replicationManager, serverId, timeSource);

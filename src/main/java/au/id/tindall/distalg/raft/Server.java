@@ -9,10 +9,9 @@ import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 
 import java.io.Closeable;
-import java.io.Serializable;
 import java.util.Optional;
 
-public interface Server<I extends Serializable> extends MessageProcessor<I>, Closeable {
+public interface Server<I> extends MessageProcessor<I>, Closeable {
 
     boolean timeoutNowIfDue();
 

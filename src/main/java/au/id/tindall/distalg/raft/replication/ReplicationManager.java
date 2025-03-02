@@ -8,7 +8,6 @@ import au.id.tindall.distalg.raft.processors.ReplicationProcessor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +17,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
-public class ReplicationManager<I extends Serializable> implements MatchIndexAdvancedListener<I> {
+public class ReplicationManager<I> implements MatchIndexAdvancedListener<I> {
     private static final Logger LOGGER = LogManager.getLogger();
 
     private final Configuration<I> configuration;

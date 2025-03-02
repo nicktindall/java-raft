@@ -1,16 +1,25 @@
 package au.id.tindall.distalg.raft.log;
 
-import java.io.Serializable;
+import au.id.tindall.distalg.raft.serialisation.MessageIdentifier;
+import au.id.tindall.distalg.raft.serialisation.Streamable;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
+
 import java.util.Objects;
 
-public class Term implements Serializable, Comparable<Term> {
+public class Term implements Comparable<Term>, Streamable {
 
+    private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("Term", Term.class);
     public static final Term ZERO = new Term(0);
 
     private final int number;
 
     public Term(int number) {
         this.number = number;
+    }
+
+    public Term(StreamingInput streamingInput) {
+        this(streamingInput.readInteger());
     }
 
     public boolean isLessThan(Term otherTerm) {
@@ -54,5 +63,15 @@ public class Term implements Serializable, Comparable<Term> {
     @Override
     public String toString() {
         return String.valueOf(number);
+    }
+
+    @Override
+    public MessageIdentifier getMessageIdentifier() {
+        return MESSAGE_IDENTIFIER;
+    }
+
+    @Override
+    public void writeTo(StreamingOutput streamingOutput) {
+        streamingOutput.writeInteger(number);
     }
 }

@@ -1,8 +1,6 @@
 package au.id.tindall.distalg.raft.replication;
 
-import java.io.Serializable;
-
-public class SingleClientReplicatorFactory<I extends Serializable> {
+public class SingleClientReplicatorFactory<I> {
 
     private final ReplicationSchedulerFactory<I> replicationSchedulerFactory;
     private final LogReplicatorFactory<I> logReplicatorFactory;

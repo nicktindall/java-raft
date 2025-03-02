@@ -2,10 +2,13 @@ package au.id.tindall.distalg.raft.rpc.snapshots;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.serialisation.MessageIdentifier;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
-import java.io.Serializable;
+public class InstallSnapshotResponse<I> extends RpcMessage<I> {
 
-public class InstallSnapshotResponse<I extends Serializable> extends RpcMessage<I> {
+    private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("InstallSnapshotResponse", InstallSnapshotResponse.class);
 
     private final boolean success;
     private final int lastIndex;
@@ -18,6 +21,14 @@ public class InstallSnapshotResponse<I extends Serializable> extends RpcMessage<
         this.offset = offset;
     }
 
+    @SuppressWarnings("unused")
+    public InstallSnapshotResponse(StreamingInput streamingInput) {
+        super(streamingInput);
+        this.success = streamingInput.readBoolean();
+        this.lastIndex = streamingInput.readInteger();
+        this.offset = streamingInput.readInteger();
+    }
+
     public boolean isSuccess() {
         return success;
     }
@@ -28,5 +39,18 @@ public class InstallSnapshotResponse<I extends Serializable> extends RpcMessage<
 
     public int getOffset() {
         return offset;
+    }
+
+    @Override
+    public MessageIdentifier getMessageIdentifier() {
+        return MESSAGE_IDENTIFIER;
+    }
+
+    @Override
+    public void writeTo(StreamingOutput streamingOutput) {
+        super.writeTo(streamingOutput);
+        streamingOutput.writeBoolean(success);
+        streamingOutput.writeInteger(lastIndex);
+        streamingOutput.writeInteger(offset);
     }
 }

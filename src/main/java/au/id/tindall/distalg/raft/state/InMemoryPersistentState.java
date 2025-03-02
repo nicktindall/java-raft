@@ -6,7 +6,6 @@ import au.id.tindall.distalg.raft.log.storage.InMemoryLogStorage;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -14,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class InMemoryPersistentState<I extends Serializable> implements PersistentState<I> {
+public class InMemoryPersistentState<I> implements PersistentState<I> {
 
     private static final Logger LOGGER = getLogger();
 

@@ -5,9 +5,7 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
-import java.io.Serializable;
-
-public class LeadershipTransferFactory<I extends Serializable> {
+public class LeadershipTransferFactory<I> {
 
     private final Cluster<I> cluster;
     private final PersistentState<I> persistentState;

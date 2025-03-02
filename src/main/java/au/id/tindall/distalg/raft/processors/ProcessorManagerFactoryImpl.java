@@ -2,7 +2,6 @@ package au.id.tindall.distalg.raft.processors;
 
 import au.id.tindall.distalg.raft.threading.NamedThreadFactory;
 
-import java.io.Serializable;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
@@ -19,7 +18,7 @@ public class ProcessorManagerFactoryImpl implements ProcessorManagerFactory {
     }
 
     @Override
-    public ProcessorManager<RaftProcessorGroup> create(Serializable serverID) {
+    public ProcessorManager<RaftProcessorGroup> create(Object serverID) {
         ExecutorServiceProcessorDriver<RaftProcessorGroup> processorDriver = new ExecutorServiceProcessorDriver<>(
                 Executors.newFixedThreadPool(RaftProcessorGroup.values().length,
                         NamedThreadFactory.forThreadGroup(serverID + "-processor")), sleepStrategySupplier);

@@ -5,11 +5,10 @@ import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
-public interface Cluster<I extends Serializable> {
+public interface Cluster<I> {
 
     void onStart();
 

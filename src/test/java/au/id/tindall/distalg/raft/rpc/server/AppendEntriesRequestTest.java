@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.rpc.server;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import au.id.tindall.distalg.raft.serialisation.LongIDSerializer;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -20,9 +21,10 @@ class AppendEntriesRequestTest {
     private static final byte[] COMMAND_BYTES = "what".getBytes();
 
     @Test
-    void isSerializable() {
-        assertThatCode(() -> roundTripSerializeDeserialize(new AppendEntriesRequest<>(TERM_1, 111L, 333, Optional.of(TERM_0), List.of(new StateMachineCommandEntry(TERM_0, 444, -1, 0, COMMAND_BYTES)), 10)))
-                .doesNotThrowAnyException();
+    void isStreamable() {
+        AppendEntriesRequest<Long> request = new AppendEntriesRequest<>(TERM_1, 111L, 333, Optional.of(TERM_0), List.of(new StateMachineCommandEntry(TERM_0, 444, -1, 0, COMMAND_BYTES)), 10);
+        assertThat(roundTripSerializeDeserialize(request, LongIDSerializer.INSTANCE))
+                .usingRecursiveComparison().isEqualTo(request);
     }
 
     @Test

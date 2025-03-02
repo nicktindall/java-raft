@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.log.storage;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
+import au.id.tindall.distalg.raft.serialisation.IntegerIDSerializer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -19,14 +20,14 @@ class DumpLogTest {
     @Test
     void willDumpLog(@TempDir Path tempDir) {
         final Path logFilePath = tempDir.resolve("logFile.log");
-        PersistentLogStorage persistentLogStorage = new PersistentLogStorage(logFilePath);
+        PersistentLogStorage persistentLogStorage = new PersistentLogStorage(IntegerIDSerializer.INSTANCE, logFilePath);
         Log log = new Log(persistentLogStorage);
         IntStream.range(0, 4).forEach(i -> {
             log.appendEntries(i, List.of(new ClientRegistrationEntry(new Term(i), 123 + i)));
         });
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PrintStream printStream = new PrintStream(baos);
-        new DumpLog(printStream, logFilePath).run();
+        new DumpLog(IntegerIDSerializer.INSTANCE, printStream, logFilePath).run();
         assertThat(baos).hasToString(
                 "1: ClientRegistrationEntry{clientId=123} LogEntry{term=0}\n" +
                         "2: ClientRegistrationEntry{clientId=124} LogEntry{term=1}\n" +

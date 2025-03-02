@@ -38,7 +38,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.Serializable;
 import java.time.Duration;
 import java.util.Set;
 
@@ -117,7 +116,7 @@ class ServerFactoryTest {
         when(electionSchedulerFactory.createElectionScheduler(SERVER_ID)).thenReturn(electionScheduler);
         when(commandExecutorFactory.createCommandExecutor(stateMachine, clientSessionStore, snapshotter)).thenReturn(commandExecutor);
         when(snapshotterFactory.create(eq(log), eq(clientSessionStore), eq(stateMachine), eq(persistentState), any(SnapshotHeuristic.class))).thenReturn(snapshotter);
-        when(processorManagerFactory.create(any(Serializable.class))).thenReturn(processorManager);
+        when(processorManagerFactory.create(any())).thenReturn(processorManager);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
                 commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT, snapshotterFactory, false, processorManagerFactory, inboxFactory);
     }

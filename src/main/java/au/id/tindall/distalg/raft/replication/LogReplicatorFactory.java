@@ -4,9 +4,7 @@ import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
-import java.io.Serializable;
-
-public class LogReplicatorFactory<I extends Serializable> {
+public class LogReplicatorFactory<I> {
 
     private final Log log;
     private final PersistentState<I> persistentState;

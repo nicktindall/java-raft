@@ -1,13 +1,13 @@
 package au.id.tindall.distalg.raft.log;
 
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
+import au.id.tindall.distalg.raft.serialisation.LongIDSerializer;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
 import static au.id.tindall.distalg.raft.SerializationUtils.roundTripSerializeDeserialize;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 
 class StateMachineCommandEntryTest {
 
@@ -15,8 +15,10 @@ class StateMachineCommandEntryTest {
     private static final int CLIENT_ID = 111;
 
     @Test
-    void isSerializable() {
-        assertThatCode(() -> roundTripSerializeDeserialize(new StateMachineCommandEntry(new Term(2), CLIENT_ID, -1, 0, "command bytes".getBytes()))).doesNotThrowAnyException();
+    void isStreamable() {
+        StateMachineCommandEntry entry = new StateMachineCommandEntry(new Term(2), CLIENT_ID, -1, 0, "command bytes".getBytes());
+        assertThat(roundTripSerializeDeserialize(entry, LongIDSerializer.INSTANCE))
+                .usingRecursiveComparison().isEqualTo(entry);
     }
 
     @Test

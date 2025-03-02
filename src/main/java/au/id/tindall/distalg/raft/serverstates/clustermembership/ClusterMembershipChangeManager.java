@@ -7,14 +7,13 @@ import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
 
 import java.io.Closeable;
-import java.io.Serializable;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 
-public class ClusterMembershipChangeManager<I extends Serializable> implements EntryCommittedEventHandler, Closeable, MatchIndexAdvancedListener<I> {
+public class ClusterMembershipChangeManager<I> implements EntryCommittedEventHandler, Closeable, MatchIndexAdvancedListener<I> {
 
     private final Queue<MembershipChange<I, ?>> membershipChangeQueue;
     private final ClusterMembershipChangeFactory<I> clusterMembershipChangeFactory;

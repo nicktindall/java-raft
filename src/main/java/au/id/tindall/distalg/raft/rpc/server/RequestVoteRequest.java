@@ -1,11 +1,15 @@
 package au.id.tindall.distalg.raft.rpc.server;
 
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.serialisation.MessageIdentifier;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
-import java.io.Serializable;
 import java.util.Optional;
 
-public class RequestVoteRequest<I extends Serializable> extends RpcMessage<I> {
+public class RequestVoteRequest<I> extends RpcMessage<I> {
+
+    private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("RequestVoteRequest", RequestVoteRequest.class);
 
     private final I candidateId;
     private final int lastLogIndex;
@@ -18,6 +22,15 @@ public class RequestVoteRequest<I extends Serializable> extends RpcMessage<I> {
         this.lastLogIndex = lastLogIndex;
         this.lastLogTerm = lastLogTerm.orElse(null);
         this.earlyElection = earlyElection;
+    }
+
+    @SuppressWarnings("unused")
+    public RequestVoteRequest(StreamingInput streamingInput) {
+        super(streamingInput);
+        this.candidateId = streamingInput.readIdentifier();
+        this.lastLogIndex = streamingInput.readInteger();
+        this.lastLogTerm = streamingInput.readNullable(StreamingInput::readStreamable);
+        this.earlyElection = streamingInput.readBoolean();
     }
 
     public I getCandidateId() {
@@ -34,6 +47,20 @@ public class RequestVoteRequest<I extends Serializable> extends RpcMessage<I> {
 
     public boolean isEarlyElection() {
         return earlyElection;
+    }
+
+    @Override
+    public MessageIdentifier getMessageIdentifier() {
+        return MESSAGE_IDENTIFIER;
+    }
+
+    @Override
+    public void writeTo(StreamingOutput streamingOutput) {
+        super.writeTo(streamingOutput);
+        streamingOutput.writeIdentifier(candidateId);
+        streamingOutput.writeInteger(lastLogIndex);
+        streamingOutput.writeNullable(lastLogTerm, StreamingOutput::writeStreamable);
+        streamingOutput.writeBoolean(earlyElection);
     }
 
     @Override

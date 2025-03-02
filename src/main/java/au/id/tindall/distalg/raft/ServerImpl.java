@@ -27,14 +27,13 @@ import au.id.tindall.distalg.raft.statemachine.StateMachine;
 import org.apache.logging.log4j.Logger;
 
 import java.io.Closeable;
-import java.io.Serializable;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class ServerImpl<I extends Serializable> implements Server<I>, Closeable {
+public class ServerImpl<I> implements Server<I>, Closeable {
 
     private static final Logger LOGGER = getLogger();
 

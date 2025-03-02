@@ -1,6 +1,9 @@
 package au.id.tindall.distalg.raft.log.storage;
 
 import au.id.tindall.distalg.raft.log.Term;
+import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.serialisation.ByteBufferIO;
+import au.id.tindall.distalg.raft.serialisation.IDSerializer;
 import au.id.tindall.distalg.raft.util.BufferUtil;
 import au.id.tindall.distalg.raft.util.Closeables;
 import org.apache.logging.log4j.Logger;
@@ -8,7 +11,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
@@ -37,6 +39,7 @@ public class LogBlock implements Closeable {
     private static final int ESTIMATED_MAX_ENTRY_SIZE = 10_240; // 10KB
 
     private final RandomAccessFile blockRandomAccessFile;
+    private final IDSerializer idSerializer;
     private int maxEntries;
     private int prevIndex;
     private Term prevTerm;
@@ -52,7 +55,8 @@ public class LogBlock implements Closeable {
      * @param blockRandomAccessFile
      * @param prevIndex
      */
-    public LogBlock(int maxEntries, RandomAccessFile blockRandomAccessFile, int prevIndex) throws IOException {
+    public LogBlock(IDSerializer idSerializer, int maxEntries, RandomAccessFile blockRandomAccessFile, int prevIndex) throws IOException {
+        this.idSerializer = idSerializer;
         this.maxEntries = maxEntries;
         this.blockRandomAccessFile = blockRandomAccessFile;
         this.prevIndex = prevIndex;
@@ -65,7 +69,8 @@ public class LogBlock implements Closeable {
      * @param blockRandomAccessFile
      * @throws IOException
      */
-    public LogBlock(RandomAccessFile blockRandomAccessFile) throws IOException {
+    public LogBlock(IDSerializer idSerializer, RandomAccessFile blockRandomAccessFile) throws IOException {
+        this.idSerializer = idSerializer;
         this.blockRandomAccessFile = blockRandomAccessFile;
         loadExistingState();
     }
@@ -115,7 +120,7 @@ public class LogBlock implements Closeable {
         this.mbb.putInt(PREV_TERM_INDEX, term.getNumber());
     }
 
-    public void writeEntry(int index, ByteBuffer buffer) {
+    public void writeEntry(int index, LogEntry entry) {
         if (getEntryCount() == maxEntries) {
             throw new IllegalStateException("Entry block is full (already contains " + maxEntries + " entries)");
         }
@@ -125,19 +130,21 @@ public class LogBlock implements Closeable {
             mbb.putInt(nextIndexPosition, nextPositionToWrite);
             nextIndexPosition = nextIndexPosition + Integer.BYTES;
             mbb.putInt(nextIndexPosition, EOF);
-            final int entryLength = buffer.remaining();
-            mbb.position(nextPositionToWrite).putInt(entryLength).put(buffer);
+            mbb.position(nextPositionToWrite).putInt(-1); // placeholder for length
+            ByteBufferIO.wrap(idSerializer, mbb).writeStreamable(entry);
+            int length = mbb.position() - nextPositionToWrite;
+            mbb.putInt(nextPositionToWrite, length);
             nextPositionToWrite = mbb.position();
         } else {
             throw new IllegalArgumentException(format("Attempted to write %,d, next expected index is %,d", index, nextIndexToWrite));
         }
     }
 
-    public void readEntry(int index, ByteBuffer buffer) {
+    public LogEntry readEntry(int index) {
         final int indexInFile = indexInFile(index);
         final int entryCount = getEntryCount();
         if (indexInFile < entryCount) {
-            readEntry(index, indexInFile, buffer);
+            return readEntry(index, indexInFile);
         } else {
             String containsString = entryCount == 0 ? "is empty" : format("contains indices %,d to %,d", prevIndex + 1, prevIndex + entryCount);
             throw new IllegalArgumentException(format("Attempted to read index %,d, file ", index) + containsString);
@@ -148,18 +155,17 @@ public class LogBlock implements Closeable {
         return index - prevIndex - 1;
     }
 
-    private void readEntry(int index, int indexInFile, ByteBuffer buffer) {
+    private LogEntry readEntry(int index, int indexInFile) {
         int startPosition = startPositionOfEntry(indexInFile);
         int lengthOfEntry = mbb.getInt(startPosition);
-        if (buffer.remaining() < lengthOfEntry) {
-            throw new IllegalArgumentException(format("Can't read entry %,d, length is %,d, provided buffer has %,d remaining capacity",
-                    index, lengthOfEntry, buffer.remaining()));
+        if (mbb.remaining() < lengthOfEntry) {
+            throw new IllegalStateException(format("Can't read entry %,d, length is %,d, buffer has %,d remaining capacity",
+                    index, lengthOfEntry, mbb.remaining()));
         }
         final int firstByte = startPosition + Integer.BYTES;
-        final int lastByte = startPosition + Integer.BYTES + lengthOfEntry;
-        for (int i = firstByte; i < lastByte; i++) {
-            buffer.put(mbb.get(i));
-        }
+        final ByteBufferIO streamingIO = ByteBufferIO.wrap(idSerializer, mbb);
+        streamingIO.setReadPosition(firstByte);
+        return streamingIO.readStreamable();
     }
 
     public void truncate(int fromIndex) {

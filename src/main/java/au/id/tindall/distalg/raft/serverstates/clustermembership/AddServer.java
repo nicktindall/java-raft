@@ -7,7 +7,6 @@ import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Supplier;
@@ -15,7 +14,7 @@ import java.util.function.Supplier;
 import static au.id.tindall.distalg.raft.util.TimestampUtil.formatTimestamp;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-class AddServer<I extends Serializable> extends MembershipChange<I, AddServerResponse> {
+class AddServer<I> extends MembershipChange<I, AddServerResponse> {
 
     private static final Logger LOGGER = getLogger();
 

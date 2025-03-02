@@ -6,7 +6,6 @@ import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.state.Snapshot;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Optional;
@@ -14,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class SnapshotReplicator<I extends Serializable> implements StateReplicator {
+public class SnapshotReplicator<I> implements StateReplicator {
 
     private static final Logger LOGGER = getLogger();
 

@@ -3,8 +3,7 @@ package au.id.tindall.distalg.raft.log.storage;
 import au.id.tindall.distalg.raft.log.EntryStatus;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
-import au.id.tindall.distalg.raft.log.persistence.EntrySerializer;
-import au.id.tindall.distalg.raft.log.persistence.JavaEntrySerializer;
+import au.id.tindall.distalg.raft.serialisation.IDSerializer;
 import au.id.tindall.distalg.raft.state.Snapshot;
 import org.apache.logging.log4j.Logger;
 
@@ -12,7 +11,6 @@ import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -40,7 +38,7 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
     private static final Pattern ENTRY_BLOCK_PATTERN = Pattern.compile("[0-9A-Fa-f]{10}\\.log");
     private static final int DEFAULT_ENTRIES_PER_BLOCK = 10_000;
 
-    private final EntrySerializer entrySerializer;
+    private final IDSerializer idSerializer;
     private final Path logDirectoryPath;
     private final AtomicInteger nextIndex = new AtomicInteger(1);
     private final int truncationBuffer;
@@ -49,18 +47,18 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
     private Map<Integer, LogBlockHolder> logBlocks;
     private int prevIndex;
 
-    public MemoryMappedLogStorage(Path logDirectoryPath) {
-        this(logDirectoryPath, DEFAULT_TRUNCATION_BUFFER);
+    public MemoryMappedLogStorage(IDSerializer idSerializer, Path logDirectoryPath) {
+        this(idSerializer, logDirectoryPath, DEFAULT_TRUNCATION_BUFFER);
     }
 
-    public MemoryMappedLogStorage(Path logDirectoryPath, int truncationBuffer) {
-        this(DEFAULT_ENTRIES_PER_BLOCK, logDirectoryPath, truncationBuffer, JavaEntrySerializer.INSTANCE);
+    public MemoryMappedLogStorage(IDSerializer idSerializer, Path logDirectoryPath, int truncationBuffer) {
+        this(idSerializer, DEFAULT_ENTRIES_PER_BLOCK, logDirectoryPath, truncationBuffer);
     }
 
-    public MemoryMappedLogStorage(int entriesPerBlock, Path logDirectoryPath, int truncationBuffer, EntrySerializer entrySerializer) {
+    public MemoryMappedLogStorage(IDSerializer idSerializer, int entriesPerBlock, Path logDirectoryPath, int truncationBuffer) {
+        this.idSerializer = idSerializer;
         this.entriesPerBlock = entriesPerBlock;
         this.logDirectoryPath = logDirectoryPath;
-        this.entrySerializer = entrySerializer;
         this.truncationBuffer = truncationBuffer;
         this.logBlocks = new LinkedHashMap<>();
         loadExistingState();
@@ -142,7 +140,7 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
             blocksToDelete.forEach(btd -> logBlocks.remove(btd).delete());
             if (logBlocks.isEmpty()) {
                 final int blockIdForNewIndex = blockIdForIndex(td.getNewPrevIndex());
-                final LogBlockHolder newFirstLogBlock = new LogBlockHolder(logDirectoryPath.resolve(filenameForPrevIndex(blockIdForNewIndex)), blockIdForNewIndex, td.getNewPrevIndex(), entriesPerBlock - (td.getNewPrevIndex() % entriesPerBlock));
+                final LogBlockHolder newFirstLogBlock = new LogBlockHolder(idSerializer, logDirectoryPath.resolve(filenameForPrevIndex(blockIdForNewIndex)), blockIdForNewIndex, td.getNewPrevIndex(), entriesPerBlock - (td.getNewPrevIndex() % entriesPerBlock));
                 logBlocks.put(blockIdForNewIndex, newFirstLogBlock);
                 newFirstLogBlock.getLogBlock().setPrevTerm(td.getNewPrevTerm());
                 nextIndex.set(snapshot.getLastIndex() + 1);
@@ -174,10 +172,8 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
         switch (entryStatus) {
             case PRESENT:
                 int blockId = blockIdForIndex(index);
-                ByteBuffer buffer = ByteBuffer.allocate(4096);
                 final LogBlockHolder logBlockHolder = logBlocks.get(blockId);
-                logBlockHolder.getLogBlock().readEntry(index, buffer);
-                return entrySerializer.deserialize(buffer.array());
+                return logBlockHolder.getLogBlock().readEntry(index);
             case AFTER_END:
                 throw new IndexOutOfBoundsException(format("Index is after end of log (%d > %d)", index, nextIndex.get() - 1));
             case BEFORE_START:
@@ -189,13 +185,12 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
 
     private void writeEntry(int index, LogEntry entry) {
         int blockId = blockIdForIndex(index);
-        final byte[] serialize = entrySerializer.serialize(entry);
         LogBlockHolder logBlockHolder = logBlocks.get(blockId);
         if (logBlockHolder == null) {
-            logBlockHolder = new LogBlockHolder(logDirectoryPath.resolve(filenameForPrevIndex(blockId)), blockId, index - 1, entriesPerBlock);
+            logBlockHolder = new LogBlockHolder(idSerializer, logDirectoryPath.resolve(filenameForPrevIndex(blockId)), blockId, index - 1, entriesPerBlock);
             logBlocks.put(blockId, logBlockHolder);
         }
-        logBlockHolder.getLogBlock().writeEntry(index, ByteBuffer.wrap(serialize));
+        logBlockHolder.getLogBlock().writeEntry(index, entry);
     }
 
     @Override
@@ -220,7 +215,7 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
             try (final Stream<Path> directoryListing = Files.list(logDirectoryPath)) {
                 directoryListing.filter(path -> matchPredicate.test(path.getFileName().toString()))
                         .sorted()
-                        .map(LogBlockHolder::new)
+                        .map(p -> new LogBlockHolder(idSerializer, p))
                         .forEach(lbh -> logBlocks.put(lbh.blockId, lbh));
             }
             final List<LogBlockHolder> allBlocks = new ArrayList<>(logBlocks.values());
@@ -238,7 +233,7 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
                     }
                 }
             } else {
-                final LogBlockHolder firstLogBlock = new LogBlockHolder(logDirectoryPath.resolve(filenameForPrevIndex(0)), 0, 0, entriesPerBlock);
+                final LogBlockHolder firstLogBlock = new LogBlockHolder(idSerializer, logDirectoryPath.resolve(filenameForPrevIndex(0)), 0, 0, entriesPerBlock);
                 firstLogBlock.getLogBlock().setPrevTerm(Term.ZERO);
                 logBlocks.put(0, firstLogBlock);
                 prevTerm = Term.ZERO;
@@ -266,20 +261,23 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
 
     private static class LogBlockHolder implements Closeable {
 
+        private final IDSerializer idSerializer;
         private final int blockId;
         private final Path logBlockFile;
         private LogBlock logBlock;
 
-        public LogBlockHolder(Path logBlockFile) {
+        public LogBlockHolder(IDSerializer idSerializer, Path logBlockFile) {
+            this.idSerializer = idSerializer;
             this.logBlockFile = logBlockFile;
             this.blockId = Integer.parseInt(logBlockFile.getFileName().toString().substring(0, 10), 16);
         }
 
-        public LogBlockHolder(Path logBlockFile, int blockId, int prevIndex, int blockLength) {
+        public LogBlockHolder(IDSerializer idSerializer, Path logBlockFile, int blockId, int prevIndex, int blockLength) {
+            this.idSerializer = idSerializer;
             this.logBlockFile = logBlockFile;
             this.blockId = blockId;
             try {
-                logBlock = new LogBlock(blockLength, createRandomAccessFile(), prevIndex);
+                logBlock = new LogBlock(idSerializer, blockLength, createRandomAccessFile(), prevIndex);
             } catch (IOException e) {
                 throw new IllegalStateException("Error creating log block", e);
             }
@@ -288,7 +286,7 @@ public class MemoryMappedLogStorage implements LogStorage, Closeable {
         public LogBlock getLogBlock() {
             try {
                 if (logBlock == null) {
-                    logBlock = new LogBlock(createRandomAccessFile());
+                    logBlock = new LogBlock(idSerializer, createRandomAccessFile());
                 }
                 return logBlock;
             } catch (IOException e) {

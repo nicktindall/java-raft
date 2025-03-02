@@ -3,9 +3,7 @@ package au.id.tindall.distalg.raft.processors;
 import au.id.tindall.distalg.raft.Server;
 import au.id.tindall.distalg.raft.comms.Inbox;
 
-import java.io.Serializable;
-
-public class InboxProcessor<I extends Serializable> implements Processor<RaftProcessorGroup> {
+public class InboxProcessor<I> implements Processor<RaftProcessorGroup> {
 
     private final Server<I> server;
     private final Inbox<I> inbox;

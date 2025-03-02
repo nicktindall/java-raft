@@ -1,17 +1,15 @@
 package au.id.tindall.distalg.raft.serverstates;
 
-import java.io.Serializable;
-
-public class Result<I extends Serializable> {
+public class Result<I> {
 
     private final boolean finished;
     private final ServerState<I> nextState;
 
-    public static <I extends Serializable> Result<I> complete(ServerState<I> serverState) {
+    public static <I> Result<I> complete(ServerState<I> serverState) {
         return new Result<>(true, serverState);
     }
 
-    public static <I extends Serializable> Result<I> incomplete(ServerState<I> serverState) {
+    public static <I> Result<I> incomplete(ServerState<I> serverState) {
         return new Result<>(false, serverState);
     }
 

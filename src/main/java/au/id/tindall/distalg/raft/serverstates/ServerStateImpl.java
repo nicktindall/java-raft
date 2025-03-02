@@ -30,7 +30,6 @@ import au.id.tindall.distalg.raft.rpc.snapshots.InstallSnapshotResponse;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -39,7 +38,7 @@ import static au.id.tindall.distalg.raft.serverstates.Result.incomplete;
 import static java.lang.String.format;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public abstract class ServerStateImpl<I extends Serializable> implements ServerState<I> {
+public abstract class ServerStateImpl<I> implements ServerState<I> {
 
     private static final Logger LOGGER = getLogger();
 

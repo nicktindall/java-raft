@@ -8,7 +8,6 @@ import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Closeable;
-import java.io.Serializable;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -16,7 +15,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-public abstract class MembershipChange<I extends Serializable, R extends ClientResponseMessage> implements Closeable {
+public abstract class MembershipChange<I, R extends ClientResponseMessage> implements Closeable {
     protected static final int NOT_SET = Integer.MIN_VALUE;
     private final PersistentState<I> persistentState;
     protected final Log log;
@@ -94,7 +93,7 @@ public abstract class MembershipChange<I extends Serializable, R extends ClientR
     }
 
     protected int addServerToConfig(I serverId) {
-        Set<Serializable> newServers = new HashSet<>(configuration.getServers());
+        Set<Object> newServers = new HashSet<>(configuration.getServers());
         newServers.add(serverId);
         log.appendEntries(log.getLastLogIndex(), List.of(
                 new ConfigurationEntry(persistentState.getCurrentTerm(), newServers)
@@ -103,7 +102,7 @@ public abstract class MembershipChange<I extends Serializable, R extends ClientR
     }
 
     protected int removeServerFromConfig(I serverId) {
-        Set<Serializable> newServers = new HashSet<>(configuration.getServers());
+        Set<Object> newServers = new HashSet<>(configuration.getServers());
         newServers.remove(serverId);
         log.appendEntries(log.getLastLogIndex(), List.of(
                 new ConfigurationEntry(persistentState.getCurrentTerm(), newServers)

@@ -2,7 +2,6 @@ package au.id.tindall.distalg.raft.processors;
 
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -15,12 +14,12 @@ class ProcessorGroupImpl<G extends Enum<G>> implements ProcessorGroup<G> {
 
     private static final Logger LOGGER = getLogger();
 
-    private final Serializable serverID;
+    private final Object serverID;
     private final G group;
     private final List<Processor<G>> processors;
     private final Queue<Processor<G>> newProcessors;
 
-    public ProcessorGroupImpl(G group, Serializable serverID) {
+    public ProcessorGroupImpl(G group, Object serverID) {
         this.serverID = serverID;
         this.group = group;
         this.processors = new ArrayList<>();
@@ -103,7 +102,7 @@ class ProcessorGroupImpl<G extends Enum<G>> implements ProcessorGroup<G> {
     }
 
     @Override
-    public Serializable getServerID() {
+    public Object getServerID() {
         return serverID;
     }
 

@@ -5,14 +5,16 @@ import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.log.storage.MemoryMappedLogStorage;
 import au.id.tindall.distalg.raft.log.storage.PersistentSnapshot;
+import au.id.tindall.distalg.raft.serialisation.ByteBufferIO;
+import au.id.tindall.distalg.raft.serialisation.IDSerializer;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 import au.id.tindall.distalg.raft.util.BufferUtil;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.io.Serializable;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -42,20 +44,16 @@ import static org.apache.logging.log4j.LogManager.getLogger;
  * - serialized voted for ID (if present)
  * - EOF
  */
-public class FileBasedPersistentState<I extends Serializable> implements PersistentState<I>, AutoCloseable {
+public class FileBasedPersistentState<I> implements PersistentState<I>, AutoCloseable {
 
     private static final Logger LOGGER = getLogger();
     private static final int TRUNCATION_BUFFER = 20;
-    private static final int START_OF_ID_LENGTH = 0;
-    private static final int START_OF_CURRENT_TERM = 4;
-    private static final int START_OF_VOTED_FOR_LENGTH = 8;
-    private static final int START_OF_ID = 12;
     private static final int STATE_FILE_SIZE = 1024;    // Larger than it needs to be
     public static final int STATE_WRITE_TIME_WARN_THRESHOLD_MS = 2;
     private final LogStorage logStorage;
     private final RandomAccessFile stateFile;
     private final MappedByteBuffer stateFileMap;
-    private final IDSerializer<I> idSerializer;
+    private final IDSerializer idSerializer;
 
     private I id;
     private final AtomicReference<Term> currentTerm;
@@ -68,27 +66,27 @@ public class FileBasedPersistentState<I extends Serializable> implements Persist
     private final AtomicInteger nextSnapshotSequence = new AtomicInteger(0);
 
 
-    public static <I extends Serializable> FileBasedPersistentState<I> create(Path stateDirectory, I serverId) {
-        MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(logFilePath(stateDirectory), TRUNCATION_BUFFER);
+    public static <I> FileBasedPersistentState<I> create(IDSerializer idSerializer, Path stateDirectory, I serverId) {
+        MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(idSerializer, logFilePath(stateDirectory), TRUNCATION_BUFFER);
         return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath(stateDirectory),
-                tempSnapshotPathGenerator(stateDirectory), currentSnapshotPath(stateDirectory), new JavaIDSerializer<>(), serverId);
+                tempSnapshotPathGenerator(stateDirectory), currentSnapshotPath(stateDirectory), idSerializer, serverId);
     }
 
-    public static <I extends Serializable> FileBasedPersistentState<I> createOrOpen(Path stateDirectory, I serverId) throws IOException {
+    public static <I> FileBasedPersistentState<I> createOrOpen(IDSerializer idSerializer, Path stateDirectory, I serverId) throws IOException {
         Path logFilePath = logFilePath(stateDirectory);
         Path stateFilePath = stateFilePath(stateDirectory);
         Function<Integer, Path> tempSnapshotPathGenerator = tempSnapshotPathGenerator(stateDirectory);
         deleteAnyTempSnapshots(stateDirectory);
         Path currentSnapshotPath = currentSnapshotPath(stateDirectory);
         if (Files.exists(logFilePath) && Files.exists(stateFilePath)) {
-            MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(logFilePath, TRUNCATION_BUFFER);
-            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, new JavaIDSerializer<>());
+            MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(idSerializer, logFilePath, TRUNCATION_BUFFER);
+            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, idSerializer);
         } else {
             Files.deleteIfExists(logFilePath);
             Files.deleteIfExists(stateFilePath);
             Files.deleteIfExists(currentSnapshotPath);
-            MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(logFilePath, TRUNCATION_BUFFER);
-            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, new JavaIDSerializer<>(), serverId);
+            MemoryMappedLogStorage persistentLogStorage = new MemoryMappedLogStorage(idSerializer, logFilePath, TRUNCATION_BUFFER);
+            return new FileBasedPersistentState<>(persistentLogStorage, stateFilePath, tempSnapshotPathGenerator, currentSnapshotPath, idSerializer, serverId);
         }
     }
 
@@ -116,7 +114,7 @@ public class FileBasedPersistentState<I extends Serializable> implements Persist
     /**
      * Create a new file-based persistent state
      */
-    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempPathGenerator, Path currentSnapshotPath, IDSerializer<I> idSerializer, I id) {
+    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempPathGenerator, Path currentSnapshotPath, IDSerializer idSerializer, I id) {
         this.currentTerm = new AtomicReference<>();
         this.votedFor = new AtomicReference<>();
         this.tempSnapshotPathGenerator = tempPathGenerator;
@@ -138,7 +136,7 @@ public class FileBasedPersistentState<I extends Serializable> implements Persist
     /**
      * Load an existing file-based persistent state
      */
-    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempSnapshotPathGenerator, Path currentSnapshotPath, IDSerializer<I> idSerializer) {
+    public FileBasedPersistentState(LogStorage logStorage, Path statePath, Function<Integer, Path> tempSnapshotPathGenerator, Path currentSnapshotPath, IDSerializer idSerializer) {
         this.currentTerm = new AtomicReference<>();
         this.votedFor = new AtomicReference<>();
         this.tempSnapshotPathGenerator = tempSnapshotPathGenerator;
@@ -168,33 +166,19 @@ public class FileBasedPersistentState<I extends Serializable> implements Persist
     }
 
     private void readFromStateFile() {
-        int idLength = stateFileMap.getInt(START_OF_ID_LENGTH);
-        currentTerm.set(new Term(stateFileMap.getInt(START_OF_CURRENT_TERM)));
-        int votedForLength = stateFileMap.getInt(START_OF_VOTED_FOR_LENGTH);
-        id = readIdFrom(START_OF_ID, idLength);
-        votedFor.set(readIdFrom(START_OF_ID + idLength, votedForLength));
-    }
-
-    private I readIdFrom(int startPoint, int length) {
-        if (length == 0) {
-            return null;
-        }
-        ByteBuffer buffer = ByteBuffer.allocate(length);
-        stateFileMap.position(startPoint);
-        stateFileMap.get(buffer.array());
-        return idSerializer.deserialize(buffer);
+        final ByteBufferIO bbio = ByteBufferIO.wrap(idSerializer, stateFileMap);
+        id = bbio.readIdentifier();
+        currentTerm.set(bbio.readStreamable());
+        votedFor.set(bbio.readNullable(StreamingInput::readIdentifier));
     }
 
     private void writeToStateFile() {
-        long startTime = System.currentTimeMillis();
-        ByteBuffer idBytes = idSerializer.serialize(id);
-        I votedForId = votedFor.get();
-        ByteBuffer votedForBytes = votedForId != null ? idSerializer.serialize(votedForId) : ByteBuffer.allocate(0);
-        stateFileMap.putInt(START_OF_ID_LENGTH, idBytes.capacity());
-        stateFileMap.putInt(START_OF_CURRENT_TERM, currentTerm.get().getNumber());
-        stateFileMap.putInt(START_OF_VOTED_FOR_LENGTH, votedForBytes.capacity());
-        stateFileMap.position(START_OF_ID).put(idBytes);
-        stateFileMap.put(votedForBytes);
+        final long startTime = System.currentTimeMillis();
+        final ByteBufferIO bbio = ByteBufferIO.wrap(idSerializer, stateFileMap);
+        bbio.setWritePosition(0);
+        bbio.writeIdentifier(id);
+        bbio.writeStreamable(currentTerm.get());
+        bbio.writeNullable(votedFor.get(), StreamingOutput::writeIdentifier);
         long duration = System.currentTimeMillis() - startTime;
         if (duration > STATE_WRITE_TIME_WARN_THRESHOLD_MS) {
             LOGGER.warn("Took {}ms to write state file (expected < {})", duration, STATE_WRITE_TIME_WARN_THRESHOLD_MS);
@@ -281,7 +265,7 @@ public class FileBasedPersistentState<I extends Serializable> implements Persist
                     LOGGER.warn("Couldn't delete temporary snapshot");
                 }
             }
-            currentSnapshot.set(PersistentSnapshot.load(currentSnapshotPath));
+            currentSnapshot.set(PersistentSnapshot.load(idSerializer, currentSnapshotPath));
             logStorage.installSnapshot(currentSnapshot.get());
             for (SnapshotInstalledListener listener : snapshotInstalledListeners) {
                 listener.onSnapshotInstalled(currentSnapshot.get());
@@ -299,7 +283,7 @@ public class FileBasedPersistentState<I extends Serializable> implements Persist
 
     @Override
     public Snapshot createSnapshot(int lastIndex, Term lastTerm, ConfigurationEntry lastConfig) throws IOException {
-        return PersistentSnapshot.create(tempSnapshotPathGenerator.apply(nextSnapshotSequence.getAndIncrement()), lastIndex, lastTerm, lastConfig);
+        return PersistentSnapshot.create(idSerializer, tempSnapshotPathGenerator.apply(nextSnapshotSequence.getAndIncrement()), lastIndex, lastTerm, lastConfig);
     }
 
     @Override
@@ -313,7 +297,7 @@ public class FileBasedPersistentState<I extends Serializable> implements Persist
         if (Files.exists(currentSnapshotPath)) {
             LOGGER.debug("Discovered snapshot, attempting to load");
             try {
-                setCurrentSnapshot(PersistentSnapshot.load(currentSnapshotPath));
+                setCurrentSnapshot(PersistentSnapshot.load(idSerializer, currentSnapshotPath));
                 LOGGER.debug("After snapshot: prevIndex={}, lastLogIndex={}, lastLogTerm={}", logStorage.getPrevIndex(), logStorage.getLastLogIndex(), logStorage.getLastLogTerm());
             } catch (IOException e) {
                 LOGGER.error("Failed to load snapshot", e);

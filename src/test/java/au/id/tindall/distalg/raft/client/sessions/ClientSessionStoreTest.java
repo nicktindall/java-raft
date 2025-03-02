@@ -4,8 +4,10 @@ import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
+import au.id.tindall.distalg.raft.serialisation.IntegerIDSerializer;
 import au.id.tindall.distalg.raft.statemachine.CommandAppliedEventHandler;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
+import au.id.tindall.distalg.raft.util.RandomTestUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static au.id.tindall.distalg.raft.SerializationUtils.roundTripSerializeDeserialize;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.verify;
@@ -185,5 +188,15 @@ class ClientSessionStoreTest {
         assertThat(otherSessionStore.getCommandResult(1, 1)).contains(RESULT);
         assertThat(otherSessionStore.getCommandResult(2, 1)).contains(RESULT);
         assertThat(otherSessionStore.getCommandResult(2, 2)).contains(RESULT);
+    }
+
+    @Test
+    void testStreamable() {
+        ClientSession session = new ClientSession(123, 456);
+        session.recordAppliedCommand(1, 1, RandomTestUtil.randomByteArray());
+        session.recordAppliedCommand(2, 3, RandomTestUtil.randomByteArray());
+        session.recordAppliedCommand(3, 7, RandomTestUtil.randomByteArray());
+        assertThat(roundTripSerializeDeserialize(session, IntegerIDSerializer.INSTANCE))
+                .usingRecursiveComparison().isEqualTo(session);
     }
 }

@@ -2,9 +2,7 @@ package au.id.tindall.distalg.raft.processors;
 
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
 
-import java.io.Serializable;
-
-public class ReplicationProcessor<I extends Serializable> implements Processor<RaftProcessorGroup> {
+public class ReplicationProcessor<I> implements Processor<RaftProcessorGroup> {
 
     private final ReplicationManager<I> replicationManager;
 

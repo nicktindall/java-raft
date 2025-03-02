@@ -3,7 +3,7 @@ package au.id.tindall.distalg.raft.log.storage;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
-import au.id.tindall.distalg.raft.log.persistence.JavaEntrySerializer;
+import au.id.tindall.distalg.raft.serialisation.IntegerIDSerializer;
 import au.id.tindall.distalg.raft.state.InMemorySnapshot;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
@@ -28,19 +28,19 @@ class MemoryMappedLogStorageTest extends AbstractLogStorageTest<MemoryMappedLogS
     @Override
     protected MemoryMappedLogStorage createLogStorage() {
         LOGGER.info("temp directory is {}", tempDir);
-        return new MemoryMappedLogStorage(1, tempDir, 0, JavaEntrySerializer.INSTANCE);
+        return new MemoryMappedLogStorage(IntegerIDSerializer.INSTANCE, 1, tempDir, 0);
     }
 
     @Override
     protected MemoryMappedLogStorage createLogStorageWithTruncationBuffer(int truncationBuffer) {
         LOGGER.info("temp directory is {}", tempDir);
-        return new MemoryMappedLogStorage(1, tempDir, truncationBuffer, JavaEntrySerializer.INSTANCE);
+        return new MemoryMappedLogStorage(IntegerIDSerializer.INSTANCE, 1, tempDir, truncationBuffer);
     }
 
     @ParameterizedTest
     @ValueSource(ints = {2, 3, 10, 100, 10_000})
     void worksAsExpectedForDifferentBLockSizes(int blockSize, @TempDir Path tempDir) {
-        final MemoryMappedLogStorage logStorage = new MemoryMappedLogStorage(blockSize, tempDir, 0, JavaEntrySerializer.INSTANCE);
+        final MemoryMappedLogStorage logStorage = new MemoryMappedLogStorage(IntegerIDSerializer.INSTANCE, blockSize, tempDir, 0);
         LOGGER.info("Populating with 1000 entries");
         for (int i = 1; i <= 1000; i++) {
             logStorage.add(i, new ClientRegistrationEntry(new Term(i), i));
@@ -77,7 +77,7 @@ class MemoryMappedLogStorageTest extends AbstractLogStorageTest<MemoryMappedLogS
         assertThat(storage.getLastLogIndex()).isEqualTo(100);
 
         storage.close();
-        storage = new MemoryMappedLogStorage(1, tempDir, 1, JavaEntrySerializer.INSTANCE);
+        storage = new MemoryMappedLogStorage(IntegerIDSerializer.INSTANCE, 1, tempDir, 1);
         assertThat(storage.getPrevIndex()).isZero();
         assertThat(storage.getLastLogIndex()).isEqualTo(100);
 
@@ -103,7 +103,7 @@ class MemoryMappedLogStorageTest extends AbstractLogStorageTest<MemoryMappedLogS
         assertThat(storage.getLastLogIndex()).isEqualTo(75);
 
         storage.close();
-        storage = new MemoryMappedLogStorage(1, tempDir, 1, JavaEntrySerializer.INSTANCE);
+        storage = new MemoryMappedLogStorage(IntegerIDSerializer.INSTANCE, 1, tempDir, 1);
         assertThat(storage.getPrevIndex()).isEqualTo(0);
         assertThat(storage.getLastLogIndex()).isEqualTo(75);
 
@@ -123,7 +123,7 @@ class MemoryMappedLogStorageTest extends AbstractLogStorageTest<MemoryMappedLogS
         assertThat(storage.getLastLogIndex()).isEqualTo(100);
 
         storage.close();
-        storage = new MemoryMappedLogStorage(1, tempDir, 1, JavaEntrySerializer.INSTANCE);
+        storage = new MemoryMappedLogStorage(IntegerIDSerializer.INSTANCE, 1, tempDir, 1);
         assertThat(storage.getPrevIndex()).isEqualTo(35);
         assertThat(storage.getLastLogIndex()).isEqualTo(100);
 

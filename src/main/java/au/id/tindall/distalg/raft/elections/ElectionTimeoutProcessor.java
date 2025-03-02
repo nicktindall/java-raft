@@ -4,9 +4,7 @@ import au.id.tindall.distalg.raft.Server;
 import au.id.tindall.distalg.raft.processors.Processor;
 import au.id.tindall.distalg.raft.processors.RaftProcessorGroup;
 
-import java.io.Serializable;
-
-public class ElectionTimeoutProcessor<I extends Serializable> implements Processor<RaftProcessorGroup> {
+public class ElectionTimeoutProcessor<I> implements Processor<RaftProcessorGroup> {
 
     private final Server<I> server;
 

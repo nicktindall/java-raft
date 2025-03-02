@@ -2,9 +2,7 @@ package au.id.tindall.distalg.raft.replication;
 
 import au.id.tindall.distalg.raft.cluster.Configuration;
 
-import java.io.Serializable;
-
-public class ReplicationManagerFactory<I extends Serializable> {
+public class ReplicationManagerFactory<I> {
 
     private final Configuration<I> configuration;
     private final SingleClientReplicatorFactory<I> replicatorFactory;

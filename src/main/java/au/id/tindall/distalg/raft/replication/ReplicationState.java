@@ -2,11 +2,9 @@ package au.id.tindall.distalg.raft.replication;
 
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
-
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class ReplicationState<I extends Serializable> {
+public class ReplicationState<I> {
 
     private static final Logger LOGGER = getLogger();
 

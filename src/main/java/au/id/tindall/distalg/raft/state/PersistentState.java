@@ -6,10 +6,9 @@ import au.id.tindall.distalg.raft.log.storage.LogStorage;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Optional;
 
-public interface PersistentState<I extends Serializable> extends Closeable {
+public interface PersistentState<I> extends Closeable {
 
     I getId();
 

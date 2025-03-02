@@ -2,8 +2,8 @@ package au.id.tindall.distalg.raft.log.storage;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
-import au.id.tindall.distalg.raft.log.persistence.EntrySerializer;
-import au.id.tindall.distalg.raft.log.persistence.JavaEntrySerializer;
+import au.id.tindall.distalg.raft.serialisation.ByteBufferIO;
+import au.id.tindall.distalg.raft.serialisation.IDSerializer;
 import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.util.IOUtil;
 import org.apache.logging.log4j.Logger;
@@ -37,7 +37,7 @@ public class PersistentLogStorage implements LogStorage {
     private static final Logger LOGGER = getLogger();
     private static final int DEFAULT_TRUNCATION_BUFFER = 20;
 
-    private final EntrySerializer entrySerializer;
+    private final IDSerializer idSerializer;
     private final Path logFilePath;
     private final AtomicInteger nextIndex = new AtomicInteger(1);
     private final int truncationBuffer;
@@ -46,17 +46,13 @@ public class PersistentLogStorage implements LogStorage {
     private volatile int prevIndex = 0;
     private Term prevTerm = Term.ZERO;
 
-    public PersistentLogStorage(Path logFilePath) {
-        this(logFilePath, DEFAULT_TRUNCATION_BUFFER, JavaEntrySerializer.INSTANCE);
+    public PersistentLogStorage(IDSerializer idSerializer, Path logFilePath) {
+        this(idSerializer, logFilePath, DEFAULT_TRUNCATION_BUFFER);
     }
 
-    public PersistentLogStorage(Path logFilePath, int truncationBuffer) {
-        this(logFilePath, truncationBuffer, JavaEntrySerializer.INSTANCE);
-    }
-
-    public PersistentLogStorage(Path logFilePath, int truncationBuffer, EntrySerializer entrySerializer) {
+    public PersistentLogStorage(IDSerializer idSerializer, Path logFilePath, int truncationBuffer) {
+        this.idSerializer = idSerializer;
         this.logFilePath = logFilePath;
-        this.entrySerializer = entrySerializer;
         this.truncationBuffer = truncationBuffer;
         try {
             logFileChannel = FileChannel.open(logFilePath, READ, WRITE, CREATE, SYNC);
@@ -203,11 +199,13 @@ public class PersistentLogStorage implements LogStorage {
 
     private long writeEntry(FileChannel fileChannel, LogEntry entry) {
         try {
-            byte[] entryBytes = entrySerializer.serialize(entry);
+            ByteBuffer buffer = ByteBuffer.allocate(10240);
+            ByteBufferIO.wrap(idSerializer, buffer).writeStreamable(entry);
             IOUtil.writeValues(fileChannel, buf -> {
                 buf.putInt(nextIndex.getAndIncrement());
-                buf.putInt(entryBytes.length);
-                buf.put(entryBytes);
+                buffer.flip();
+                buf.putInt(buffer.remaining());
+                buf.put(buffer);
             });
             return fileChannel.position();
         } catch (IOException ex) {
@@ -222,7 +220,7 @@ public class PersistentLogStorage implements LogStorage {
             int length = lengthOfEntry(index);
             ByteBuffer buffer = ByteBuffer.allocate(length);
             logFileChannel.read(buffer, offset + 8);
-            return entrySerializer.deserialize(buffer.array());
+            return ByteBufferIO.wrap(idSerializer, buffer).readStreamable();
         } catch (IOException ex) {
             throw new UncheckedIOException("Error reading log entry", ex);
         }

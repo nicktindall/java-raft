@@ -32,7 +32,6 @@ import au.id.tindall.distalg.raft.serverstates.leadershiptransfer.LeadershipTran
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus.SESSION_EXPIRED;
@@ -43,7 +42,7 @@ import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Leader<I extends Serializable> extends ServerStateImpl<I> {
+public class Leader<I> extends ServerStateImpl<I> {
 
     private static final Logger LOGGER = getLogger();
 

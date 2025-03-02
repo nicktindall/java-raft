@@ -5,10 +5,9 @@ import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
-import java.io.Serializable;
 import java.time.Instant;
 
-public class ClusterMembershipChangeManagerFactory<I extends Serializable> {
+public class ClusterMembershipChangeManagerFactory<I> {
 
     private final Log log;
     private final PersistentState<I> persistentState;

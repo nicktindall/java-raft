@@ -18,11 +18,10 @@ import au.id.tindall.distalg.raft.statemachine.CommandExecutor;
 import au.id.tindall.distalg.raft.timing.TimingWrappers;
 
 import java.io.Closeable;
-import java.io.Serializable;
 
 import static au.id.tindall.distalg.raft.util.Closeables.closeQuietly;
 
-public class ServerStateFactory<I extends Serializable> implements Closeable {
+public class ServerStateFactory<I> implements Closeable {
 
     private static final int WARNING_THRESHOLD_MILLIS = 10;
     private final Log log;

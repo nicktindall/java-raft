@@ -1,12 +1,14 @@
 package au.id.tindall.distalg.raft;
 
-import static au.id.tindall.distalg.raft.util.SerializationUtil.deserializeObject;
-import static au.id.tindall.distalg.raft.util.SerializationUtil.serializeObject;
+import au.id.tindall.distalg.raft.serialisation.ByteBufferIO;
+import au.id.tindall.distalg.raft.serialisation.IDSerializer;
+import au.id.tindall.distalg.raft.serialisation.Streamable;
 
 public class SerializationUtils {
 
-    @SuppressWarnings("unchecked")
-    public static <T> T roundTripSerializeDeserialize(T object) {
-        return deserializeObject(serializeObject(object));
+    public static <T extends Streamable> T roundTripSerializeDeserialize(T object, IDSerializer idSerializer) {
+        final ByteBufferIO bbio = ByteBufferIO.elastic(idSerializer);
+        bbio.writeStreamable(object);
+        return bbio.readStreamable();
     }
 }

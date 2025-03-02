@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.client.sessions;
 
+import au.id.tindall.distalg.raft.serialisation.UnsupportedIDSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -71,12 +72,12 @@ class ClientSessionTest {
     }
 
     @Test
-    void testIsSerializable() {
+    void testIsStreamable() {
         ClientSession session = new ClientSession(123, 456);
         session.recordAppliedCommand(7891, 1, "test-1".getBytes());
         session.recordAppliedCommand(7892, 2, "test-2".getBytes());
         session.recordAppliedCommand(7893, 3, "test-3".getBytes());
-        assertThat(roundTripSerializeDeserialize(session)).usingRecursiveComparison()
+        assertThat(roundTripSerializeDeserialize(session, UnsupportedIDSerializer.INSTANCE)).usingRecursiveComparison()
                 .isEqualTo(session);
     }
 }

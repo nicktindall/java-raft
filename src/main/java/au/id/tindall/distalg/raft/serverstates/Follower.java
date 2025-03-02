@@ -12,7 +12,6 @@ import au.id.tindall.distalg.raft.state.Snapshot;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Optional;
 
 import static au.id.tindall.distalg.raft.serverstates.Result.complete;
@@ -21,7 +20,7 @@ import static java.lang.Math.min;
 import static java.util.Optional.empty;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Follower<I extends Serializable> extends ServerStateImpl<I> {
+public class Follower<I> extends ServerStateImpl<I> {
 
     private static final Logger LOGGER = getLogger();
 

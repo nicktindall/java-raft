@@ -5,7 +5,6 @@ import au.id.tindall.distalg.raft.serverstates.Result;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -27,7 +26,7 @@ public enum TimingWrappers {
      * @return A proxy to the server that will time method calls and warn when they exceed
      */
     @SuppressWarnings("unchecked")
-    public static <I extends Serializable> Server<I> wrap(Server<I> delegate, long warningThresholdMillis) {
+    public static <I> Server<I> wrap(Server<I> delegate, long warningThresholdMillis) {
         return (Server<I>) Proxy.newProxyInstance(Server.class.getClassLoader(), new Class[]{Server.class}, (Object proxy, Method method, Object[] args) -> {
             long startTime = System.currentTimeMillis();
             Throwable t = null;
@@ -58,7 +57,7 @@ public enum TimingWrappers {
      * @return A proxy to the server that will time method calls and warn when they exceed
      */
     @SuppressWarnings("unchecked")
-    public static <I extends Serializable> ServerState<I> wrap(ServerState<I> delegate, long warningThresholdMillis) {
+    public static <I> ServerState<I> wrap(ServerState<I> delegate, long warningThresholdMillis) {
         final AtomicReference<ServerState<I>> theProxy = new AtomicReference<>();
         final ServerState<I> serverStateProxy = (ServerState<I>) Proxy.newProxyInstance(Server.class.getClassLoader(), new Class[]{ServerState.class}, (proxy, method, args) -> {
             long startTime = System.currentTimeMillis();

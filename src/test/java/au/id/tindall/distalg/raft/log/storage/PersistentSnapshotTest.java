@@ -2,11 +2,11 @@ package au.id.tindall.distalg.raft.log.storage;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
+import au.id.tindall.distalg.raft.serialisation.IntegerIDSerializer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -29,7 +29,7 @@ class PersistentSnapshotTest {
 
         createAndPopulateSnapshot(snapshotPath, lastTerm, lastIndex, lastConfig, contentBytes);
 
-        try (PersistentSnapshot loadedSnapshot = PersistentSnapshot.load(snapshotPath)) {
+        try (PersistentSnapshot loadedSnapshot = PersistentSnapshot.load(IntegerIDSerializer.INSTANCE, snapshotPath)) {
             assertThat(loadedSnapshot.getLastTerm()).isEqualTo(lastTerm);
             assertThat(loadedSnapshot.getLastIndex()).isEqualTo(lastIndex);
             assertThat(loadedSnapshot.getLastConfig()).usingRecursiveComparison().isEqualTo(lastConfig);
@@ -53,7 +53,7 @@ class PersistentSnapshotTest {
 
         createAndPopulateSnapshot(snapshotPath, lastTerm, lastIndex, lastConfig, contentBytes);
 
-        try (PersistentSnapshot loadedSnapshot = PersistentSnapshot.load(snapshotPath)) {
+        try (PersistentSnapshot loadedSnapshot = PersistentSnapshot.load(IntegerIDSerializer.INSTANCE, snapshotPath)) {
             int bufferSize = 68;
             byte[] buffer = new byte[bufferSize];
             for (int i = 0; i < Math.ceil((double) totalLength / bufferSize); i++) {
@@ -78,7 +78,7 @@ class PersistentSnapshotTest {
         final int lastIndex = 123;
         final Path snapshotPath = tempDir.resolve("snapshot.snap");
 
-        try (final PersistentSnapshot persistentSnapshot = PersistentSnapshot.create(snapshotPath, lastIndex, lastTerm, lastConfig)) {
+        try (final PersistentSnapshot persistentSnapshot = PersistentSnapshot.create(IntegerIDSerializer.INSTANCE, snapshotPath, lastIndex, lastTerm, lastConfig)) {
             persistentSnapshot.writeBytes(0, "Testing".getBytes());
             persistentSnapshot.writeBytes(0, "Fa".getBytes());
             persistentSnapshot.writeBytes(4, "er".getBytes());
@@ -88,7 +88,7 @@ class PersistentSnapshotTest {
             throw new UncheckedIOException(e);
         }
 
-        try (PersistentSnapshot loadedSnapshot = PersistentSnapshot.load(snapshotPath)) {
+        try (PersistentSnapshot loadedSnapshot = PersistentSnapshot.load(IntegerIDSerializer.INSTANCE, snapshotPath)) {
             assertThat(loadedSnapshot.getLastTerm()).isEqualTo(lastTerm);
             assertThat(loadedSnapshot.getLastIndex()).isEqualTo(lastIndex);
             assertThat(loadedSnapshot.getLastConfig()).usingRecursiveComparison().isEqualTo(lastConfig);
@@ -102,12 +102,12 @@ class PersistentSnapshotTest {
 
     private ConfigurationEntry createConfigurationEntry() {
         final Term configTerm = new Term(789);
-        final Set<Serializable> clusterMembers = Set.of(11, 22, 33, 44);
+        final Set<Integer> clusterMembers = Set.of(11, 22, 33, 44);
         return new ConfigurationEntry(configTerm, clusterMembers);
     }
 
     private PersistentSnapshot createAndPopulateSnapshot(Path snapshotPath, Term lastTerm, int lastIndex, ConfigurationEntry lastConfig, byte[] contentBytes) {
-        try (final PersistentSnapshot persistentSnapshot = PersistentSnapshot.create(snapshotPath, lastIndex, lastTerm, lastConfig)) {
+        try (final PersistentSnapshot persistentSnapshot = PersistentSnapshot.create(IntegerIDSerializer.INSTANCE, snapshotPath, lastIndex, lastTerm, lastConfig)) {
             persistentSnapshot.writeBytes(0, contentBytes);
             persistentSnapshot.finalise();
             return persistentSnapshot;

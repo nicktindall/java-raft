@@ -4,7 +4,6 @@ import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.Serializable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -13,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PendingRegisterClientResponseTest {
 
-    private PendingRegisterClientResponse<Serializable> response;
+    private PendingRegisterClientResponse<Object> response;
 
     @BeforeEach
     void setUp() {
@@ -22,7 +21,7 @@ class PendingRegisterClientResponseTest {
 
     @Test
     void shouldReturnFuture() {
-        CompletableFuture<RegisterClientResponse<Serializable>> responseFuture = response.getResponseFuture();
+        CompletableFuture<RegisterClientResponse<Object>> responseFuture = response.getResponseFuture();
         assertThat(responseFuture).isNotCompleted();
     }
 

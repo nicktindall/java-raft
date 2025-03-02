@@ -10,7 +10,6 @@ import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import org.apache.logging.log4j.Logger;
 
-import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -21,7 +20,7 @@ import static java.util.Collections.unmodifiableSet;
 import static java.util.Optional.empty;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-public class Candidate<I extends Serializable> extends ServerStateImpl<I> {
+public class Candidate<I> extends ServerStateImpl<I> {
 
     private static final long WARNING_THRESHOLD_MS = 30;
     private static final Logger LOGGER = getLogger();

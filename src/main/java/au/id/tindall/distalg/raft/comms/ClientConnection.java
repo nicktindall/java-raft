@@ -5,12 +5,11 @@ import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class ClientConnection<I extends Serializable> implements Closeable {
+public class ClientConnection<I> implements Closeable {
 
     private final Queue<CRHolder<?>> clientRequests;
     private final Object closingMutex = new Object();

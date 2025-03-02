@@ -3,21 +3,20 @@ package au.id.tindall.distalg.raft.processors;
 import au.id.tindall.distalg.raft.util.Closeables;
 
 import java.io.Closeable;
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
 public class ProcessorManagerImpl<G extends Enum<G>> implements ProcessorManager<G>, Closeable {
 
-    private final Serializable serverID;
+    private final Object serverID;
     private final ProcessorDriver<G> processorDriver;
     private final Map<G, ProcessorGroupImpl<G>> processorGroups;
 
-    public ProcessorManagerImpl(Serializable serverID) {
+    public ProcessorManagerImpl(Object serverID) {
         this(serverID, new ExecutorServiceProcessorDriver<>());
     }
 
-    public ProcessorManagerImpl(Serializable serverID, ProcessorDriver<G> processorDriver) {
+    public ProcessorManagerImpl(Object serverID, ProcessorDriver<G> processorDriver) {
         this.serverID = serverID;
         this.processorGroups = new HashMap<>();
         this.processorDriver = processorDriver;

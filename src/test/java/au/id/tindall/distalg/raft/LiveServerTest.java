@@ -15,6 +15,7 @@ import au.id.tindall.distalg.raft.processors.SleepStrategies;
 import au.id.tindall.distalg.raft.replication.HeartbeatReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
+import au.id.tindall.distalg.raft.serialisation.LongIDSerializer;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 import au.id.tindall.distalg.raft.snapshotting.DumbRegularIntervalSnapshotHeuristic;
 import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
@@ -155,7 +156,7 @@ class LiveServerTest {
                 MAX_CLIENT_SESSIONS,
                 new CommandExecutorFactory(),
                 MonotonicCounter::new,
-                new ElectionSchedulerFactory(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
+                new ElectionSchedulerFactory<>(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS, MAXIMUM_ELECTION_TIMEOUT_MILLISECONDS),
                 MAX_BATCH_SIZE,
                 new HeartbeatReplicationSchedulerFactory<>(DELAY_BETWEEN_HEARTBEATS_MILLISECONDS),
                 Duration.ofMillis(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS),
@@ -168,7 +169,7 @@ class LiveServerTest {
 
     private Server<Long> createServerAndState(long id, Set<Long> serverIds) {
         try {
-            PersistentState<Long> persistentState = FileBasedPersistentState.createOrOpen(stateDirectoryForServer(id), id);
+            PersistentState<Long> persistentState = FileBasedPersistentState.createOrOpen(LongIDSerializer.INSTANCE, stateDirectoryForServer(id), id);
             Server<Long> server = TimingWrappers.wrap(serverFactory.create(persistentState, serverIds, new DumbRegularIntervalSnapshotHeuristic()), WARNING_THRESHOLD_MILLIS);
             allServers.put(id, server);
             return server;

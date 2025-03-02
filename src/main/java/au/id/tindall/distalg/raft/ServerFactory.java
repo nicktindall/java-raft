@@ -31,13 +31,12 @@ import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 import au.id.tindall.distalg.raft.statemachine.StateMachineFactory;
 
-import java.io.Serializable;
 import java.time.Duration;
 import java.util.Set;
 
 import static au.id.tindall.distalg.raft.snapshotting.SnapshotHeuristic.NEVER_SNAPSHOT;
 
-public class ServerFactory<I extends Serializable> {
+public class ServerFactory<I> {
 
     private final ClusterFactory<I> clusterFactory;
     private final LogFactory logFactory;

@@ -4,6 +4,10 @@ import au.id.tindall.distalg.raft.log.EntryCommittedEventHandler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
+import au.id.tindall.distalg.raft.serialisation.ByteBufferIO;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
+import au.id.tindall.distalg.raft.serialisation.UnsupportedIDSerializer;
 import au.id.tindall.distalg.raft.state.Snapshot;
 import au.id.tindall.distalg.raft.state.SnapshotInstalledListener;
 import au.id.tindall.distalg.raft.statemachine.CommandAppliedEventHandler;
@@ -16,9 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static au.id.tindall.distalg.raft.util.SerializationUtil.deserializeObject;
-import static au.id.tindall.distalg.raft.util.SerializationUtil.serializeObject;
 
 public class ClientSessionStore implements SnapshotInstalledListener {
 
@@ -104,7 +105,9 @@ public class ClientSessionStore implements SnapshotInstalledListener {
     }
 
     public byte[] serializeSessions() {
-        return serializeObject(activeSessions);
+        final ByteBufferIO byteBufferIO = ByteBufferIO.elastic(UnsupportedIDSerializer.INSTANCE);
+        byteBufferIO.writeMap(activeSessions, StreamingOutput::writeInteger, StreamingOutput::writeStreamable);
+        return byteBufferIO.contentAsBytes();
     }
 
     @Override
@@ -115,6 +118,11 @@ public class ClientSessionStore implements SnapshotInstalledListener {
     }
 
     public void replaceSessions(byte[] sessions) {
-        activeSessions = deserializeObject(sessions);
+        final ByteBufferIO byteBufferIO = ByteBufferIO.wrap(UnsupportedIDSerializer.INSTANCE, sessions);
+        activeSessions = byteBufferIO.readMap(
+                HashMap::newHashMap,
+                StreamingInput::readInteger,
+                StreamingInput::readStreamable
+        );
     }
 }

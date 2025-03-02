@@ -1,8 +1,6 @@
 package au.id.tindall.distalg.raft.comms;
 
-import java.io.Serializable;
-
-public interface Inbox<I extends Serializable> {
+public interface Inbox<I> {
 
     boolean processNextMessage(MessageProcessor<I> messageProcessor);
 }

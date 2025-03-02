@@ -3,12 +3,11 @@ package au.id.tindall.distalg.raft.client.responses;
 
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 
-import java.io.Serializable;
 import java.util.concurrent.CompletableFuture;
 
 import static au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus.NOT_LEADER;
 
-public class PendingRegisterClientResponse<I extends Serializable> implements PendingResponse<RegisterClientResponse<I>> {
+public class PendingRegisterClientResponse<I> implements PendingResponse<RegisterClientResponse<I>> {
 
     private final CompletableFuture<RegisterClientResponse<I>> future;
 

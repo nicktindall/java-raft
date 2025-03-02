@@ -5,6 +5,7 @@ import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.storage.LogStorage;
 import au.id.tindall.distalg.raft.log.storage.MemoryMappedLogStorage;
+import au.id.tindall.distalg.raft.serialisation.IntegerIDSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +45,7 @@ class FileBasedPersistentStateTest extends PersistentStateContractTest {
 
     @Override
     protected PersistentState<Integer> createPersistentState() {
-        return new FileBasedPersistentState<>(logStorage, stateFile, nextSnapshotPath, currentSnapshotPath, new JavaIDSerializer<>(), PersistentStateContractTest.SERVER_ID);
+        return new FileBasedPersistentState<>(logStorage, stateFile, nextSnapshotPath, currentSnapshotPath, IntegerIDSerializer.INSTANCE, PersistentStateContractTest.SERVER_ID);
     }
 
     @Test
@@ -54,7 +55,7 @@ class FileBasedPersistentStateTest extends PersistentStateContractTest {
         final Snapshot snapshot = persistentState.createSnapshot(1234, new Term(10), new ConfigurationEntry(new Term(5), Set.of(1, 2)), 10);
         snapshot.writeBytes(0, "Whole snapshot bytes".getBytes());
         persistentState.setCurrentSnapshot(snapshot);
-        PersistentState<Integer> restored = new FileBasedPersistentState<>(logStorage, stateFile, nextSnapshotPath, currentSnapshotPath, new JavaIDSerializer<>());
+        PersistentState<Integer> restored = new FileBasedPersistentState<>(logStorage, stateFile, nextSnapshotPath, currentSnapshotPath, IntegerIDSerializer.INSTANCE);
         assertThat(restored.getId()).isEqualTo(SERVER_ID);
         assertThat(restored.getCurrentTerm()).isEqualTo(CURRENT_TERM);
         assertThat(restored.getVotedFor()).contains(OTHER_SERVER_ID);
@@ -66,7 +67,7 @@ class FileBasedPersistentStateTest extends PersistentStateContractTest {
     void willCreateStateAndLogStorage() throws IOException {
         final Path otherStateFile = tempDir.resolve("otherStateFile");
         Files.createDirectories(otherStateFile);
-        final FileBasedPersistentState<Integer> ps = FileBasedPersistentState.create(otherStateFile, SERVER_ID);
+        final FileBasedPersistentState<Integer> ps = FileBasedPersistentState.create(IntegerIDSerializer.INSTANCE, otherStateFile, SERVER_ID);
         assertThat(ps.getLogStorage()).isInstanceOf(MemoryMappedLogStorage.class);
     }
 
@@ -75,10 +76,10 @@ class FileBasedPersistentStateTest extends PersistentStateContractTest {
         final Path otherStateFile = tempDir.resolve("otherStateFile");
         Files.createDirectories(otherStateFile);
         final ClientRegistrationEntry logEntry = new ClientRegistrationEntry(Term.ZERO, 678);
-        final FileBasedPersistentState<Integer> ps = FileBasedPersistentState.createOrOpen(otherStateFile, SERVER_ID);
+        final FileBasedPersistentState<Integer> ps = FileBasedPersistentState.createOrOpen(IntegerIDSerializer.INSTANCE, otherStateFile, SERVER_ID);
         ps.getLogStorage().add(1, logEntry);
 
-        final FileBasedPersistentState<Integer> restoredPs = FileBasedPersistentState.createOrOpen(otherStateFile, SERVER_ID);
+        final FileBasedPersistentState<Integer> restoredPs = FileBasedPersistentState.createOrOpen(IntegerIDSerializer.INSTANCE, otherStateFile, SERVER_ID);
         assertThat(restoredPs.getLogStorage().getEntry(1)).usingRecursiveComparison().isEqualTo(logEntry);
     }
 }

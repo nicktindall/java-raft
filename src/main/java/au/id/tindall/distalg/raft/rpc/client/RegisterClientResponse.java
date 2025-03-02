@@ -1,9 +1,15 @@
 package au.id.tindall.distalg.raft.rpc.client;
 
-import java.io.Serializable;
+import au.id.tindall.distalg.raft.serialisation.MessageIdentifier;
+import au.id.tindall.distalg.raft.serialisation.Streamable;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
+
 import java.util.Optional;
 
-public class RegisterClientResponse<I extends Serializable> implements ClientResponseMessage {
+public class RegisterClientResponse<I> implements ClientResponseMessage, Streamable {
+
+    private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("RegisterClientResponse", RegisterClientResponse.class);
 
     private final RegisterClientStatus status;
     private final Integer clientId;
@@ -13,6 +19,12 @@ public class RegisterClientResponse<I extends Serializable> implements ClientRes
         this.status = status;
         this.clientId = clientId;
         this.leaderHint = leaderHint;
+    }
+
+    public RegisterClientResponse(StreamingInput streamingInput) {
+        this.status = streamingInput.readEnum(RegisterClientStatus.class);
+        this.clientId = streamingInput.readNullable(StreamingInput::readInteger);
+        this.leaderHint = streamingInput.readNullable(StreamingInput::readIdentifier);
     }
 
     public RegisterClientStatus getStatus() {
@@ -25,6 +37,18 @@ public class RegisterClientResponse<I extends Serializable> implements ClientRes
 
     public Optional<I> getLeaderHint() {
         return Optional.ofNullable(leaderHint);
+    }
+
+    @Override
+    public MessageIdentifier getMessageIdentifier() {
+        return MESSAGE_IDENTIFIER;
+    }
+
+    @Override
+    public void writeTo(StreamingOutput streamingOutput) {
+        streamingOutput.writeEnum(status);
+        streamingOutput.writeNullable(clientId, StreamingOutput::writeInteger);
+        streamingOutput.writeNullable(leaderHint, StreamingOutput::writeIdentifier);
     }
 
     @Override
