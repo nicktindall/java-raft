@@ -79,7 +79,7 @@ class ServerStateFactoryTest {
         when(clusterMembershipChangeManagerFactory.createChangeManager(replicationManager)).thenReturn(clusterMembershipChangeManager);
 
         assertThat(serverStateFactory.createLeader())
-                .usingRecursiveComparison().isEqualTo(new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager, clientSessionStore, leadershipTransfer, clusterMembershipChangeManager, processorManager));
+                .usingRecursiveComparison().isEqualTo(new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager, clientSessionStore, leadershipTransfer, clusterMembershipChangeManager, processorManager, electionScheduler));
     }
 
     @Test

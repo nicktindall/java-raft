@@ -6,6 +6,7 @@ import au.id.tindall.distalg.raft.client.responses.PendingResponse;
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
@@ -90,6 +91,8 @@ class LeaderTest {
     private ClusterMembershipChangeManager<Long> clusterMembershipChangeManager;
     @Mock
     private ProcessorManager processorManager;
+    @Mock
+    private ElectionScheduler electionScheduler;
 
     private Leader<Long> leader;
 
@@ -99,7 +102,7 @@ class LeaderTest {
         lenient().when(persistentState.getCurrentTerm()).thenReturn(CURRENT_TERM);
         lenient().when(log.getNextLogIndex()).thenReturn(NEXT_LOG_INDEX);
         leader = new Leader<>(persistentState, log, cluster, pendingResponseRegistry, serverStateFactory, replicationManager,
-                clientSessionStore, leadershipTransfer, clusterMembershipChangeManager, processorManager);
+                clientSessionStore, leadershipTransfer, clusterMembershipChangeManager, processorManager, electionScheduler);
     }
 
     @Nested
@@ -164,7 +167,7 @@ class LeaderTest {
             @Test
             void willIgnoreMessage() {
                 leader.handle(new AppendEntriesResponse<>(PREVIOUS_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
-                verifyNoMoreInteractions(replicationManager, log);
+                verifyNoMoreInteractions(replicationManager, log, electionScheduler);
             }
         }
 
@@ -190,6 +193,12 @@ class LeaderTest {
             void willLogMessageFromFollowerWithClusterMembershipChangeManager() {
                 leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
                 verify(clusterMembershipChangeManager).logMessageFromFollower(OTHER_SERVER_ID);
+            }
+
+            @Test
+            void willUpdateHeartbeat() {
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                verify(electionScheduler).updateHeartbeat();
             }
 
             @Nested
@@ -280,7 +289,7 @@ class LeaderTest {
                 assertThat(leader.handle(new InstallSnapshotResponse<>(PREVIOUS_TERM, OTHER_SERVER_ID, SERVER_ID, true, 123, 456)))
                         .usingRecursiveComparison()
                         .isEqualTo(complete(leader));
-                verifyNoMoreInteractions(replicationManager, log);
+                verifyNoMoreInteractions(replicationManager, log, electionScheduler);
             }
         }
 
@@ -304,6 +313,11 @@ class LeaderTest {
                 final InOrder inOrder = inOrder(replicationManager);
                 inOrder.verify(replicationManager).logSuccessSnapshotResponse(OTHER_SERVER_ID, 123, 456);
                 inOrder.verify(replicationManager).replicate(OTHER_SERVER_ID);
+            }
+
+            @Test
+            void willUpdateHeartbeat() {
+                verify(electionScheduler).updateHeartbeat();
             }
         }
 

@@ -8,6 +8,7 @@ import au.id.tindall.distalg.raft.elections.ElectionTimeoutProcessor;
 import au.id.tindall.distalg.raft.exceptions.AlreadyRunningException;
 import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.Log;
+import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.processors.InboxProcessor;
 import au.id.tindall.distalg.raft.processors.ProcessorController;
 import au.id.tindall.distalg.raft.processors.ProcessorManager;
@@ -153,7 +154,7 @@ public class ServerImpl<I extends Serializable> implements Server<I>, Closeable 
     }
 
     private void electionTimeout() {
-        handle(new TimeoutNowMessage<>(persistentState.getCurrentTerm(), persistentState.getId(), persistentState.getId()));
+        handle(new TimeoutNowMessage<>(persistentState.getCurrentTerm(), persistentState.getId()));
     }
 
     @Override
@@ -198,5 +199,10 @@ public class ServerImpl<I extends Serializable> implements Server<I>, Closeable 
     @Override
     public Inbox<I> getInbox() {
         return inbox;
+    }
+
+    @Override
+    public Term getTerm() {
+        return persistentState.getCurrentTerm();
     }
 }

@@ -22,7 +22,7 @@ The parts of the algorithm I have implemented (according to the thesis chapters)
 | 4 | Cluster membership changes | :heavy_check_mark: |
 | 4.2.1 | Catching up new servers | :heavy_check_mark: |
 | 4.2.2 | Removing the current leader | :x: |
-| 4.2.3 | Disruptive servers | :x: |
+| 4.2.3 | Disruptive servers | :heavy_check_mark: |
 | 4.3 | Arbitrary configuration changes using joint consensus | :x: |
 | 5 | Log compaction | :heavy_check_mark: |
 | 6.1 | Finding the cluster | :x: |

@@ -26,5 +26,5 @@ public interface ServerState<I extends Serializable> {
 
     <R extends ServerAdminResponse> CompletableFuture<R> handle(ServerAdminRequest<R> message);
 
-    void requestVotes();
+    void requestVotes(boolean earlyElection);
 }

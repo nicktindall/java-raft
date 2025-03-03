@@ -32,17 +32,18 @@ public class MonotonicCounterClient extends AbstractClusterClient {
 
     private Integer clientId;
     private int clientSequenceNumber;
-    private BigInteger counterValue = BigInteger.ZERO;
+    private BigInteger counterValue;
 
-    public MonotonicCounterClient(Map<Long, Server<Long>> servers) {
+    public MonotonicCounterClient(Map<Long, Server<Long>> servers, BigInteger startingValue) {
         super(servers);
+        this.counterValue = startingValue;
     }
 
     public void register() throws ExecutionException, InterruptedException {
         int retries = 0;
         while (retries < MAX_RETRIES) {
             try {
-                RegisterClientResponse<Long> response = (RegisterClientResponse<Long>) sendClientRequest(RegisterClientRequest::new).get(1, TimeUnit.SECONDS);
+                RegisterClientResponse<Long> response = sendClientRequest(RegisterClientRequest::new).get(1, TimeUnit.SECONDS);
                 if (response.getStatus() == RegisterClientStatus.OK) {
                     this.clientId = response.getClientId().get();
                     return;

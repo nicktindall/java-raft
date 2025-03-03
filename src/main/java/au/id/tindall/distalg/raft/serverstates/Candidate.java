@@ -31,7 +31,7 @@ public class Candidate<I extends Serializable> extends ServerStateImpl<I> {
     private final Configuration<I> configuration;
 
     public Candidate(PersistentState<I> persistentState, Log log, Cluster<I> cluster, ServerStateFactory<I> serverStateFactory, ElectionScheduler electionScheduler, Configuration<I> configuration) {
-        super(persistentState, log, cluster, serverStateFactory, null);
+        super(persistentState, log, cluster, serverStateFactory, null, electionScheduler);
         this.electionScheduler = electionScheduler;
         this.configuration = configuration;
         receivedVotes = new HashSet<>();
@@ -80,7 +80,7 @@ public class Candidate<I extends Serializable> extends ServerStateImpl<I> {
         ServerState<I> nextState = recordVoteAndClaimLeadershipIfEligible(persistentState.getId());
         electionScheduler.resetTimeout();
         long requestVotesStart = System.currentTimeMillis();
-        nextState.requestVotes();
+        nextState.requestVotes(timeoutNowMessage.isEarlyElection());
         long requestVotesDuration = System.currentTimeMillis() - requestVotesStart;
         long totalDuration = System.currentTimeMillis() - startTime;
         if (totalDuration > WARNING_THRESHOLD_MS) {
@@ -96,8 +96,8 @@ public class Candidate<I extends Serializable> extends ServerStateImpl<I> {
     }
 
     @Override
-    public void requestVotes() {
-        cluster.sendRequestVoteRequest(persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm());
+    public void requestVotes(boolean earlyElection) {
+        cluster.sendRequestVoteRequest(persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm(), earlyElection);
     }
 
     public ServerState<I> recordVoteAndClaimLeadershipIfEligible(I voter) {

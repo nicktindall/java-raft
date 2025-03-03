@@ -4,6 +4,7 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Inbox;
 import au.id.tindall.distalg.raft.comms.MessageProcessor;
 import au.id.tindall.distalg.raft.log.Log;
+import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 import au.id.tindall.distalg.raft.statemachine.StateMachine;
 
@@ -37,4 +38,6 @@ public interface Server<I extends Serializable> extends MessageProcessor<I>, Clo
     void close();
 
     Inbox<I> getInbox();
+
+    Term getTerm();
 }

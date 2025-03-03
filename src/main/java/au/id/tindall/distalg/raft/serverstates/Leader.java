@@ -5,6 +5,7 @@ import au.id.tindall.distalg.raft.client.responses.PendingRegisterClientResponse
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistry;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ClientRegistrationEntry;
 import au.id.tindall.distalg.raft.log.entries.StateMachineCommandEntry;
@@ -54,8 +55,8 @@ public class Leader<I extends Serializable> extends ServerStateImpl<I> {
     public Leader(PersistentState<I> persistentState, Log log, Cluster<I> cluster, PendingResponseRegistry pendingResponseRegistry,
                   ServerStateFactory<I> serverStateFactory, ReplicationManager<I> replicationManager, ClientSessionStore clientSessionStore,
                   LeadershipTransfer<I> leadershipTransfer, ClusterMembershipChangeManager<I> clusterMembershipChangeManager,
-                  ProcessorManager<RaftProcessorGroup> processorManager) {
-        super(persistentState, log, cluster, serverStateFactory, persistentState.getId());
+                  ProcessorManager<RaftProcessorGroup> processorManager, ElectionScheduler electionScheduler) {
+        super(persistentState, log, cluster, serverStateFactory, persistentState.getId(), electionScheduler);
         this.pendingResponseRegistry = pendingResponseRegistry;
         this.replicationManager = replicationManager;
         this.clientSessionStore = clientSessionStore;
@@ -95,6 +96,7 @@ public class Leader<I extends Serializable> extends ServerStateImpl<I> {
     @Override
     protected Result<I> handle(AppendEntriesResponse<I> appendEntriesResponse) {
         if (messageIsNotStale(appendEntriesResponse)) {
+            electionScheduler.updateHeartbeat();
             handleCurrentAppendResponse(appendEntriesResponse);
             if (appendEntriesResponse.isSuccess() && leadershipTransfer.isInProgress()) {
                 leadershipTransfer.sendTimeoutNowRequestIfReadyToTransfer();
@@ -106,6 +108,7 @@ public class Leader<I extends Serializable> extends ServerStateImpl<I> {
     @Override
     protected Result<I> handle(InstallSnapshotResponse<I> installSnapshotResponse) {
         if (messageIsNotStale(installSnapshotResponse)) {
+            electionScheduler.updateHeartbeat();
             clusterMembershipChangeManager.logMessageFromFollower(installSnapshotResponse.getSource());
             if (installSnapshotResponse.isSuccess()) {
                 replicationManager.logSuccessSnapshotResponse(installSnapshotResponse.getSource(), installSnapshotResponse.getLastIndex(), installSnapshotResponse.getOffset());

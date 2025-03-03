@@ -26,6 +26,7 @@ import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.inOrder;
@@ -79,8 +80,8 @@ class CandidateTest {
     void requestVotes_WillBroadcastRequestVoteRpc() {
         when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
         Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
-        candidateState.requestVotes();
-        verify(cluster).sendRequestVoteRequest(TERM_2, 0, Optional.empty());
+        candidateState.requestVotes(false);
+        verify(cluster).sendRequestVoteRequest(TERM_2, 0, Optional.empty(), false);
     }
 
     @Nested
@@ -236,7 +237,7 @@ class CandidateTest {
 
                 InOrder sequence = inOrder(persistentState, cluster);
                 sequence.verify(persistentState).setCurrentTermAndVotedFor(TERM_2, SERVER_ID);
-                sequence.verify(cluster).sendRequestVoteRequest(TERM_1, LAST_LOG_INDEX, Optional.of(TERM_0));
+                sequence.verify(cluster).sendRequestVoteRequest(TERM_1, LAST_LOG_INDEX, Optional.of(TERM_0), false);
             }
 
             @Test
@@ -281,7 +282,7 @@ class CandidateTest {
             @Test
             void willNotRequestVotes() {
                 candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID));
-                verify(cluster, never()).sendRequestVoteRequest(any(), anyInt(), any());
+                verify(cluster, never()).sendRequestVoteRequest(any(), anyInt(), any(), anyBoolean());
             }
 
             @Test

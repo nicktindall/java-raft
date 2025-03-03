@@ -28,7 +28,7 @@ class ElectionSchedulerTest {
 
     @BeforeEach
     void setUp() {
-        electionScheduler = new ElectionScheduler(electionTimeoutGenerator, currentTime::get);
+        electionScheduler = new ElectionScheduler(TIMEOUT_MILLIS, electionTimeoutGenerator, currentTime::get);
         lenient().when(electionTimeoutGenerator.next()).thenReturn(TIMEOUT_MILLIS);
     }
 
@@ -75,6 +75,15 @@ class ElectionSchedulerTest {
         void willThrowIfTimeoutsAreNotStarted() {
             assertThatThrownBy(() -> electionScheduler.resetTimeout()).isInstanceOf(IllegalStateException.class);
         }
+
+        @Test
+        void willUpdateHeartbeat() {
+            electionScheduler.startTimeouts();
+            currentTime.set(currentTime.get().plusMillis(TIMEOUT_MILLIS + 1));
+            assertThat(electionScheduler.isHeartbeatCurrent()).isFalse();
+            electionScheduler.resetTimeout();
+            assertThat(electionScheduler.isHeartbeatCurrent()).isTrue();
+        }
     }
 
     @Nested
@@ -92,6 +101,25 @@ class ElectionSchedulerTest {
         @Test
         void willThrowWhenTimeoutsAreNotStarted() {
             assertThatThrownBy(() -> electionScheduler.stopTimeouts()).isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Nested
+    class UpdateHeartbeat {
+
+        @Test
+        void willUpdateHeartbeat() {
+            currentTime.set(currentTime.get().plusMillis(TIMEOUT_MILLIS + 1));
+            assertThat(electionScheduler.isHeartbeatCurrent()).isFalse();
+            electionScheduler.updateHeartbeat();
+            assertThat(electionScheduler.isHeartbeatCurrent()).isTrue();
+        }
+
+        @Test
+        void willNotScheduleElection() {
+            electionScheduler.updateHeartbeat();
+            currentTime.set(currentTime.get().plusMillis(TIMEOUT_MILLIS + 1));
+            assertThat(electionScheduler.shouldTimeout()).isFalse();
         }
     }
 }

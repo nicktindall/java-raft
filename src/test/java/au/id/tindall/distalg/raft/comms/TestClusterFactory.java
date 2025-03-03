@@ -62,8 +62,8 @@ public class TestClusterFactory implements ClusterFactory<Long>, InboxFactory<Lo
             }
 
             @Override
-            public void sendRequestVoteRequest(Term currentTerm, int lastLogIndex, Optional<Term> lastLogTerm) {
-                dispatch(new RequestVoteRequest<>(currentTerm, localId, lastLogIndex, lastLogTerm));
+            public void sendRequestVoteRequest(Term currentTerm, int lastLogIndex, Optional<Term> lastLogTerm, boolean earlyElection) {
+                dispatch(new RequestVoteRequest<>(currentTerm, localId, lastLogIndex, lastLogTerm, earlyElection));
             }
 
             @Override
@@ -73,7 +73,7 @@ public class TestClusterFactory implements ClusterFactory<Long>, InboxFactory<Lo
 
             @Override
             public void sendTimeoutNowRequest(Term currentTerm, Long destinationId) {
-                dispatch(new TimeoutNowMessage<>(currentTerm, localId, destinationId));
+                dispatch(new TimeoutNowMessage<>(currentTerm, localId, destinationId, true));
             }
 
             @Override

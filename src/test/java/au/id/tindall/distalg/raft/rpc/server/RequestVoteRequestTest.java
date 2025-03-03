@@ -12,6 +12,6 @@ class RequestVoteRequestTest {
 
     @Test
     void isSerializable() {
-        assertThatCode(() -> roundTripSerializeDeserialize(new RequestVoteRequest<>(new Term(16), 12345L, 456, Optional.of(new Term(5))))).doesNotThrowAnyException();
+        assertThatCode(() -> roundTripSerializeDeserialize(new RequestVoteRequest<>(new Term(16), 12345L, 456, Optional.of(new Term(5)), false))).doesNotThrowAnyException();
     }
 }

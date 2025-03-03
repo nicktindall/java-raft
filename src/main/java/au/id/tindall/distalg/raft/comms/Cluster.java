@@ -18,7 +18,7 @@ public interface Cluster<I extends Serializable> {
 
     void sendAppendEntriesResponse(Term currentTerm, I destinationId, boolean success, Optional<Integer> appendedIndex);
 
-    void sendRequestVoteRequest(Term currentTerm, int lastLogIndex, Optional<Term> lastLogTerm);
+    void sendRequestVoteRequest(Term currentTerm, int lastLogIndex, Optional<Term> lastLogTerm, boolean earlyElection);
 
     void sendRequestVoteResponse(Term currentTerm, I destinationId, boolean granted);
 

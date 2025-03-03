@@ -10,12 +10,14 @@ public class RequestVoteRequest<I extends Serializable> extends BroadcastMessage
     private final I candidateId;
     private final int lastLogIndex;
     private final Term lastLogTerm;
+    private final boolean earlyElection;
 
-    public RequestVoteRequest(Term term, I candidateId, int lastLogIndex, Optional<Term> lastLogTerm) {
+    public RequestVoteRequest(Term term, I candidateId, int lastLogIndex, Optional<Term> lastLogTerm, boolean earlyElection) {
         super(term, candidateId);
         this.candidateId = candidateId;
         this.lastLogIndex = lastLogIndex;
         this.lastLogTerm = lastLogTerm.orElse(null);
+        this.earlyElection = earlyElection;
     }
 
     public I getCandidateId() {
@@ -30,12 +32,17 @@ public class RequestVoteRequest<I extends Serializable> extends BroadcastMessage
         return Optional.ofNullable(lastLogTerm);
     }
 
+    public boolean isEarlyElection() {
+        return earlyElection;
+    }
+
     @Override
     public String toString() {
         return "RequestVoteRequest{" +
                 "candidateId=" + candidateId +
                 ", lastLogIndex=" + lastLogIndex +
                 ", lastLogTerm=" + lastLogTerm +
-                "} " + super.toString();
+                ", earlyElection=" + earlyElection +
+                '}';
     }
 }

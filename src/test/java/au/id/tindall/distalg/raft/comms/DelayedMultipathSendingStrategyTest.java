@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class DelayedMultipathSendingStrategyTest {
 
-    private static final RequestVoteRequest<Long> MESSAGE = new RequestVoteRequest<>(Term.ZERO, 456L, 789, Optional.empty());
+    private static final RequestVoteRequest<Long> MESSAGE = new RequestVoteRequest<>(Term.ZERO, 456L, 789, Optional.empty(), false);
 
     @Test
     void returnsMessages() {

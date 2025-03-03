@@ -63,7 +63,7 @@ public class ServerStateFactory<I extends Serializable> implements Closeable {
         final ClusterMembershipChangeManager<I> clusterMembershipChangeManager = clusterMembershipChangeManagerFactory.createChangeManager(replicationManager);
         replicationManager.addMatchIndexAdvancedListener(clusterMembershipChangeManager);
         final Leader<I> leaderState = new Leader<>(persistentState, log, cluster, pendingResponseRegistryFactory.createPendingResponseRegistry(clientSessionStore, commandExecutor),
-                this, replicationManager, clientSessionStore, leadershipTransferFactory.create(replicationManager), clusterMembershipChangeManager, processorManager);
+                this, replicationManager, clientSessionStore, leadershipTransferFactory.create(replicationManager), clusterMembershipChangeManager, processorManager, electionScheduler);
         return timing ? TimingWrappers.wrap(leaderState, WARNING_THRESHOLD_MILLIS) : leaderState;
     }
 

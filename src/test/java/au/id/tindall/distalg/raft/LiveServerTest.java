@@ -43,9 +43,11 @@ import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -71,12 +73,14 @@ import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMillis;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 
 class LiveServerTest {
     private static final boolean LONG_RUN_TEST = Boolean.getBoolean("LiveServerTest.longRun");
+    private static final Duration LONG_RUN_TEST_LENGTH = Duration.ofDays(1);
 
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -106,8 +110,9 @@ class LiveServerTest {
     Path stateFileDirectory;
 
     public static void main(String[] args) {
+        Instant startTime = Instant.now();
         try (final PrintWriter writer = new PrintWriter(System.out)) {
-            while (true) {
+            while (Instant.now().isBefore(startTime.plus(LONG_RUN_TEST_LENGTH))) {
                 LauncherDiscoveryRequest ldr = LauncherDiscoveryRequestBuilder.request()
                         .selectors(selectClass(LiveServerTest.class))
                         .build();
@@ -288,6 +293,35 @@ class LiveServerTest {
         waitForAllServersToCatchUp();
     }
 
+    @Test
+    void willProgressWithDisruptiveServer() throws ExecutionException, InterruptedException {
+        testExecutorService.submit(() -> {
+            try {
+                countUp(0, 10);
+            } catch (Exception ex) {
+                logStateAndFail(ex);
+            }
+        }).get();
+
+        long newServerId = ALL_SERVER_IDS.size() + 1;
+        try (final Server<Long> server = createServerAndState(newServerId, allServers.keySet())) {
+            server.start();
+            testExecutorService.submit(() -> {
+                try {
+                    countUp(10, COUNT_UP_TARGET);
+                } catch (Exception ex) {
+                    logStateAndFail(ex);
+                }
+            }).get();
+        }
+
+        Optional<Server<Long>> optionalLeader = getLeader();
+        assertThat(optionalLeader).isPresent();
+        Server<Long> leader = optionalLeader.get();
+        assertThat(leader.getId()).isNotEqualTo(newServerId);
+        assertThat(leader.getTerm().getNumber()).isLessThan((int) (allServers.get(newServerId).getTerm().getNumber() * 0.1));
+    }
+
     private void logStateAndFail(Exception e) {
         LOGGER.error("Failing due to exception", e);
         printThreadDump();
@@ -430,9 +464,13 @@ class LiveServerTest {
     }
 
     private void countUp() throws Exception {
-        MonotonicCounterClient counterClient = new MonotonicCounterClient(allServers);
+        countUp(0, COUNT_UP_TARGET);
+    }
+
+    private void countUp(int fromValue, int amountToAdd) throws Exception {
+        MonotonicCounterClient counterClient = new MonotonicCounterClient(allServers, BigInteger.valueOf(fromValue));
         counterClient.register();
-        for (int i = 0; i < COUNT_UP_TARGET; i++) {
+        for (int i = 0; i < amountToAdd; i++) {
             counterClient.increment(this::checkFailed);
             delayedMultipathSendingStrategy.expire();
         }

@@ -16,6 +16,6 @@ public class ElectionSchedulerFactory<I extends Serializable> {
 
     @SuppressWarnings("unused")
     public ElectionScheduler createElectionScheduler(I serverId) {
-        return new ElectionScheduler(new ElectionTimeoutGenerator(new Random(), minimumElectionTimeoutMilliseconds, maximumElectionTimeoutMilliseconds), Instant::now);
+        return new ElectionScheduler(minimumElectionTimeoutMilliseconds, new ElectionTimeoutGenerator(new Random(), minimumElectionTimeoutMilliseconds, maximumElectionTimeoutMilliseconds), Instant::now);
     }
 }

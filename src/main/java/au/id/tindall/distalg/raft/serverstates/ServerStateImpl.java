@@ -1,6 +1,7 @@
 package au.id.tindall.distalg.raft.serverstates;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
+import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.LogSummary;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
@@ -47,13 +48,15 @@ public abstract class ServerStateImpl<I extends Serializable> implements ServerS
     protected final Log log;
     protected final ServerStateFactory<I> serverStateFactory;
     protected final I currentLeader;
+    protected final ElectionScheduler electionScheduler;
 
-    protected ServerStateImpl(PersistentState<I> persistentState, Log log, Cluster<I> cluster, ServerStateFactory<I> serverStateFactory, I currentLeader) {
+    protected ServerStateImpl(PersistentState<I> persistentState, Log log, Cluster<I> cluster, ServerStateFactory<I> serverStateFactory, I currentLeader, ElectionScheduler electionScheduler) {
         this.persistentState = persistentState;
         this.log = log;
         this.cluster = cluster;
         this.serverStateFactory = serverStateFactory;
         this.currentLeader = currentLeader;
+        this.electionScheduler = electionScheduler;
     }
 
     @SuppressWarnings("unchecked")
@@ -68,13 +71,23 @@ public abstract class ServerStateImpl<I extends Serializable> implements ServerS
         }
     }
 
+    private boolean leaderHeartbeatIsCurrent() {
+        return electionScheduler.isHeartbeatCurrent();
+    }
+
     @Override
     public Result<I> handle(RpcMessage<I> message) {
         if (message.getTerm().isGreaterThan(persistentState.getCurrentTerm())) {
-            LOGGER.debug("Received a message from a future term, transitioning from {} to {} state, message={}",
-                    getServerStateType(), ServerStateType.FOLLOWER, message);
-            persistentState.setCurrentTerm(message.getTerm());
-            return incomplete(serverStateFactory.createFollower(message.getSource()));
+            if (message instanceof RequestVoteRequest<I> voteRequest && leaderHeartbeatIsCurrent() && !voteRequest.isEarlyElection()) {
+                LOGGER.debug("Got vote request from {} while leader ({}) is active, rejecting", message.getSource(), currentLeader);
+                cluster.sendRequestVoteResponse(persistentState.getCurrentTerm(), message.getSource(), false);
+                return complete(this);
+            } else {
+                LOGGER.debug("Received a message from a future term, transitioning from {} to {} state, message={}",
+                        getServerStateType(), ServerStateType.FOLLOWER, message);
+                persistentState.setCurrentTerm(message.getTerm());
+                return incomplete(serverStateFactory.createFollower(message.getSource()));
+            }
         }
 
         if (message instanceof RequestVoteRequest) {
@@ -98,7 +111,7 @@ public abstract class ServerStateImpl<I extends Serializable> implements ServerS
         }
     }
 
-    public void requestVotes() {
+    public void requestVotes(boolean earlyElection) {
         // Do nothing by default, only candidates request votes
     }
 
@@ -130,8 +143,8 @@ public abstract class ServerStateImpl<I extends Serializable> implements ServerS
             if (grantVote) {
                 persistentState.setVotedFor(requestVote.getCandidateId());
             }
-            LOGGER.debug("Responding to vote request from {} (requestTerm={}, myTerm={}, haveNotVotedOrHaveAlreadyVotedForCandidate={}, granted={})",
-                    requestVote.getCandidateId(), requestVote.getTerm(), persistentState.getCurrentTerm(), haveNotVotedOrHaveAlreadyVotedForCandidate, grantVote);
+            LOGGER.debug("Responding to vote request from {} (requestTerm={}, myTerm={}, heartbeatIsCurrent={}, earlyElection={}, haveNotVotedOrHaveAlreadyVotedForCandidate={}, granted={})",
+                    requestVote.getCandidateId(), requestVote.getTerm(), persistentState.getCurrentTerm(), leaderHeartbeatIsCurrent(), requestVote.isEarlyElection(), haveNotVotedOrHaveAlreadyVotedForCandidate, grantVote);
             cluster.sendRequestVoteResponse(persistentState.getCurrentTerm(), requestVote.getCandidateId(), grantVote);
         }
         return complete(this);
