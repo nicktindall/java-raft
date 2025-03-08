@@ -4,16 +4,16 @@ import au.id.tindall.distalg.raft.log.Term;
 
 import java.io.Serializable;
 
-public class TimeoutNowMessage<I extends Serializable> extends UnicastMessage<I> {
+public class TimeoutNowMessage<I extends Serializable> extends RpcMessage<I> {
 
     private final boolean earlyElection;
 
     public TimeoutNowMessage(Term term, I source) {
-        this(term, source, source, false);
+        this(term, source, false);
     }
 
-    public TimeoutNowMessage(Term term, I source, I destination, boolean earlyElection) {
-        super(term, source, destination);
+    public TimeoutNowMessage(Term term, I source, boolean earlyElection) {
+        super(term, source);
         this.earlyElection = earlyElection;
     }
 

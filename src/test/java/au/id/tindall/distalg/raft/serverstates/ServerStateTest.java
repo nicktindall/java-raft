@@ -283,7 +283,7 @@ class ServerStateTest {
         void willDoNothing() {
             var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID, electionScheduler);
 
-            assertThat(serverState.handle(new InstallSnapshotRequest<>(TERM_0, LEADER_ID, SERVER_ID, 999, TERM_2, null, 101010, 1234, "Hello".getBytes(), true)))
+            assertThat(serverState.handle(new InstallSnapshotRequest<>(TERM_0, LEADER_ID, 999, TERM_2, null, 101010, 1234, "Hello".getBytes(), true)))
                     .usingRecursiveComparison().isEqualTo(complete(serverState));
         }
     }
@@ -295,7 +295,7 @@ class ServerStateTest {
         void willDoNothing() {
             var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID, electionScheduler);
 
-            assertThat(serverState.handle(new InstallSnapshotResponse<>(TERM_0, LEADER_ID, SERVER_ID, true, 999, 1)))
+            assertThat(serverState.handle(new InstallSnapshotResponse<>(TERM_0, LEADER_ID, true, 999, 1)))
                     .usingRecursiveComparison().isEqualTo(complete(serverState));
         }
     }

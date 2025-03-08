@@ -81,7 +81,7 @@ class CandidateTest {
         when(persistentState.getCurrentTerm()).thenReturn(TERM_2);
         Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
         candidateState.requestVotes(false);
-        verify(cluster).sendRequestVoteRequest(TERM_2, 0, Optional.empty(), false);
+        verify(cluster).sendRequestVoteRequest(configuration, TERM_2, 0, Optional.empty(), false);
     }
 
     @Nested
@@ -141,7 +141,7 @@ class CandidateTest {
             void setUp() {
                 when(configuration.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(false);
 
-                result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
+                result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, true));
             }
 
             @Test
@@ -163,7 +163,7 @@ class CandidateTest {
                 when(configuration.isQuorum(Set.of(OTHER_SERVER_ID, SERVER_ID))).thenReturn(true);
                 when(serverStateFactory.createLeader()).thenReturn(leader);
 
-                result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, true));
+                result = candidateState.handle(new RequestVoteResponse<>(TERM_2, OTHER_SERVER_ID, true));
             }
 
             @Test
@@ -175,7 +175,7 @@ class CandidateTest {
         @Test
         void willIgnoreResponse_WhenItIsStale() {
             reset(configuration);
-            Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, true));
+            Result<Long> result = candidateState.handle(new RequestVoteResponse<>(TERM_1, OTHER_SERVER_ID, true));
 
             verifyNoMoreInteractions(serverStateFactory);
             verify(configuration, never()).isQuorum(anySet());
@@ -197,7 +197,7 @@ class CandidateTest {
             when(serverStateFactory.createFollower(OTHER_SERVER_ID)).thenReturn(follower);
 
             Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
-            Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
+            Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_2, OTHER_SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
 
             assertThat(result).usingRecursiveComparison().isEqualTo(incomplete(follower));
         }
@@ -205,7 +205,7 @@ class CandidateTest {
         @Test
         void willRespondUnsuccessful_WhenRequestIsStale() {
             Candidate<Long> candidateState = new Candidate<>(persistentState, log, cluster, serverStateFactory, electionScheduler, configuration);
-            Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
+            Result<Long> result = candidateState.handle(new AppendEntriesRequest<>(TERM_1, OTHER_SERVER_ID, 2, Optional.of(TERM_0), emptyList(), 0));
 
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(candidateState));
             verify(cluster).sendAppendEntriesResponse(TERM_1, OTHER_SERVER_ID, false, Optional.empty());
@@ -237,7 +237,7 @@ class CandidateTest {
 
                 InOrder sequence = inOrder(persistentState, cluster);
                 sequence.verify(persistentState).setCurrentTermAndVotedFor(TERM_2, SERVER_ID);
-                sequence.verify(cluster).sendRequestVoteRequest(TERM_1, LAST_LOG_INDEX, Optional.of(TERM_0), false);
+                sequence.verify(cluster).sendRequestVoteRequest(configuration, TERM_1, LAST_LOG_INDEX, Optional.of(TERM_0), false);
             }
 
             @Test
@@ -282,7 +282,7 @@ class CandidateTest {
             @Test
             void willNotRequestVotes() {
                 candidate.handle(new TimeoutNowMessage<>(TERM_1, SERVER_ID));
-                verify(cluster, never()).sendRequestVoteRequest(any(), anyInt(), any(), anyBoolean());
+                verify(cluster, never()).sendRequestVoteRequest(any(), any(), anyInt(), any(), anyBoolean());
             }
 
             @Test

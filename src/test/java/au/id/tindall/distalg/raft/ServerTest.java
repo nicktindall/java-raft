@@ -9,7 +9,6 @@ import au.id.tindall.distalg.raft.processors.InboxProcessor;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
-import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
 import au.id.tindall.distalg.raft.serverstates.Follower;
 import au.id.tindall.distalg.raft.serverstates.ServerState;
 import au.id.tindall.distalg.raft.serverstates.ServerStateFactory;
@@ -145,7 +144,7 @@ class ServerTest {
         @SuppressWarnings({"ConstantConditions", "unchecked"})
         void willDispatchInitiateElectionMessageWithCurrentTerm_WhenTimeoutIsDue() {
             when(electionScheduler.shouldTimeout()).thenReturn(true);
-            when(serverState.handle(any(UnicastMessage.class))).thenReturn(complete(serverState));
+            when(serverState.handle(any(RpcMessage.class))).thenReturn(complete(serverState));
             server.timeoutNowIfDue();
 
             verify(serverState).handle(refEq(new TimeoutNowMessage<>(TERM_0, SERVER_ID)));

@@ -166,7 +166,7 @@ class LeaderTest {
 
             @Test
             void willIgnoreMessage() {
-                leader.handle(new AppendEntriesResponse<>(PREVIOUS_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                leader.handle(new AppendEntriesResponse<>(PREVIOUS_TERM, OTHER_SERVER_ID, true, Optional.of(5)));
                 verifyNoMoreInteractions(replicationManager, log, electionScheduler);
             }
         }
@@ -183,7 +183,7 @@ class LeaderTest {
 
             @Test
             void willLogSuccessWithReplicatorThenUpdateCommitIndex() {
-                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, true, Optional.of(5)));
                 InOrder inOrder = inOrder(replicationManager, log);
                 inOrder.verify(replicationManager).logSuccessResponse(OTHER_SERVER_ID, 5);
                 inOrder.verify(log).updateCommitIndex(List.of(OTHER_SERVER_MATCH_INDEX), CURRENT_TERM);
@@ -191,13 +191,13 @@ class LeaderTest {
 
             @Test
             void willLogMessageFromFollowerWithClusterMembershipChangeManager() {
-                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, true, Optional.of(5)));
                 verify(clusterMembershipChangeManager).logMessageFromFollower(OTHER_SERVER_ID);
             }
 
             @Test
             void willUpdateHeartbeat() {
-                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, true, Optional.of(5)));
                 verify(electionScheduler).updateHeartbeat();
             }
 
@@ -211,7 +211,7 @@ class LeaderTest {
 
                 @Test
                 void willSendTimeoutNowMessageIfReadyToTransfer() {
-                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, true, Optional.of(LAST_LOG_INDEX)));
 
                     verify(leadershipTransfer).sendTimeoutNowRequestIfReadyToTransfer();
                 }
@@ -227,7 +227,7 @@ class LeaderTest {
 
                 @Test
                 void willLogSuccessWithReplicatorThenReplicateToAll() {
-                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(5)));
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, true, Optional.of(5)));
                     InOrder inOrder = inOrder(replicationManager, log);
                     inOrder.verify(replicationManager).logSuccessResponse(OTHER_SERVER_ID, 5);
                     inOrder.verify(replicationManager).replicate();
@@ -245,7 +245,7 @@ class LeaderTest {
 
                 @Test
                 void willLogSuccessWithReplicatorThenReplicateIfTrailing() {
-                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, Optional.of(4)));
+                    leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, true, Optional.of(4)));
                     InOrder inOrder = inOrder(replicationManager, log);
                     inOrder.verify(replicationManager).logSuccessResponse(OTHER_SERVER_ID, 4);
                     inOrder.verify(replicationManager).replicateIfTrailingIndex(OTHER_SERVER_ID, LAST_LOG_INDEX);
@@ -258,13 +258,13 @@ class LeaderTest {
 
             @Test
             void willNotUpdateCommitIndex() {
-                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, false, Optional.empty()));
                 verify(log, never()).updateCommitIndex(anyList(), any(Term.class));
             }
 
             @Test
             void willLogFailureWithReplicatorThenReplicate() {
-                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, false, Optional.empty()));
                 InOrder sequence = inOrder(replicationManager);
                 sequence.verify(replicationManager).logFailedResponse(OTHER_SERVER_ID, null);
                 sequence.verify(replicationManager).replicate(OTHER_SERVER_ID);
@@ -272,7 +272,7 @@ class LeaderTest {
 
             @Test
             void willLogMessageFromFollowerWithClusterMembershipChangeManager() {
-                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, Optional.empty()));
+                leader.handle(new AppendEntriesResponse<>(CURRENT_TERM, OTHER_SERVER_ID, false, Optional.empty()));
                 verify(clusterMembershipChangeManager).logMessageFromFollower(OTHER_SERVER_ID);
             }
         }
@@ -286,7 +286,7 @@ class LeaderTest {
 
             @Test
             void willIgnoreMessage() {
-                assertThat(leader.handle(new InstallSnapshotResponse<>(PREVIOUS_TERM, OTHER_SERVER_ID, SERVER_ID, true, 123, 456)))
+                assertThat(leader.handle(new InstallSnapshotResponse<>(PREVIOUS_TERM, OTHER_SERVER_ID, true, 123, 456)))
                         .usingRecursiveComparison()
                         .isEqualTo(complete(leader));
                 verifyNoMoreInteractions(replicationManager, log, electionScheduler);
@@ -298,7 +298,7 @@ class LeaderTest {
 
             @BeforeEach
             void setUp() {
-                assertThat(leader.handle(new InstallSnapshotResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, true, 123, 456)))
+                assertThat(leader.handle(new InstallSnapshotResponse<>(CURRENT_TERM, OTHER_SERVER_ID, true, 123, 456)))
                         .usingRecursiveComparison()
                         .isEqualTo(complete(leader));
             }
@@ -326,7 +326,7 @@ class LeaderTest {
 
             @BeforeEach
             void setUp() {
-                assertThat(leader.handle(new InstallSnapshotResponse<>(CURRENT_TERM, OTHER_SERVER_ID, SERVER_ID, false, 123, 456)))
+                assertThat(leader.handle(new InstallSnapshotResponse<>(CURRENT_TERM, OTHER_SERVER_ID, false, 123, 456)))
                         .usingRecursiveComparison()
                         .isEqualTo(complete(leader));
             }

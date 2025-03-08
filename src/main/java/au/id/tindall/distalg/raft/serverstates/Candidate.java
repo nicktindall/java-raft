@@ -97,7 +97,7 @@ public class Candidate<I extends Serializable> extends ServerStateImpl<I> {
 
     @Override
     public void requestVotes(boolean earlyElection) {
-        cluster.sendRequestVoteRequest(persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm(), earlyElection);
+        cluster.sendRequestVoteRequest(configuration, persistentState.getCurrentTerm(), log.getLastLogIndex(), log.getLastLogTerm(), earlyElection);
     }
 
     public ServerState<I> recordVoteAndClaimLeadershipIfEligible(I voter) {

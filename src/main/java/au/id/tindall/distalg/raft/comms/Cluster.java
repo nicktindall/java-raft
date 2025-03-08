@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.comms;
 
+import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.log.entries.LogEntry;
@@ -18,7 +19,7 @@ public interface Cluster<I extends Serializable> {
 
     void sendAppendEntriesResponse(Term currentTerm, I destinationId, boolean success, Optional<Integer> appendedIndex);
 
-    void sendRequestVoteRequest(Term currentTerm, int lastLogIndex, Optional<Term> lastLogTerm, boolean earlyElection);
+    void sendRequestVoteRequest(Configuration<I> configuration, Term currentTerm, int lastLogIndex, Optional<Term> lastLogTerm, boolean earlyElection);
 
     void sendRequestVoteResponse(Term currentTerm, I destinationId, boolean granted);
 

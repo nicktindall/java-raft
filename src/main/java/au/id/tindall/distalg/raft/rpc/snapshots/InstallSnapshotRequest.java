@@ -2,11 +2,11 @@ package au.id.tindall.distalg.raft.rpc.snapshots;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
-import au.id.tindall.distalg.raft.rpc.server.UnicastMessage;
+import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 
 import java.io.Serializable;
 
-public class InstallSnapshotRequest<I extends Serializable> extends UnicastMessage<I> {
+public class InstallSnapshotRequest<I extends Serializable> extends RpcMessage<I> {
 
     private final I leaderId;
     private final int lastIndex;
@@ -17,10 +17,10 @@ public class InstallSnapshotRequest<I extends Serializable> extends UnicastMessa
     private final byte[] data;
     private final boolean done;
 
-    public InstallSnapshotRequest(Term term, I leaderId, I destination,
+    public InstallSnapshotRequest(Term term, I leaderId,
                                   int lastIndex, Term lastTerm, ConfigurationEntry lastConfig,
                                   int snapshotOffset, int offset, byte[] data, boolean done) {
-        super(term, leaderId, destination);
+        super(term, leaderId);
         this.leaderId = leaderId;
         this.lastIndex = lastIndex;
         this.lastTerm = lastTerm;

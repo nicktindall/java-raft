@@ -5,7 +5,7 @@ import au.id.tindall.distalg.raft.log.Term;
 import java.io.Serializable;
 import java.util.Optional;
 
-public class RequestVoteRequest<I extends Serializable> extends BroadcastMessage<I> {
+public class RequestVoteRequest<I extends Serializable> extends RpcMessage<I> {
 
     private final I candidateId;
     private final int lastLogIndex;

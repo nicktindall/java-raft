@@ -11,11 +11,11 @@ class AppendEntriesResponseTest {
 
     @Test
     void willReturnAppendedIndexWhenPresent() {
-        assertThat(new AppendEntriesResponse<>(new Term(0), 100L, 200L, true, Optional.of(12)).getAppendedIndex()).contains(12);
+        assertThat(new AppendEntriesResponse<>(new Term(0), 100L, true, Optional.of(12)).getAppendedIndex()).contains(12);
     }
 
     @Test
     void willReturnEmptyWhenAppendedIndexIsAbsent() {
-        assertThat(new AppendEntriesResponse<>(new Term(0), 100L, 200L, true, Optional.empty()).getAppendedIndex()).isEmpty();
+        assertThat(new AppendEntriesResponse<>(new Term(0), 100L, true, Optional.empty()).getAppendedIndex()).isEmpty();
     }
 }
