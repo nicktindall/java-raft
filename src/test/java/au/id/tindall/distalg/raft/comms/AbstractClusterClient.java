@@ -4,14 +4,11 @@ import au.id.tindall.distalg.raft.Server;
 import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminRequest;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminResponse;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 
@@ -27,28 +24,13 @@ public abstract class AbstractClusterClient {
         this.serverConnections = new HashMap<>();
     }
 
-    protected <R extends ServerAdminResponse> CompletableFuture<R> sendServerAdminRequest(Function<Long, ServerAdminRequest<R>> request) {
+    protected <R extends ClientResponseMessage> CompletableFuture<R> sendClientRequest(ClientRequestMessage<R> request) {
         int retries = 0;
         while (retries < MAX_RETRIES) {
             Server<Long> leader = findLeader();
             ClientConnection<Long> connection = getConnection(leader);
             try {
-                return connection.send(request.apply(leader.getId()));
-            } catch (NotRunningException ex) {
-                // Do nothing we'll retry
-            }
-            retries++;
-        }
-        throw new IllegalStateException("Maximum retries exceeded, failing sending...");
-    }
-
-    protected <R extends ClientResponseMessage> CompletableFuture<R> sendClientRequest(Function<Long, ClientRequestMessage<Long, R>> request) {
-        int retries = 0;
-        while (retries < MAX_RETRIES) {
-            Server<Long> leader = findLeader();
-            ClientConnection<Long> connection = getConnection(leader);
-            try {
-                return connection.send(request.apply(leader.getId()));
+                return connection.send(request);
             } catch (NotRunningException ex) {
                 // Do nothing we'll retry
             }

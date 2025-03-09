@@ -18,6 +18,8 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AbdicateLeadershipRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AbdicateLeadershipResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
@@ -124,6 +126,12 @@ public class Leader<I extends Serializable> extends ServerStateImpl<I> {
     protected Result<I> handle(TransferLeadershipMessage<I> transferLeadershipMessage) {
         leadershipTransfer.start();
         return complete(this);
+    }
+
+    @Override
+    protected CompletableFuture<AbdicateLeadershipResponse> handle(AbdicateLeadershipRequest abdicateLeadershipRequest) {
+        leadershipTransfer.start();
+        return CompletableFuture.completedFuture(AbdicateLeadershipResponse.OK);
     }
 
     @Override

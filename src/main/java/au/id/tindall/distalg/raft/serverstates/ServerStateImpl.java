@@ -12,12 +12,12 @@ import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AbdicateLeadershipRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AbdicateLeadershipResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminRequest;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminResponse;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesResponse;
 import au.id.tindall.distalg.raft.rpc.server.RequestVoteRequest;
@@ -57,18 +57,6 @@ public abstract class ServerStateImpl<I extends Serializable> implements ServerS
         this.serverStateFactory = serverStateFactory;
         this.currentLeader = currentLeader;
         this.electionScheduler = electionScheduler;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<I, R> message) {
-        if (message instanceof RegisterClientRequest) {
-            return (CompletableFuture<R>) handle((RegisterClientRequest<I>) message);
-        } else if (message instanceof ClientRequestRequest) {
-            return (CompletableFuture<R>) handle(((ClientRequestRequest<I>) message));
-        } else {
-            throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
-        }
     }
 
     private boolean leaderHeartbeatIsCurrent() {
@@ -204,14 +192,21 @@ public abstract class ServerStateImpl<I extends Serializable> implements ServerS
     }
 
     @Override
-    public CompletableFuture<? extends ServerAdminResponse> handle(ServerAdminRequest message) {
-        if (message instanceof AddServerRequest) {
-            return this.handle((AddServerRequest<I>) message);
-        } else if (message instanceof RemoveServerRequest) {
-            return this.handle((RemoveServerRequest<I>) message);
-        } else {
-            throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
-        }
+    public <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<R> message) {
+        return switch (message) {
+            case AddServerRequest addServerRequest ->
+                    (CompletableFuture<R>) this.handle((AddServerRequest<I>) addServerRequest);
+            case RemoveServerRequest removeServerRequest ->
+                    (CompletableFuture<R>) this.handle((RemoveServerRequest<I>) removeServerRequest);
+            case ClientRequestRequest clientRequestRequest ->
+                    (CompletableFuture<R>) this.handle((ClientRequestRequest<I>) clientRequestRequest);
+            case RegisterClientRequest registerClientRequest ->
+                    (CompletableFuture<R>) this.handle((RegisterClientRequest<I>) registerClientRequest);
+            case AbdicateLeadershipRequest abdicateLeadershipRequest ->
+                    (CompletableFuture<R>) this.handle(abdicateLeadershipRequest);
+            default ->
+                    throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
+        };
     }
 
     protected CompletableFuture<AddServerResponse> handle(AddServerRequest<I> addServerRequest) {
@@ -220,5 +215,9 @@ public abstract class ServerStateImpl<I extends Serializable> implements ServerS
 
     protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<I> removeServerRequest) {
         return CompletableFuture.completedFuture(RemoveServerResponse.NOT_LEADER);
+    }
+
+    protected CompletableFuture<AbdicateLeadershipResponse> handle(AbdicateLeadershipRequest abdicateLeadershipRequest) {
+        return CompletableFuture.completedFuture(AbdicateLeadershipResponse.NOT_LEADER);
     }
 }

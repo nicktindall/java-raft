@@ -11,6 +11,8 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AbdicateLeadershipRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AbdicateLeadershipResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
@@ -198,7 +200,7 @@ class ServerStateTest {
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
             var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID, electionScheduler);
-            CompletableFuture<RegisterClientResponse<Long>> response = serverState.handle(new RegisterClientRequest<>(SERVER_ID));
+            CompletableFuture<RegisterClientResponse<Long>> response = serverState.handle(new RegisterClientRequest<>());
 
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
@@ -212,7 +214,7 @@ class ServerStateTest {
         @Test
         void willReturnNotLeader() throws ExecutionException, InterruptedException {
             var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID, electionScheduler);
-            CompletableFuture<ClientRequestResponse<Long>> response = serverState.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, 0, LAST_RESPONSE_RECEIVED, "command".getBytes(StandardCharsets.UTF_8)));
+            CompletableFuture<ClientRequestResponse<Long>> response = serverState.handle(new ClientRequestRequest<>(CLIENT_ID, 0, LAST_RESPONSE_RECEIVED, "command".getBytes(StandardCharsets.UTF_8)));
 
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
@@ -297,6 +299,18 @@ class ServerStateTest {
 
             assertThat(serverState.handle(new InstallSnapshotResponse<>(TERM_0, LEADER_ID, true, 999, 1)))
                     .usingRecursiveComparison().isEqualTo(complete(serverState));
+        }
+    }
+
+    @Nested
+    class HandleAbdicateLeadershipRequest {
+
+        @Test
+        void willReturnNotLeader() {
+            var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID, electionScheduler);
+            CompletableFuture<AbdicateLeadershipResponse> handle = serverState.handle(new AbdicateLeadershipRequest());
+
+            assertThat(handle).isCompletedWithValue(AbdicateLeadershipResponse.NOT_LEADER);
         }
     }
 

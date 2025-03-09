@@ -450,7 +450,7 @@ class LiveServerTest {
             Server<Long> currentLeader = getLeaderWithRetries();
             long currentLeaderId = currentLeader.getId();
             LOGGER.info("Telling server {} to transfer leadership", currentLeaderId);
-            clusterAdminClient.transferLeadership();
+            clusterAdminClient.deposeLeader();
             await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
         } catch (RuntimeException | ExecutionException | InterruptedException e) {
             testFailure.set(new RuntimeException("Error triggering leadership transfer", e));

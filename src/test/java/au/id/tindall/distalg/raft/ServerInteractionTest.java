@@ -171,7 +171,7 @@ class ServerInteractionTest {
     void clientRegistrationRequest_WillReplicateClientRegistrationToAllServers() throws ExecutionException, InterruptedException {
         timeoutServer(1);
         fullyFlush();
-        CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>(server1.getId()));
+        CompletableFuture<? extends ClientResponseMessage> handle = server1.handle(new RegisterClientRequest<>());
         fullyFlush();
         assertThat(handle.get()).usingRecursiveComparison().isEqualTo(new RegisterClientResponse<>(OK, 1, null));
     }
@@ -180,7 +180,7 @@ class ServerInteractionTest {
     void commitIndicesWillAdvanceAsLogEntriesAreDistributed() {
         timeoutServer(1);
         fullyFlush();
-        server1.handle(new RegisterClientRequest<>(server1.getId()));
+        server1.handle(new RegisterClientRequest<>());
         fullyFlush();
         assertThat(server1.getLog().getCommitIndex()).isEqualTo(1);
         assertThat(server2.getLog().getCommitIndex()).isEqualTo(1);
@@ -191,7 +191,7 @@ class ServerInteractionTest {
     void clientSessionsAreCreatedAsRegistrationsAreDistributed() {
         timeoutServer(1);
         fullyFlush();
-        server1.handle(new RegisterClientRequest<>(server1.getId()));
+        server1.handle(new RegisterClientRequest<>());
         fullyFlush();
         assertThat(server1.getClientSessionStore().hasSession(1)).isTrue();
         assertThat(server2.getClientSessionStore().hasSession(1)).isTrue();
@@ -202,9 +202,9 @@ class ServerInteractionTest {
     void clientRequestRequest_WillCauseStateMachinesToBeUpdated() throws ExecutionException, InterruptedException {
         timeoutServer(1);
         fullyFlush();
-        server1.handle(new RegisterClientRequest<>(server1.getId()));
+        server1.handle(new RegisterClientRequest<>());
         fullyFlush();
-        CompletableFuture<? extends ClientResponseMessage> requestResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
+        CompletableFuture<? extends ClientResponseMessage> requestResponse = server1.handle(new ClientRequestRequest<>(1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
         fullyFlush();
         assertThat(requestResponse.get()).usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
         assertThat(((TestStateMachine) server1.getStateMachine()).getAppliedCommands()).containsExactly(COMMAND);
@@ -216,7 +216,7 @@ class ServerInteractionTest {
     void followers_WillReturnCorrectLeaderHintAfterElection() throws ExecutionException, InterruptedException {
         timeoutServer(1);
         fullyFlush();
-        CompletableFuture<? extends ClientResponseMessage> response = server3.handle(new RegisterClientRequest<>(server3.getId()));
+        CompletableFuture<? extends ClientResponseMessage> response = server3.handle(new RegisterClientRequest<>());
         assertThat(response.get()).usingRecursiveComparison().isEqualTo(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, server1.getId()));
     }
 
@@ -224,10 +224,10 @@ class ServerInteractionTest {
     void duplicateCommands_WillOnlyExecuteOnce() throws ExecutionException, InterruptedException {
         timeoutServer(1);
         fullyFlush();
-        server1.handle(new RegisterClientRequest<>(server1.getId()));
+        server1.handle(new RegisterClientRequest<>());
         fullyFlush();
-        CompletableFuture<? extends ClientResponseMessage> firstResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
-        CompletableFuture<? extends ClientResponseMessage> secondResponse = server1.handle(new ClientRequestRequest<>(server1.getId(), 1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
+        CompletableFuture<? extends ClientResponseMessage> firstResponse = server1.handle(new ClientRequestRequest<>(1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
+        CompletableFuture<? extends ClientResponseMessage> secondResponse = server1.handle(new ClientRequestRequest<>(1, 0, LAST_RESPONSE_RECEIVED, COMMAND));
         fullyFlush();
         assertThat(firstResponse.get()).usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));
         assertThat(secondResponse.get()).usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.OK, new byte[]{(byte) 1}, null));

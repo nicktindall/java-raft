@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft.rpc.clustermembership;
 
-public enum AddServerResponse implements ServerAdminResponse {
+import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
+
+public enum AddServerResponse implements ClientResponseMessage {
     OK(Status.OK),
     TIMEOUT(Status.TIMEOUT),
     NOT_LEADER(Status.NOT_LEADER);

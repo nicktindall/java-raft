@@ -168,7 +168,7 @@ class ServerTest {
 
             @Test
             void willThrowWhenServerIsNotStarted() {
-                var clientRequest = new ClientRequestMessage<>(SERVER_ID) {
+                var clientRequest = new ClientRequestMessage<>() {
                 };
                 assertThatThrownBy(() -> server.handle(clientRequest))
                         .isInstanceOf(IllegalStateException.class);
@@ -188,7 +188,7 @@ class ServerTest {
             @Test
             @SuppressWarnings("unchecked")
             void willBeHandledByTheCurrentState() {
-                var clientRequest = new ClientRequestMessage<>(SERVER_ID) {
+                var clientRequest = new ClientRequestMessage<>() {
                 };
                 var clientResponse = new CompletableFuture();
                 when(serverState.handle(clientRequest)).thenReturn(clientResponse);

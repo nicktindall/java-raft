@@ -20,6 +20,8 @@ import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AbdicateLeadershipRequest;
+import au.id.tindall.distalg.raft.rpc.clustermembership.AbdicateLeadershipResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerRequest;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerRequest;
@@ -354,7 +356,7 @@ class LeaderTest {
             @Test
             @SuppressWarnings("unchecked")
             void willAppendClientRegistrationLogEntry() {
-                leader.handle(new RegisterClientRequest<>(SERVER_ID));
+                leader.handle(new RegisterClientRequest<>());
 
                 ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
                 verify(log).appendEntries(eq(LAST_LOG_INDEX), captor.capture());
@@ -364,7 +366,7 @@ class LeaderTest {
 
             @Test
             void willTriggerReplication() {
-                leader.handle(new RegisterClientRequest<>(SERVER_ID));
+                leader.handle(new RegisterClientRequest<>());
 
                 verify(replicationManager).replicate();
             }
@@ -372,7 +374,7 @@ class LeaderTest {
             @Test
             @SuppressWarnings("unchecked")
             void willRegisterAnOutstandingResponseAndReturnAssociatedPromise() {
-                CompletableFuture<RegisterClientResponse<Long>> result = leader.handle(new RegisterClientRequest<>(SERVER_ID));
+                CompletableFuture<RegisterClientResponse<Long>> result = leader.handle(new RegisterClientRequest<>());
 
                 ArgumentCaptor<PendingRegisterClientResponse<?>> captor = ArgumentCaptor.forClass(PendingRegisterClientResponse.class);
                 verify(pendingResponseRegistry).registerOutstandingResponse(eq(NEXT_LOG_INDEX), captor.capture());
@@ -390,7 +392,7 @@ class LeaderTest {
 
             @Test
             void willRejectWithNotLeaderAndNoLeaderHint() throws ExecutionException, InterruptedException {
-                assertThat(leader.handle(new RegisterClientRequest<>(SERVER_ID)).get())
+                assertThat(leader.handle(new RegisterClientRequest<>()).get())
                         .usingRecursiveComparison()
                         .isEqualTo(new RegisterClientResponse<>(RegisterClientStatus.NOT_LEADER, null, null));
             }
@@ -412,7 +414,7 @@ class LeaderTest {
 
             @Test
             void willRejectWithNotLeaderAndNoLeaderHint() throws ExecutionException, InterruptedException {
-                assertThat(leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND)).get())
+                assertThat(leader.handle(new ClientRequestRequest<>(CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND)).get())
                         .usingRecursiveComparison()
                         .isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.NOT_LEADER, null, null));
             }
@@ -428,7 +430,7 @@ class LeaderTest {
 
             @Test
             void willReturnSessionExpiredResponse() throws ExecutionException, InterruptedException {
-                assertThat(leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND)).get())
+                assertThat(leader.handle(new ClientRequestRequest<>(CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND)).get())
                         .usingRecursiveComparison().isEqualTo(new ClientRequestResponse<>(ClientRequestStatus.SESSION_EXPIRED,
                                 null, null));
             }
@@ -448,7 +450,7 @@ class LeaderTest {
             @Test
             @SuppressWarnings("unchecked")
             void willAppendClientRegistrationLogEntry() {
-                leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND));
+                leader.handle(new ClientRequestRequest<>(CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND));
 
                 ArgumentCaptor<List<LogEntry>> captor = ArgumentCaptor.forClass(List.class);
                 verify(log).appendEntries(eq(LAST_LOG_INDEX), captor.capture());
@@ -458,7 +460,7 @@ class LeaderTest {
 
             @Test
             void willTriggerReplication() {
-                leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND));
+                leader.handle(new ClientRequestRequest<>(CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND));
 
                 verify(replicationManager).replicate();
             }
@@ -466,7 +468,7 @@ class LeaderTest {
             @Test
             @SuppressWarnings("unchecked")
             void willRegisterAnOutstandingResponseAndReturnAssociatedPromise() {
-                CompletableFuture<ClientRequestResponse<Long>> result = leader.handle(new ClientRequestRequest<>(SERVER_ID, CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND));
+                CompletableFuture<ClientRequestResponse<Long>> result = leader.handle(new ClientRequestRequest<>(CLIENT_ID, SEQUENCE_NUMBER, LAST_RESPONSE_RECEIVED, COMMAND));
 
                 ArgumentCaptor<PendingClientRequestResponse<?>> captor = ArgumentCaptor.forClass(PendingClientRequestResponse.class);
                 verify(pendingResponseRegistry).registerOutstandingResponse(eq(NEXT_LOG_INDEX), captor.capture());
@@ -517,6 +519,18 @@ class LeaderTest {
         void willRejectRequestIfServerIdIsLeaderId() {
             assertThat(leader.handle(new RemoveServerRequest<>(SERVER_ID))).hasFailedWithThrowableThat()
                     .isInstanceOf(UnsupportedOperationException.class);
+        }
+    }
+
+    @Nested
+    class HandleAbdicateLeadershipRequest {
+
+        @Test
+        void willStartLeadershipTransferAndReturnOK() {
+            CompletableFuture<AbdicateLeadershipResponse> handle = leader.handle(new AbdicateLeadershipRequest());
+
+            assertThat(handle).isCompletedWithValue(AbdicateLeadershipResponse.OK);
+            verify(leadershipTransfer).start();
         }
     }
 }

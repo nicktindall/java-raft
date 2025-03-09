@@ -4,7 +4,7 @@ import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.entries.ConfigurationEntry;
 import au.id.tindall.distalg.raft.replication.ReplicationManager;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminResponse;
+import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
 import au.id.tindall.distalg.raft.state.PersistentState;
 
 import java.io.Closeable;
@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-public abstract class MembershipChange<I extends Serializable, R extends ServerAdminResponse> implements Closeable {
+public abstract class MembershipChange<I extends Serializable, R extends ClientResponseMessage> implements Closeable {
     protected static final int NOT_SET = Integer.MIN_VALUE;
     private final PersistentState<I> persistentState;
     protected final Log log;

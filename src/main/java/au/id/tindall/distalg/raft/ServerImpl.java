@@ -15,9 +15,6 @@ import au.id.tindall.distalg.raft.processors.ProcessorManager;
 import au.id.tindall.distalg.raft.processors.RaftProcessorGroup;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminRequest;
-import au.id.tindall.distalg.raft.rpc.clustermembership.ServerAdminResponse;
-import au.id.tindall.distalg.raft.rpc.clustermembership.TransferLeadershipRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.rpc.server.TimeoutNowMessage;
 import au.id.tindall.distalg.raft.rpc.server.TransferLeadershipMessage;
@@ -104,20 +101,9 @@ public class ServerImpl<I extends Serializable> implements Server<I>, Closeable 
     }
 
     @Override
-    public <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<I, R> clientRequestMessage) {
+    public <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<R> clientRequestMessage) {
         assertThatNodeIsRunning();
         return state.handle(clientRequestMessage);
-    }
-
-    @Override
-    public <R extends ServerAdminResponse> CompletableFuture<R> handle(ServerAdminRequest<R> serverAdminRequest) {
-        assertThatNodeIsRunning();
-        if (serverAdminRequest instanceof TransferLeadershipRequest) {
-            transferLeadership();
-            return CompletableFuture.completedFuture(null);
-        } else {
-            return state.handle(serverAdminRequest);
-        }
     }
 
     @Override

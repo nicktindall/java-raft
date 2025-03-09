@@ -1,8 +1,10 @@
 package au.id.tindall.distalg.raft.rpc.clustermembership;
 
+import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
+
 import java.io.Serializable;
 
-public class AddServerRequest<I extends Serializable> implements ServerAdminRequest<AddServerResponse> {
+public class AddServerRequest<I extends Serializable> implements ClientRequestMessage<AddServerResponse> {
 
     private final I newServer;
 

@@ -43,7 +43,7 @@ public class MonotonicCounterClient extends AbstractClusterClient {
         int retries = 0;
         while (retries < MAX_RETRIES) {
             try {
-                RegisterClientResponse<Long> response = sendClientRequest(RegisterClientRequest::new).get(1, TimeUnit.SECONDS);
+                RegisterClientResponse<Long> response = sendClientRequest(new RegisterClientRequest<Long>()).get(1, TimeUnit.SECONDS);
                 if (response.getStatus() == RegisterClientStatus.OK) {
                     this.clientId = response.getClientId().get();
                     return;
@@ -71,7 +71,7 @@ public class MonotonicCounterClient extends AbstractClusterClient {
         while (retries < MAX_RETRIES) {
             failureChecker.run();
             try {
-                ClientRequestResponse<Long> commandResponse = sendClientRequest(id -> new ClientRequestRequest<>(id, clientId, clientSequenceNumber, clientSequenceNumber - 1, counterValue.toByteArray())).get(1, TimeUnit.SECONDS);
+                ClientRequestResponse<Long> commandResponse = sendClientRequest(new ClientRequestRequest<Long>(clientId, clientSequenceNumber, clientSequenceNumber - 1, counterValue.toByteArray())).get(1, TimeUnit.SECONDS);
                 if (commandResponse.getStatus() == ClientRequestStatus.OK) {
                     this.counterValue = new BigInteger(commandResponse.getResponse());
                     clientSequenceNumber++;

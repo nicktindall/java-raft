@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft.rpc.clustermembership;
 
-public enum RemoveServerResponse implements ServerAdminResponse {
+import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
+
+public enum RemoveServerResponse implements ClientResponseMessage {
     OK(Status.OK),
     NOT_LEADER(Status.NOT_LEADER);
 
