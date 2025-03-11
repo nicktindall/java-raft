@@ -75,15 +75,6 @@ class ElectionSchedulerTest {
         void willThrowIfTimeoutsAreNotStarted() {
             assertThatThrownBy(() -> electionScheduler.resetTimeout()).isInstanceOf(IllegalStateException.class);
         }
-
-        @Test
-        void willUpdateHeartbeat() {
-            electionScheduler.startTimeouts();
-            currentTime.set(currentTime.get().plusMillis(TIMEOUT_MILLIS + 1));
-            assertThat(electionScheduler.isHeartbeatCurrent()).isFalse();
-            electionScheduler.resetTimeout();
-            assertThat(electionScheduler.isHeartbeatCurrent()).isTrue();
-        }
     }
 
     @Nested

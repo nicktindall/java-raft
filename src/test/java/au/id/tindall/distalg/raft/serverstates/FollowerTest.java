@@ -137,6 +137,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, 2, Optional.of(TERM_1), emptyList(), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.of(2));
             verify(electionScheduler).resetTimeout();
+            verify(electionScheduler).updateHeartbeat();
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
@@ -146,6 +147,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, 4, Optional.of(TERM_1), singletonList(ENTRY_5), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.of(3));
             verify(electionScheduler).resetTimeout();
+            verify(electionScheduler).updateHeartbeat();
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
@@ -162,6 +164,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, false, Optional.of(6));
             verify(electionScheduler).resetTimeout();
+            verify(electionScheduler).updateHeartbeat();
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
@@ -171,6 +174,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
             verify(electionScheduler).resetTimeout();
+            verify(electionScheduler).updateHeartbeat();
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
@@ -190,6 +194,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 2));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
             verify(electionScheduler).resetTimeout();
+            verify(electionScheduler).updateHeartbeat();
             assertThat(log.getCommitIndex()).isEqualTo(2);
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
@@ -201,6 +206,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, 2, Optional.of(TERM_0), singletonList(ENTRY_3), 10));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(3));
             verify(electionScheduler).resetTimeout();
+            verify(electionScheduler).updateHeartbeat();
             assertThat(log.getCommitIndex()).isEqualTo(3);
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
@@ -211,6 +217,7 @@ class FollowerTest {
             Result<Long> result = followerState.handle(new AppendEntriesRequest<>(TERM_1, LEADER_SERVER_ID, 1, Optional.of(TERM_0), List.of(ENTRY_2), 0));
             verify(cluster).sendAppendEntriesResponse(TERM_1, LEADER_SERVER_ID, true, Optional.of(2));
             verify(electionScheduler).resetTimeout();
+            verify(electionScheduler).updateHeartbeat();
             assertThat(result).usingRecursiveComparison().isEqualTo(complete(followerState));
         }
 
@@ -282,6 +289,7 @@ class FollowerTest {
             Follower<Long> followerState = new Follower<>(persistentState, logContaining(ENTRY_1, ENTRY_2), cluster, serverStateFactory, LEADER_SERVER_ID, electionScheduler);
             followerState.handle(new InstallSnapshotRequest<>(TERM_1, LEADER_SERVER_ID, LAST_INDEX, TERM_0, null, 2, 0, SNAPSHOT_CHUNK, false));
             verify(electionScheduler).resetTimeout();
+            verify(electionScheduler).updateHeartbeat();
         }
 
         @Nested

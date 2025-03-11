@@ -36,7 +36,6 @@ public class ElectionScheduler {
         if (nextTimeoutTime.get() == UNSET_TIMEOUT) {
             throw new IllegalStateException("Timeouts are not started");
         }
-        updateHeartbeat();
         scheduleTimeoutInFuture();
     }
 

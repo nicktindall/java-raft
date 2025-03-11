@@ -69,6 +69,7 @@ public class Follower<I extends Serializable> extends ServerStateImpl<I> {
         }
 
         electionScheduler.resetTimeout();
+        electionScheduler.updateHeartbeat();
 
         if (appendEntriesRequest.getPrevLogIndex() > 0) {
             final EntryStatus entryStatus = log.hasEntry(appendEntriesRequest.getPrevLogIndex());
@@ -130,6 +131,7 @@ public class Follower<I extends Serializable> extends ServerStateImpl<I> {
         }
 
         electionScheduler.resetTimeout();
+        electionScheduler.updateHeartbeat();
 
         if (installSnapshotRequest.getOffset() == 0) {
             try {
