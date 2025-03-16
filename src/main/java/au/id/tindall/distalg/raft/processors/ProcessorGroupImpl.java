@@ -2,16 +2,19 @@ package au.id.tindall.distalg.raft.processors;
 
 import org.apache.logging.log4j.Logger;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static org.apache.logging.log4j.LogManager.getLogger;
 
 class ProcessorGroupImpl<G extends Enum<G>> implements ProcessorGroup<G> {
 
+    private static final Duration RUN_TIME_WARNING_THRESHOLD = Duration.ofMillis(100);
     private static final Logger LOGGER = getLogger();
 
     private final Object serverID;
@@ -53,7 +56,12 @@ class ProcessorGroupImpl<G extends Enum<G>> implements ProcessorGroup<G> {
     private Processor.ProcessResult runSingleProcessor(int index) {
         try {
             final Processor<G> processor = processors.get(index);
+            long startTimeNanos = System.nanoTime();
             final Processor.ProcessResult result = processor.process();
+            long runTime = System.nanoTime() - startTimeNanos;
+            if (runTime > RUN_TIME_WARNING_THRESHOLD.toNanos()) {
+                LOGGER.warn("{} processor took {}ms", processor.getName(), TimeUnit.NANOSECONDS.toMillis(runTime));
+            }
             if (result == Processor.ProcessResult.FINISHED) {
                 LOGGER.debug("{} processor completed", processor.getName());
             }
