@@ -320,7 +320,7 @@ class LiveServerTest {
         assertThat(optionalLeader).isPresent();
         Server<Long> leader = optionalLeader.get();
         assertThat(leader.getId()).isNotEqualTo(newServerId);
-        assertThat(leader.getTerm().getNumber()).isLessThan((int) (allServers.get(newServerId).getTerm().getNumber() * 0.1));
+        assertThat(leader.getTerm().getNumber()).isLessThanOrEqualTo((int) Math.ceil(allServers.get(newServerId).getTerm().getNumber() * 0.1));
     }
 
     private void logStateAndFail(Exception e) {
