@@ -25,7 +25,7 @@ public class ElectionScheduler {
         this.electionTimeoutGenerator = electionTimeoutGenerator;
         this.timeProvider = timeProvider;
         nextTimeoutTime = new AtomicLong(UNSET_TIMEOUT);
-        lastHeartbeatTime = new AtomicReference<>(timeProvider.get());
+        lastHeartbeatTime = new AtomicReference<>(Instant.EPOCH);
     }
 
     public void updateHeartbeat() {

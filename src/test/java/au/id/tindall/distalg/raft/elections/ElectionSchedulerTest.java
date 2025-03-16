@@ -32,6 +32,11 @@ class ElectionSchedulerTest {
         lenient().when(electionTimeoutGenerator.next()).thenReturn(TIMEOUT_MILLIS);
     }
 
+    @Test
+    void heartbeatIsInitiallyNonCurrent() {
+        assertThat(electionScheduler.isHeartbeatCurrent()).isFalse();
+    }
+
     @Nested
     class StartElectionTimeouts {
 
@@ -100,7 +105,6 @@ class ElectionSchedulerTest {
 
         @Test
         void willUpdateHeartbeat() {
-            currentTime.set(currentTime.get().plusMillis(TIMEOUT_MILLIS + 1));
             assertThat(electionScheduler.isHeartbeatCurrent()).isFalse();
             electionScheduler.updateHeartbeat();
             assertThat(electionScheduler.isHeartbeatCurrent()).isTrue();
