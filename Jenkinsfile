@@ -1,7 +1,13 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image "eclipse-temurin:21.0.6_7-jdk-alpine-3.21"
+            args '-v $HOME/.gradle:/var/lib/jenkins/.gradle:rw -e GRADLE_USER_HOME=/var/lib/jenkins/.gradle'
+        }
+    }
     options {
         disableConcurrentBuilds abortPrevious: true
+        buildDiscarder(logRotator(numToKeepStr: '2', artifactNumToKeepStr: '2'))
     }
     stages {
         stage('Unit & Integration Tests') {
@@ -27,6 +33,12 @@ pipeline {
                 archiveArtifacts artifacts: 'longRunTest.out.txt', fingerprint: true
                 archiveArtifacts artifacts: 'longRunTest.jfr', fingerprint: true
             }
+        }
+    }
+    post {
+        // Clean after build
+        always {
+            cleanWs()
         }
     }
 }
