@@ -91,7 +91,7 @@ public class InstallSnapshotRequest<I> extends RpcMessage<I> {
         streamingOutput.writeInteger(lastIndex);
         streamingOutput.writeStreamable(lastTerm);
         streamingOutput.writeStreamable(lastConfig);
-        streamingOutput.writeIdentifier(offset);
+        streamingOutput.writeInteger(offset);
         streamingOutput.writeInteger(snapshotOffset);
         streamingOutput.writeBytes(data);
         streamingOutput.writeBoolean(done);
