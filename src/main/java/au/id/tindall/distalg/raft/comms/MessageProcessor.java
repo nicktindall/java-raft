@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface MessageProcessor<I> {
 
-    <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<R> clientRequestMessage);
+    <R extends ClientResponseMessage<I>> CompletableFuture<R> handle(ClientRequestMessage<I, R> clientRequestMessage);
 
     void handle(RpcMessage<I> message);
 }

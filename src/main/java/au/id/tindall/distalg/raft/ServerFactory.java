@@ -51,14 +51,13 @@ public class ServerFactory<I> {
     private final Duration electionTimeout;
     private final SnapshotterFactory snapshotterFactory;
     private final ProcessorManagerFactory processorManagerFactory;
-    private final InboxFactory<I> inboxFactory;
     private final boolean timing;
 
     public ServerFactory(ClusterFactory<I> clusterFactory, LogFactory logFactory, PendingResponseRegistryFactory pendingResponseRegistryFactory,
                          ClientSessionStoreFactory clientSessionStoreFactory, int maxClientSessions,
                          CommandExecutorFactory commandExecutorFactory, StateMachineFactory stateMachineFactory, ElectionSchedulerFactory<I> electionSchedulerFactory,
                          int maxBatchSize, ReplicationSchedulerFactory<I> replicationSchedulerFactory, Duration electionTimeout, SnapshotterFactory snapshotterFactory,
-                         boolean timing, ProcessorManagerFactory processorManagerFactory, InboxFactory<I> inboxFactory) {
+                         boolean timing, ProcessorManagerFactory processorManagerFactory) {
         this.clusterFactory = clusterFactory;
         this.logFactory = logFactory;
         this.pendingResponseRegistryFactory = pendingResponseRegistryFactory;
@@ -73,7 +72,6 @@ public class ServerFactory<I> {
         this.snapshotterFactory = snapshotterFactory;
         this.timing = timing;
         this.processorManagerFactory = processorManagerFactory;
-        this.inboxFactory = inboxFactory;
     }
 
     public Server<I> create(PersistentState<I> persistentState, Set<I> initialPeers) {
@@ -93,10 +91,7 @@ public class ServerFactory<I> {
         Cluster<I> cluster = clusterFactory.createCluster(persistentState.getId());
         final Configuration<I> configuration = new Configuration<>(persistentState.getId(), initialPeers, electionTimeout);
         LeadershipTransferFactory<I> leadershipTransferFactory = new LeadershipTransferFactory<>(cluster, persistentState, configuration);
-        LogReplicatorFactory<I> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize);
-        SnapshotReplicatorFactory<I> snapshotReplicatorFactory = new SnapshotReplicatorFactory<>(persistentState, cluster);
-        ReplicationStateFactory<I> replicationStateFactory = new ReplicationStateFactory<>(log);
-        SingleClientReplicatorFactory<I> singleClientReplicatorFactory = new SingleClientReplicatorFactory<>(replicationSchedulerFactory, logReplicatorFactory, snapshotReplicatorFactory, replicationStateFactory);
+        SingleClientReplicatorFactory<I> singleClientReplicatorFactory = getSingleClientReplicatorFactory(persistentState, log, cluster);
         log.addEntryAppendedEventHandler(configuration);
         persistentState.addSnapshotInstalledListener(configuration);
         persistentState.addSnapshotInstalledListener(log);
@@ -108,8 +103,15 @@ public class ServerFactory<I> {
         final ProcessorManager<RaftProcessorGroup> processorManager = processorManagerFactory.create(persistentState.getId());
         final ServerStateFactory<I> idServerStateFactory = new ServerStateFactory<>(persistentState, log, cluster, pendingResponseRegistryFactory,
                 clientSessionStore, commandExecutor, electionScheduler, leadershipTransferFactory, replicationManagerFactory, clusterMembershipChangeManagerFactory, timing, processorManager, configuration);
-        Server<I> server = new ServerImpl<>(persistentState, idServerStateFactory, stateMachine, cluster, electionScheduler, processorManager, inboxFactory.createInbox(persistentState.getId()));
+        Server<I> server = new ServerImpl<>(persistentState, idServerStateFactory, stateMachine, cluster, electionScheduler, processorManager);
         server.initialize();
         return server;
+    }
+
+    private SingleClientReplicatorFactory<I> getSingleClientReplicatorFactory(PersistentState<I> persistentState, Log log, Cluster<I> cluster) {
+        LogReplicatorFactory<I> logReplicatorFactory = new LogReplicatorFactory<>(log, persistentState, cluster, maxBatchSize);
+        SnapshotReplicatorFactory<I> snapshotReplicatorFactory = new SnapshotReplicatorFactory<>(persistentState, cluster);
+        ReplicationStateFactory<I> replicationStateFactory = new ReplicationStateFactory<>(log);
+        return new SingleClientReplicatorFactory<>(replicationSchedulerFactory, logReplicatorFactory, snapshotReplicatorFactory, replicationStateFactory);
     }
 }

@@ -6,7 +6,7 @@ import au.id.tindall.distalg.raft.serialisation.Streamable;
 import au.id.tindall.distalg.raft.serialisation.StreamingInput;
 import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
-public class AddServerRequest<I> implements ClientRequestMessage<AddServerResponse>, Streamable {
+public class AddServerRequest<I> implements ClientRequestMessage<I, AddServerResponse<I>>, Streamable {
 
     private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("AddServerRequest", AddServerRequest.class);
 

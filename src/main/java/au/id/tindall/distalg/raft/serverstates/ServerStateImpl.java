@@ -191,7 +191,7 @@ public abstract class ServerStateImpl<I> implements ServerState<I> {
     }
 
     @Override
-    public <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<R> message) {
+    public <R extends ClientResponseMessage<I>> CompletableFuture<R> handle(ClientRequestMessage<I, R> message) {
         return switch (message) {
             case AddServerRequest addServerRequest ->
                     (CompletableFuture<R>) this.handle((AddServerRequest<I>) addServerRequest);
@@ -202,21 +202,21 @@ public abstract class ServerStateImpl<I> implements ServerState<I> {
             case RegisterClientRequest registerClientRequest ->
                     (CompletableFuture<R>) this.handle((RegisterClientRequest<I>) registerClientRequest);
             case AbdicateLeadershipRequest abdicateLeadershipRequest ->
-                    (CompletableFuture<R>) this.handle(abdicateLeadershipRequest);
+                    (CompletableFuture<R>) this.handle((AbdicateLeadershipRequest<I>) abdicateLeadershipRequest);
             default ->
                     throw new UnsupportedOperationException(format("No overload for message type %s", message.getClass().getName()));
         };
     }
 
-    protected CompletableFuture<AddServerResponse> handle(AddServerRequest<I> addServerRequest) {
-        return CompletableFuture.completedFuture(AddServerResponse.NOT_LEADER);
+    protected CompletableFuture<AddServerResponse<I>> handle(AddServerRequest<I> addServerRequest) {
+        return CompletableFuture.completedFuture(AddServerResponse.getNotLeader());
     }
 
-    protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<I> removeServerRequest) {
-        return CompletableFuture.completedFuture(RemoveServerResponse.NOT_LEADER);
+    protected CompletableFuture<RemoveServerResponse<I>> handle(RemoveServerRequest<I> removeServerRequest) {
+        return CompletableFuture.completedFuture(RemoveServerResponse.getNotLeader());
     }
 
-    protected CompletableFuture<AbdicateLeadershipResponse> handle(AbdicateLeadershipRequest abdicateLeadershipRequest) {
-        return CompletableFuture.completedFuture(AbdicateLeadershipResponse.NOT_LEADER);
+    protected CompletableFuture<AbdicateLeadershipResponse<I>> handle(AbdicateLeadershipRequest<I> abdicateLeadershipRequest) {
+        return CompletableFuture.completedFuture(AbdicateLeadershipResponse.getNotLeader());
     }
 }

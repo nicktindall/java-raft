@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-public abstract class MembershipChange<I, R extends ClientResponseMessage> implements Closeable {
+public abstract class MembershipChange<I, R extends ClientResponseMessage<I>> implements Closeable {
     protected static final int NOT_SET = Integer.MIN_VALUE;
     private final PersistentState<I> persistentState;
     protected final Log log;
@@ -84,10 +84,12 @@ public abstract class MembershipChange<I, R extends ClientResponseMessage> imple
     }
 
     public boolean isFinished() {
-        R result = timeoutIfSlow();
-        if (result != null) {
-            responseFuture.complete(result);
-            finished = true;
+        if (!finished) {
+            R result = timeoutIfSlow();
+            if (result != null) {
+                responseFuture.complete(result);
+                finished = true;
+            }
         }
         return finished;
     }

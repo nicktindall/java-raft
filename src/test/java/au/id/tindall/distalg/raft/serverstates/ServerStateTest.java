@@ -260,7 +260,7 @@ class ServerStateTest {
             var response = serverState.handle(new AddServerRequest<>(1234L));
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
-                    .isEqualTo(AddServerResponse.NOT_LEADER);
+                    .isEqualTo(AddServerResponse.getNotLeader());
         }
     }
 
@@ -274,7 +274,7 @@ class ServerStateTest {
             var response = serverState.handle(new RemoveServerRequest<>(1234L));
             assertThat(response).isCompleted();
             assertThat(response.get()).usingRecursiveComparison()
-                    .isEqualTo(RemoveServerResponse.NOT_LEADER);
+                    .isEqualTo(RemoveServerResponse.getNotLeader());
         }
     }
 
@@ -310,7 +310,7 @@ class ServerStateTest {
             var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID, electionScheduler);
             CompletableFuture<AbdicateLeadershipResponse> handle = serverState.handle(new AbdicateLeadershipRequest());
 
-            assertThat(handle).isCompletedWithValue(AbdicateLeadershipResponse.NOT_LEADER);
+            assertThat(handle).isCompletedWithValue(AbdicateLeadershipResponse.getNotLeader());
         }
     }
 

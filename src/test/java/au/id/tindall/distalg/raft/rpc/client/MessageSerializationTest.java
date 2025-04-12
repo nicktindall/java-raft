@@ -77,9 +77,9 @@ class MessageSerializationTest {
 
         @Test
         void testAddServerResponse() {
-            testRoundTrip(AddServerResponse.OK);
-            testRoundTrip(AddServerResponse.NOT_LEADER);
-            testRoundTrip(AddServerResponse.TIMEOUT);
+            testRoundTrip(AddServerResponse.getOK());
+            testRoundTrip(AddServerResponse.getNotLeader());
+            testRoundTrip(AddServerResponse.getTimeout());
         }
 
         @Test
@@ -89,8 +89,8 @@ class MessageSerializationTest {
 
         @Test
         void testRemoveServerResponse() {
-            testRoundTrip(RemoveServerResponse.OK);
-            testRoundTrip(RemoveServerResponse.NOT_LEADER);
+            testRoundTrip(RemoveServerResponse.getOK());
+            testRoundTrip(RemoveServerResponse.getNotLeader());
         }
     }
 

@@ -2,9 +2,10 @@ package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
-import au.id.tindall.distalg.raft.comms.ClusterAdminClient;
-import au.id.tindall.distalg.raft.comms.DelayedMultipathSendingStrategy;
-import au.id.tindall.distalg.raft.comms.TestClusterFactory;
+import au.id.tindall.distalg.raft.clusterclient.ClusterAdminClient;
+import au.id.tindall.distalg.raft.clusterclient.ClusterClient;
+import au.id.tindall.distalg.raft.comms.TestInfrastructureFactory;
+import au.id.tindall.distalg.raft.comms.simulated.NetworkSimulation;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.exceptions.NotRunningException;
 import au.id.tindall.distalg.raft.log.LogFactory;
@@ -23,6 +24,8 @@ import au.id.tindall.distalg.raft.state.FileBasedPersistentState;
 import au.id.tindall.distalg.raft.state.PersistentState;
 import au.id.tindall.distalg.raft.statemachine.CommandExecutorFactory;
 import au.id.tindall.distalg.raft.timing.TimingWrappers;
+import au.id.tindall.distalg.raft.util.Closeables;
+import au.id.tindall.distalg.raft.util.ExecutorUtil;
 import au.id.tindall.distalg.raft.util.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -63,6 +66,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -100,13 +104,13 @@ class LiveServerTest {
     private static final float PACKET_DROP_PROBABILITY = 0.001f;    // 0.1% which is quite high
     private static final int WARNING_THRESHOLD_MILLIS = 25;
 
-    private TestClusterFactory clusterFactory;
+    private TestInfrastructureFactory<Long> clusterFactory;
     private Map<Long, Server<Long>> allServers;
+    private ClusterClient<Long> testClusterClient;
     private ServerFactory<Long> serverFactory;
-    private DelayedMultipathSendingStrategy delayedMultipathSendingStrategy;
     private ScheduledExecutorService testExecutorService;
     private AtomicReference<RuntimeException> testFailure;
-    private ClusterAdminClient clusterAdminClient;
+    private ClusterAdminClient<Long> clusterAdminClient;
     @TempDir
     Path stateFileDirectory;
 
@@ -141,13 +145,13 @@ class LiveServerTest {
             createServerAndState(serverId, ALL_SERVER_IDS);
         }
         startServers();
-        clusterAdminClient = new ClusterAdminClient(allServers);
+        clusterAdminClient = new ClusterAdminClient<>(testClusterClient, 10_000);
     }
 
     private void setUpFactories() {
         allServers = new ConcurrentHashMap<>();
-        delayedMultipathSendingStrategy = new DelayedMultipathSendingStrategy(PACKET_DROP_PROBABILITY, MINIMUM_MESSAGE_DELAY_MICROS, MAXIMUM_MESSAGE_DELAY_MICROS);
-        clusterFactory = new TestClusterFactory(delayedMultipathSendingStrategy);
+        clusterFactory = getInfrastructureFactory();
+        testClusterClient = clusterFactory.createClusterClient();
         serverFactory = new ServerFactory<>(
                 clusterFactory,
                 new LogFactory(),
@@ -162,9 +166,14 @@ class LiveServerTest {
                 Duration.ofMillis(MINIMUM_ELECTION_TIMEOUT_MILLISECONDS),
                 Snapshotter::new,
                 true,
-                new ProcessorManagerFactoryImpl(LONG_RUN_TEST ? SleepStrategies::threadSleep : SleepStrategies::yielding),
-                clusterFactory
+                new ProcessorManagerFactoryImpl(LONG_RUN_TEST ? SleepStrategies::threadSleep : SleepStrategies::yielding)
         );
+    }
+
+    protected TestInfrastructureFactory<Long> getInfrastructureFactory() {
+        return NetworkSimulation.createDelayingReordering(
+                allServers,
+                PACKET_DROP_PROBABILITY, MINIMUM_MESSAGE_DELAY_MICROS, MAXIMUM_MESSAGE_DELAY_MICROS, TimeUnit.MICROSECONDS);
     }
 
     private Server<Long> createServerAndState(long id, Set<Long> serverIds) {
@@ -190,18 +199,10 @@ class LiveServerTest {
 
     @AfterEach
     void tearDown() {
+        Closeables.closeQuietly(testClusterClient, clusterAdminClient);
         stopServers();
-        delayedMultipathSendingStrategy.clear();
-        clusterFactory.logStats();
-        testExecutorService.shutdown();
-        try {
-            if (!testExecutorService.awaitTermination(5, SECONDS)) {
-                LOGGER.error("Test executor didn't stop");
-            }
-        } catch (InterruptedException e) {
-            LOGGER.error("Interrupted waiting for test executor service to terminate");
-            Thread.currentThread().interrupt();
-        }
+        Closeables.closeQuietly(clusterFactory);
+        ExecutorUtil.shutdownAndAwaitTermination(testExecutorService, 5, SECONDS);
         allServers.clear();
         System.gc();
     }
@@ -355,27 +356,21 @@ class LiveServerTest {
             newServersView.add(newServerId);
             final Server<Long> server = createServerAndState(newServerId, newServersView);
 
-            while (true) {
-                final Optional<Server<Long>> leader = getLeader();
-                if (leader.isPresent()) {
-                    LOGGER.info("Adding server {}, (new set={})", newServerId, newServersView);
-                    server.start();
-                    AddServerResponse response = clusterAdminClient.addNewServer(newServerId);
-                    switch (response.getStatus()) {
-                        case TIMEOUT:
-                        case NOT_LEADER:
-                            LOGGER.error("Adding server failed, response: " + response);
-                            server.close();
-                            allServers.remove(newServerId);
-                            break;
-                        case OK:
-                            LOGGER.info("Server {} added response: {}", newServerId, response.getStatus());
-                            break;
-                        default:
-                            throw new IllegalStateException("Unexpected response: " + response);
-                    }
+            LOGGER.info("Adding server {}, (new set={})", newServerId, newServersView);
+            server.start();
+            AddServerResponse<Long> response = clusterAdminClient.addNewServer(newServerId);
+            switch (response.getStatus()) {
+                case TIMEOUT:
+                case NOT_LEADER:
+                    LOGGER.error("Adding server failed, response: " + response);
+                    server.close();
+                    allServers.remove(newServerId);
                     break;
-                }
+                case OK:
+                    LOGGER.info("Server {} added response: {}", newServerId, response.getStatus());
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected response: " + response);
             }
         } catch (ExecutionException | InterruptedException e) {
             throw new IllegalStateException(e);
@@ -385,21 +380,15 @@ class LiveServerTest {
     private void removeRandomServer() {
         try {
             Server<Long> server = chooseRandomServer();
-            while (true) {
-                final Optional<Server<Long>> leader = getLeader();
-                if (leader.isPresent()) {
-                    LOGGER.info("Removing server {}", server.getId());
-                    final RemoveServerResponse response = clusterAdminClient.removeServer(server.getId());
-                    if (response.getStatus() == OK) {
-                        LOGGER.info("Server {} remove succeeded, shutting down", server.getId());
-                        allServers.remove(server.getId());
-                        server.close();
-                        FileUtil.deleteRecursively(stateDirectoryForServer(server.getId()));
-                    } else {
-                        LOGGER.error("Server {} remove failed, aborting (status={})", server.getId(), response.getStatus());
-                    }
-                    break;
-                }
+            LOGGER.info("Removing server {}", server.getId());
+            final RemoveServerResponse<Long> response = clusterAdminClient.removeServer(server.getId());
+            if (response.getStatus() == OK) {
+                LOGGER.info("Server {} remove succeeded, shutting down", server.getId());
+                allServers.remove(server.getId());
+                server.close();
+                FileUtil.deleteRecursively(stateDirectoryForServer(server.getId()));
+            } else {
+                LOGGER.error("Server {} remove failed, aborting (status={})", server.getId(), response.getStatus());
             }
         } catch (ExecutionException | InterruptedException e) {
             throw new IllegalStateException(e);
@@ -469,11 +458,11 @@ class LiveServerTest {
     }
 
     private void countUp(int fromValue, int amountToAdd) throws Exception {
-        MonotonicCounterClient counterClient = new MonotonicCounterClient(allServers, BigInteger.valueOf(fromValue));
-        counterClient.register();
-        for (int i = 0; i < amountToAdd; i++) {
-            counterClient.increment(this::checkFailed);
-            delayedMultipathSendingStrategy.expire();
+        try (MonotonicCounterClient counterClient = new MonotonicCounterClient(testClusterClient, BigInteger.valueOf(fromValue))) {
+            counterClient.register();
+            for (int i = 0; i < amountToAdd; i++) {
+                counterClient.increment(this::checkFailed);
+            }
         }
     }
 

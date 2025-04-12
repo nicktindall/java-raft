@@ -2,8 +2,7 @@ package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.responses.PendingResponseRegistryFactory;
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
-import au.id.tindall.distalg.raft.comms.QueuedSendingStrategy;
-import au.id.tindall.distalg.raft.comms.TestClusterFactory;
+import au.id.tindall.distalg.raft.comms.simulated.NetworkSimulation;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.log.LogFactory;
@@ -64,6 +63,7 @@ class ServerInteractionTest {
     private ElectionSchedulerFactory<Long> electionSchedulerFactory;
     private List<ManualProcessorDriver<RaftProcessorGroup>> pms;
     private Map<Long, ElectionScheduler> electionSchedulers;
+    private NetworkSimulation<Long> testClusterFactory;
 
     @BeforeEach
     void setUp() {
@@ -89,7 +89,7 @@ class ServerInteractionTest {
             return es;
         });
         ClientSessionStoreFactory clientSessionStoreFactory = new ClientSessionStoreFactory();
-        final TestClusterFactory testClusterFactory = new TestClusterFactory(new QueuedSendingStrategy());
+        testClusterFactory = NetworkSimulation.createInstant(allServers);
         serverFactory = new ServerFactory<>(
                 testClusterFactory,
                 new LogFactory(),
@@ -108,8 +108,7 @@ class ServerInteractionTest {
                     ManualProcessorDriver<RaftProcessorGroup> mpe = new ManualProcessorDriver<>();
                     pms.add(mpe);
                     return new ProcessorManagerImpl<>(serverId, mpe);
-                },
-                testClusterFactory
+                }
         );
     }
 
@@ -251,7 +250,7 @@ class ServerInteractionTest {
     private void fullyFlush() {
         boolean somethingHappened = true;
         while (somethingHappened) {
-            somethingHappened = false;
+            somethingHappened = testClusterFactory.flush();
             for (ManualProcessorDriver<?> pm : pms) {
                 final boolean flushActive = pm.flush();
                 somethingHappened = somethingHappened || flushActive;

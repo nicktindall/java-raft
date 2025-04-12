@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -108,7 +109,7 @@ public class AddServerTest {
                 void willFailAdd() {
                     when(timeSource.get()).thenReturn(NOW.plus(Duration.ofSeconds(5)));
                     addServer.matchIndexAdvanced(SERVER_ID, SECOND_ROUND_END);
-                    assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.TIMEOUT);
+                    assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.getTimeout());
                 }
             }
 
@@ -175,7 +176,25 @@ public class AddServerTest {
             assertThat(addServer.isFinished()).isFalse();
             when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(4)));
             assertThat(addServer.isFinished()).isTrue();
-            assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.TIMEOUT);
+            assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.getTimeout());
+        }
+
+        @Test
+        void willStopReplicatingToTheNewServer() {
+            addServer.start();
+            when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(4)));
+            verify(replicationManager, never()).stopReplicatingTo(SERVER_ID);
+            assertThat(addServer.isFinished()).isTrue();
+            verify(replicationManager).stopReplicatingTo(SERVER_ID);
+        }
+
+        @Test
+        void timeoutsAreIdempotent() {
+            addServer.start();
+            when(timeSource.get()).thenReturn(NOW.plus(ELECTION_TIMEOUT.multipliedBy(4)));
+            assertThat(addServer.isFinished()).isTrue();
+            assertThat(addServer.isFinished()).isTrue();
+            verify(replicationManager).stopReplicatingTo(SERVER_ID);
         }
     }
 
@@ -190,7 +209,7 @@ public class AddServerTest {
 
             assertThat(addServer.getResponseFuture()).isNotCompleted();
             addServer.entryCommitted(APPEND_INDEX);
-            assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.OK);
+            assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.getOK());
         }
 
         @Test
@@ -210,7 +229,7 @@ public class AddServerTest {
         @Test
         void willCompleteFutureWithNotLeader() {
             addServer.close();
-            assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.NOT_LEADER);
+            assertThat(addServer.getResponseFuture()).isCompletedWithValue(AddServerResponse.getNotLeader());
         }
     }
 }

@@ -14,7 +14,7 @@ import java.util.function.Supplier;
 import static au.id.tindall.distalg.raft.util.TimestampUtil.formatTimestamp;
 import static org.apache.logging.log4j.LogManager.getLogger;
 
-class AddServer<I> extends MembershipChange<I, AddServerResponse> {
+class AddServer<I> extends MembershipChange<I, AddServerResponse<I>> {
 
     private static final Logger LOGGER = getLogger();
 
@@ -39,7 +39,7 @@ class AddServer<I> extends MembershipChange<I, AddServerResponse> {
     }
 
     @Override
-    protected AddServerResponse matchIndexAdvancedInternal(int lastAppendedIndex) {
+    protected AddServerResponse<I> matchIndexAdvancedInternal(int lastAppendedIndex) {
         if (currentRound.isFinishedAtIndex(lastAppendedIndex)) {
             if (currentRound.isLast()) {
                 if (currentRound.finishedInTime()) {
@@ -49,7 +49,7 @@ class AddServer<I> extends MembershipChange<I, AddServerResponse> {
                 } else {
                     replicationManager.stopReplicatingTo(serverId);
                     LOGGER.debug("Catch up round took too long, timing out round={}", currentRound);
-                    return AddServerResponse.TIMEOUT;
+                    return AddServerResponse.getTimeout();
                 }
             } else {
                 ReplicationCatchUpRound lastRound = currentRound;
@@ -61,29 +61,29 @@ class AddServer<I> extends MembershipChange<I, AddServerResponse> {
     }
 
     @Override
-    protected AddServerResponse timeoutIfSlow() {
+    protected AddServerResponse<I> timeoutIfSlow() {
         final Duration newServerTimeout = configuration.getElectionTimeout().multipliedBy(3);
         if (finishedAtIndex == NOT_SET
                 && lastProgressTime != null
                 && lastProgressTime.plus(newServerTimeout).isBefore(timeSource.get())) {
             replicationManager.stopReplicatingTo(serverId);
-            LOGGER.debug("No response from server in {}, timing out", newServerTimeout);
-            return AddServerResponse.TIMEOUT;
+            LOGGER.debug("No response from server {} in {}, timing out", serverId, newServerTimeout);
+            return AddServerResponse.getTimeout();
         }
         return null;
     }
 
     @Override
-    protected AddServerResponse entryCommittedInternal(int index) {
+    protected AddServerResponse<I> entryCommittedInternal(int index) {
         if (finishedAtIndex != NOT_SET && finishedAtIndex <= index) {
-            return AddServerResponse.OK;
+            return AddServerResponse.getOK();
         }
         return null;
     }
 
     @Override
     public void close() {
-        responseFuture.complete(AddServerResponse.NOT_LEADER);
+        responseFuture.complete(AddServerResponse.getNotLeader());
     }
 
     class ReplicationCatchUpRound {

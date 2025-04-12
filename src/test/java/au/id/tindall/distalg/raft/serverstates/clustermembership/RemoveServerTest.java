@@ -92,7 +92,7 @@ class RemoveServerTest {
             removeServer.entryCommitted(LAST_LOG_INDEX);
             assertThat(removeServer.getResponseFuture()).isNotCompleted();
             removeServer.entryCommitted(APPENDED_LOG_INDEX);
-            assertThat(removeServer.getResponseFuture()).isCompletedWithValue(RemoveServerResponse.OK);
+            assertThat(removeServer.getResponseFuture()).isCompletedWithValue(RemoveServerResponse.getOK());
         }
     }
 
@@ -102,7 +102,7 @@ class RemoveServerTest {
         @Test
         void willCompleteFutureWithNotLeader() {
             removeServer.close();
-            Assertions.assertThat(removeServer.getResponseFuture()).isCompletedWithValue(RemoveServerResponse.NOT_LEADER);
+            Assertions.assertThat(removeServer.getResponseFuture()).isCompletedWithValue(RemoveServerResponse.getNotLeader());
         }
     }
 

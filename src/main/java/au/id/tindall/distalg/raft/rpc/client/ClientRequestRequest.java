@@ -7,7 +7,7 @@ import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
 import java.util.Arrays;
 
-public class ClientRequestRequest<I> implements ClientRequestMessage<ClientRequestResponse<I>>, Streamable {
+public class ClientRequestRequest<I> implements ClientRequestMessage<I, ClientRequestResponse<I>>, Streamable {
 
     private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("ClientRequestRequest", ClientRequestRequest.class);
 

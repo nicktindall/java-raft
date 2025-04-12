@@ -2,7 +2,6 @@ package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.comms.Inbox;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.elections.ElectionTimeoutProcessor;
 import au.id.tindall.distalg.raft.exceptions.AlreadyRunningException;
@@ -43,20 +42,18 @@ public class ServerImpl<I> implements Server<I>, Closeable {
     private final Cluster<I> cluster;
     private final ElectionScheduler electionScheduler;
     private final ProcessorManager<RaftProcessorGroup> processorManager;
-    private final Inbox<I> inbox;
     private ServerState<I> state;
     private ProcessorController inboxProcessorController;
     private ProcessorController electionTimeoutProcessorController;
 
     public ServerImpl(PersistentState<I> persistentState, ServerStateFactory<I> serverStateFactory, StateMachine stateMachine, Cluster<I> cluster,
-                      ElectionScheduler electionScheduler, ProcessorManager<RaftProcessorGroup> processorManager, Inbox<I> inbox) {
+                      ElectionScheduler electionScheduler, ProcessorManager<RaftProcessorGroup> processorManager) {
         this.persistentState = persistentState;
         this.serverStateFactory = serverStateFactory;
         this.stateMachine = stateMachine;
         this.cluster = cluster;
         this.electionScheduler = electionScheduler;
         this.processorManager = processorManager;
-        this.inbox = inbox;
     }
 
     @Override
@@ -74,7 +71,7 @@ public class ServerImpl<I> implements Server<I>, Closeable {
         if (inboxProcessorController != null) {
             throw new AlreadyRunningException("Can't start, server is already started!");
         }
-        inboxProcessorController = processorManager.runProcessor(new InboxProcessor<>(this, inbox, this::initialise, this::terminate));
+        inboxProcessorController = processorManager.runProcessor(new InboxProcessor<>(this, cluster, this::initialise, this::terminate));
         electionTimeoutProcessorController = processorManager.runProcessor(new ElectionTimeoutProcessor<>(this));
     }
 
@@ -100,7 +97,7 @@ public class ServerImpl<I> implements Server<I>, Closeable {
     }
 
     @Override
-    public <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<R> clientRequestMessage) {
+    public <R extends ClientResponseMessage<I>> CompletableFuture<R> handle(ClientRequestMessage<I, R> clientRequestMessage) {
         assertThatNodeIsRunning();
         return state.handle(clientRequestMessage);
     }
@@ -178,12 +175,12 @@ public class ServerImpl<I> implements Server<I>, Closeable {
         if (state != null) {
             stop();
         }
-        closeQuietly(inbox, serverStateFactory, persistentState, processorManager);
+        closeQuietly(cluster, serverStateFactory, persistentState, processorManager);
     }
 
     @Override
-    public Inbox<I> getInbox() {
-        return inbox;
+    public Cluster<I> getCluster() {
+        return cluster;
     }
 
     @Override

@@ -1,7 +1,6 @@
 package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.comms.Cluster;
-import au.id.tindall.distalg.raft.comms.Inbox;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.elections.ElectionTimeoutProcessor;
 import au.id.tindall.distalg.raft.log.Term;
@@ -59,15 +58,13 @@ class ServerTest {
     @Mock
     private ElectionScheduler electionScheduler;
     private TestProcessorManager processorManager;
-    @Mock
-    private Inbox<Long> inbox;
 
     private Server<Long> server;
 
     @BeforeEach
     void setUp() {
         processorManager = new TestProcessorManager();
-        server = new ServerImpl<>(persistentState, serverStateFactory, stateMachine, cluster, electionScheduler, processorManager, inbox);
+        server = new ServerImpl<>(persistentState, serverStateFactory, stateMachine, cluster, electionScheduler, processorManager);
     }
 
     @Nested
@@ -168,7 +165,7 @@ class ServerTest {
 
             @Test
             void willThrowWhenServerIsNotStarted() {
-                var clientRequest = new ClientRequestMessage<>() {
+                var clientRequest = new ClientRequestMessage() {
                 };
                 assertThatThrownBy(() -> server.handle(clientRequest))
                         .isInstanceOf(IllegalStateException.class);
@@ -188,7 +185,7 @@ class ServerTest {
             @Test
             @SuppressWarnings("unchecked")
             void willBeHandledByTheCurrentState() {
-                var clientRequest = new ClientRequestMessage<>() {
+                var clientRequest = new ClientRequestMessage() {
                 };
                 var clientResponse = new CompletableFuture();
                 when(serverState.handle(clientRequest)).thenReturn(clientResponse);

@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class ClientConnection<I> implements Closeable {
 
-    private final Queue<CRHolder<?>> clientRequests;
+    private final Queue<CRHolder<?, ?>> clientRequests;
     private final Object closingMutex = new Object();
     private boolean closed = false;
 
@@ -19,12 +19,12 @@ public class ClientConnection<I> implements Closeable {
         clientRequests = new ConcurrentLinkedQueue<>();
     }
 
-    public <R extends ClientResponseMessage> CompletableFuture<R> send(ClientRequestMessage<R> clientRequestMessage) {
+    public <R extends ClientResponseMessage<I>> CompletableFuture<R> send(ClientRequestMessage<I, R> clientRequestMessage) {
         synchronized (closingMutex) {
             if (closed) {
                 throw new ConnectionClosedException();
             }
-            CRHolder<R> holder = new CRHolder<>(clientRequestMessage);
+            CRHolder<I, R> holder = new CRHolder<>(clientRequestMessage);
             clientRequests.offer(holder);
             return holder.response;
         }
@@ -35,8 +35,8 @@ public class ClientConnection<I> implements Closeable {
     }
 
     @SuppressWarnings("unchecked")
-    public <C extends ClientResponseMessage> boolean processAMessage(MessageProcessor<I> messageProcessor) {
-        final CRHolder<C> crHolder = (CRHolder<C>) clientRequests.poll();
+    public <R extends ClientResponseMessage<I>> boolean processAMessage(MessageProcessor<I> messageProcessor) {
+        final CRHolder<I, R> crHolder = (CRHolder<I, R>) clientRequests.poll();
         if (crHolder != null) {
             messageProcessor.handle(crHolder.request)
                     .thenAccept(crHolder.response::complete);
@@ -56,11 +56,11 @@ public class ClientConnection<I> implements Closeable {
         }
     }
 
-    private static class CRHolder<R extends ClientResponseMessage> {
-        private final ClientRequestMessage<R> request;
+    private static class CRHolder<I, R extends ClientResponseMessage<I>> {
+        private final ClientRequestMessage<I, R> request;
         private final CompletableFuture<R> response;
 
-        private CRHolder(ClientRequestMessage<R> clusterMembershipRequest) {
+        private CRHolder(ClientRequestMessage<I, R> clusterMembershipRequest) {
             this.request = clusterMembershipRequest;
             this.response = new CompletableFuture<>();
         }

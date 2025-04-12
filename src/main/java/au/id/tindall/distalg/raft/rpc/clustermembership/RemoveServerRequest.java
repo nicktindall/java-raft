@@ -6,7 +6,7 @@ import au.id.tindall.distalg.raft.serialisation.Streamable;
 import au.id.tindall.distalg.raft.serialisation.StreamingInput;
 import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
-public class RemoveServerRequest<I> implements ClientRequestMessage<RemoveServerResponse>, Streamable {
+public class RemoveServerRequest<I> implements ClientRequestMessage<I, RemoveServerResponse<I>>, Streamable {
 
     private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("RemoveServerRequest", RemoveServerRequest.class);
 

@@ -7,7 +7,7 @@ import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
 import java.util.Optional;
 
-public class RegisterClientResponse<I> implements ClientResponseMessage, Streamable {
+public class RegisterClientResponse<I> implements ClientResponseMessage<I>, Streamable {
 
     private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("RegisterClientResponse", RegisterClientResponse.class);
 
@@ -35,8 +35,14 @@ public class RegisterClientResponse<I> implements ClientResponseMessage, Streama
         return Optional.ofNullable(clientId);
     }
 
-    public Optional<I> getLeaderHint() {
-        return Optional.ofNullable(leaderHint);
+    @Override
+    public I getLeaderHint() {
+        return leaderHint;
+    }
+
+    @Override
+    public boolean isFromLeader() {
+        return status != RegisterClientStatus.NOT_LEADER;
     }
 
     @Override

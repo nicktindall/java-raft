@@ -9,7 +9,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface ServerState<I> {
 
-    <R extends ClientResponseMessage> CompletableFuture<R> handle(ClientRequestMessage<R> message);
+    <R extends ClientResponseMessage<I>> CompletableFuture<R> handle(ClientRequestMessage<I, R> message);
 
     Result<I> handle(RpcMessage<I> message);
 

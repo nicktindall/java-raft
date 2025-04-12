@@ -7,7 +7,7 @@ import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
 import java.util.Arrays;
 
-public class ClientRequestResponse<I> implements ClientResponseMessage, Streamable {
+public class ClientRequestResponse<I> implements ClientResponseMessage<I>, Streamable {
 
     private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("ClientRequestResponse", ClientRequestResponse.class);
 
@@ -35,8 +35,14 @@ public class ClientRequestResponse<I> implements ClientResponseMessage, Streamab
         return Arrays.copyOf(response, response.length);
     }
 
+    @Override
     public I getLeaderHint() {
         return leaderHint;
+    }
+
+    @Override
+    public boolean isFromLeader() {
+        return status != ClientRequestStatus.NOT_LEADER;
     }
 
     @Override

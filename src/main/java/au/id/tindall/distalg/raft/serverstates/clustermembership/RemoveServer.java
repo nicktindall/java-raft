@@ -9,7 +9,7 @@ import au.id.tindall.distalg.raft.state.PersistentState;
 import java.time.Instant;
 import java.util.function.Supplier;
 
-public class RemoveServer<I> extends MembershipChange<I, RemoveServerResponse> {
+public class RemoveServer<I> extends MembershipChange<I, RemoveServerResponse<I>> {
 
     RemoveServer(Log log, Configuration<I> configuration, PersistentState<I> persistentState, ReplicationManager<I> replicationManager, I serverId, Supplier<Instant> timeSource) {
         super(log, configuration, persistentState, replicationManager, serverId, timeSource);
@@ -21,28 +21,28 @@ public class RemoveServer<I> extends MembershipChange<I, RemoveServerResponse> {
     }
 
     @Override
-    protected RemoveServerResponse entryCommittedInternal(int index) {
+    protected RemoveServerResponse<I> entryCommittedInternal(int index) {
         if (finishedAtIndex == index) {
             replicationManager.stopReplicatingTo(serverId);
-            return RemoveServerResponse.OK;
+            return RemoveServerResponse.getOK();
         }
         return null;
     }
 
     @Override
-    protected RemoveServerResponse timeoutIfSlow() {
+    protected RemoveServerResponse<I> timeoutIfSlow() {
         // Removes don't time out
         return null;
     }
 
     @Override
-    protected RemoveServerResponse matchIndexAdvancedInternal(int lastAppendedIndex) {
+    protected RemoveServerResponse<I> matchIndexAdvancedInternal(int lastAppendedIndex) {
         // Do nothing
         return null;
     }
 
     @Override
     public void close() {
-        responseFuture.complete(RemoveServerResponse.NOT_LEADER);
+        responseFuture.complete(RemoveServerResponse.getNotLeader());
     }
 }

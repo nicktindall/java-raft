@@ -1,18 +1,18 @@
 package au.id.tindall.distalg.raft.processors;
 
 import au.id.tindall.distalg.raft.Server;
-import au.id.tindall.distalg.raft.comms.Inbox;
+import au.id.tindall.distalg.raft.comms.Cluster;
 
 public class InboxProcessor<I> implements Processor<RaftProcessorGroup> {
 
     private final Server<I> server;
-    private final Inbox<I> inbox;
+    private final Cluster<I> cluster;
     private final Runnable onStart;
     private final Runnable onStop;
 
-    public InboxProcessor(Server<I> server, Inbox<I> inbox, Runnable onStart, Runnable onStop) {
+    public InboxProcessor(Server<I> server, Cluster<I> cluster, Runnable onStart, Runnable onStop) {
         this.server = server;
-        this.inbox = inbox;
+        this.cluster = cluster;
         this.onStart = onStart;
         this.onStop = onStop;
     }
@@ -30,7 +30,7 @@ public class InboxProcessor<I> implements Processor<RaftProcessorGroup> {
     @Override
     public ProcessResult process() {
         ProcessResult result = ProcessResult.IDLE;
-        while (inbox.processNextMessage(server)) {
+        while (cluster.processNextMessage(server)) {
             result = ProcessResult.BUSY;
         }
         return result;

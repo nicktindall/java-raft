@@ -492,7 +492,7 @@ class LeaderTest {
     class HandleAddServerRequest {
 
         @Mock
-        private CompletableFuture<AddServerResponse> responseFuture;
+        private CompletableFuture<AddServerResponse<Long>> responseFuture;
 
         @Test
         void willDelegateToClusterMembershipManager() {
@@ -506,7 +506,7 @@ class LeaderTest {
     class HandleRemoveServerRequest {
 
         @Mock
-        private CompletableFuture<RemoveServerResponse> responseFuture;
+        private CompletableFuture<RemoveServerResponse<Long>> responseFuture;
 
         @Test
         void willDelegateToClusterMembershipManager() {
@@ -527,9 +527,9 @@ class LeaderTest {
 
         @Test
         void willStartLeadershipTransferAndReturnOK() {
-            CompletableFuture<AbdicateLeadershipResponse> handle = leader.handle(new AbdicateLeadershipRequest());
+            CompletableFuture<AbdicateLeadershipResponse<Long>> handle = leader.handle(new AbdicateLeadershipRequest<>());
 
-            assertThat(handle).isCompletedWithValue(AbdicateLeadershipResponse.OK);
+            assertThat(handle).isCompletedWithValue(AbdicateLeadershipResponse.getOK());
             verify(leadershipTransfer).start();
         }
     }

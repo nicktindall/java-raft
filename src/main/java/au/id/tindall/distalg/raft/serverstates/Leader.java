@@ -128,9 +128,9 @@ public class Leader<I> extends ServerStateImpl<I> {
     }
 
     @Override
-    protected CompletableFuture<AbdicateLeadershipResponse> handle(AbdicateLeadershipRequest abdicateLeadershipRequest) {
+    protected CompletableFuture<AbdicateLeadershipResponse<I>> handle(AbdicateLeadershipRequest<I> abdicateLeadershipRequest) {
         leadershipTransfer.start();
-        return CompletableFuture.completedFuture(AbdicateLeadershipResponse.OK);
+        return CompletableFuture.completedFuture(AbdicateLeadershipResponse.getOK());
     }
 
     @Override
@@ -139,12 +139,12 @@ public class Leader<I> extends ServerStateImpl<I> {
     }
 
     @Override
-    protected CompletableFuture<AddServerResponse> handle(AddServerRequest<I> addServerRequest) {
+    protected CompletableFuture<AddServerResponse<I>> handle(AddServerRequest<I> addServerRequest) {
         return clusterMembershipChangeManager.addServer(addServerRequest.getNewServer());
     }
 
     @Override
-    protected CompletableFuture<RemoveServerResponse> handle(RemoveServerRequest<I> removeServerRequest) {
+    protected CompletableFuture<RemoveServerResponse<I>> handle(RemoveServerRequest<I> removeServerRequest) {
         if (persistentState.getId().equals(removeServerRequest.getOldServer())) {
             return CompletableFuture.failedFuture(new UnsupportedOperationException("Can't remove current leader"));
         }

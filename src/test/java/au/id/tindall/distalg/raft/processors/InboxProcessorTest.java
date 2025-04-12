@@ -1,7 +1,7 @@
 package au.id.tindall.distalg.raft.processors;
 
 import au.id.tindall.distalg.raft.Server;
-import au.id.tindall.distalg.raft.comms.Inbox;
+import au.id.tindall.distalg.raft.comms.Cluster;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +19,7 @@ class InboxProcessorTest {
     @Mock
     private Server<Integer> server;
     @Mock
-    private Inbox<Integer> inbox;
+    private Cluster<Integer> cluster;
     @Mock
     private Runnable onStart;
     @Mock
@@ -29,7 +29,7 @@ class InboxProcessorTest {
 
     @BeforeEach
     void setUp() {
-        inboxProcessor = new InboxProcessor<>(server, inbox, onStart, onStop);
+        inboxProcessor = new InboxProcessor<>(server, cluster, onStart, onStop);
     }
 
     @Test
@@ -46,15 +46,15 @@ class InboxProcessorTest {
 
     @Test
     void processWillProcessAllMessagesThenReturnBusy() {
-        when(inbox.processNextMessage(server)).thenReturn(true, true, true, false);
+        when(cluster.processNextMessage(server)).thenReturn(true, true, true, false);
         assertEquals(Processor.ProcessResult.BUSY, inboxProcessor.process());
-        verify(inbox, times(4)).processNextMessage(server);
+        verify(cluster, times(4)).processNextMessage(server);
     }
 
     @Test
     void processWillReturnIdleWhenThereAreNoMessages() {
-        when(inbox.processNextMessage(server)).thenReturn(false);
+        when(cluster.processNextMessage(server)).thenReturn(false);
         assertEquals(Processor.ProcessResult.IDLE, inboxProcessor.process());
-        verify(inbox).processNextMessage(server);
+        verify(cluster).processNextMessage(server);
     }
 }

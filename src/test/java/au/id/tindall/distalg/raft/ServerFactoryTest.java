@@ -6,7 +6,6 @@ import au.id.tindall.distalg.raft.client.sessions.ClientSessionStoreFactory;
 import au.id.tindall.distalg.raft.cluster.Configuration;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.comms.ClusterFactory;
-import au.id.tindall.distalg.raft.comms.Inbox;
 import au.id.tindall.distalg.raft.elections.ElectionScheduler;
 import au.id.tindall.distalg.raft.elections.ElectionSchedulerFactory;
 import au.id.tindall.distalg.raft.log.Log;
@@ -98,15 +97,10 @@ class ServerFactoryTest {
     private ProcessorManager<RaftProcessorGroup> processorManager;
     @Mock
     private ProcessorManagerFactory processorManagerFactory;
-    @Mock
-    private InboxFactory<Long> inboxFactory;
-    @Mock
-    private Inbox<Long> inbox;
     private ServerFactory<Long> serverFactory;
 
     @BeforeEach
     void setUp() {
-        when(inboxFactory.createInbox(SERVER_ID)).thenReturn(inbox);
         when(persistentState.getId()).thenReturn(SERVER_ID);
         when(persistentState.getLogStorage()).thenReturn(logStorage);
         when(clientSessionStoreFactory.create(MAX_CLIENT_SESSIONS)).thenReturn(clientSessionStore);
@@ -118,7 +112,7 @@ class ServerFactoryTest {
         when(snapshotterFactory.create(eq(log), eq(clientSessionStore), eq(stateMachine), eq(persistentState), any(SnapshotHeuristic.class))).thenReturn(snapshotter);
         when(processorManagerFactory.create(any())).thenReturn(processorManager);
         serverFactory = new ServerFactory<>(clusterFactory, logFactory, pendingResponseRegistryFactory, clientSessionStoreFactory, MAX_CLIENT_SESSIONS,
-                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT, snapshotterFactory, false, processorManagerFactory, inboxFactory);
+                commandExecutorFactory, stateMachineFactory, electionSchedulerFactory, MAX_BATCH_SIZE, replicationSchedulerFactory, ELECTION_TIMEOUT, snapshotterFactory, false, processorManagerFactory);
     }
 
     @Test
@@ -150,8 +144,7 @@ class ServerFactoryTest {
                         stateMachine,
                         cluster,
                         electionScheduler,
-                        processorManager,
-                        inbox)
+                        processorManager)
         );
     }
 

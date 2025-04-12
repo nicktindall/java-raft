@@ -74,7 +74,7 @@ public class Follower<I> extends ServerStateImpl<I> {
             final EntryStatus entryStatus = log.hasEntry(appendEntriesRequest.getPrevLogIndex());
             switch (entryStatus) {
                 case AFTER_END:
-                    LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, log.getLastIndex={},appendPrevTerm={}, log.hasEntry={}",
+                    LOGGER.debug("Couldn't append entry: appendPrevIndex={}, log.getPrevIndex={}, log.getLastIndex={}, appendPrevTerm={}, log.hasEntry={}",
                             appendEntriesRequest.getPrevLogIndex(), log.getPrevIndex(), log.getLastLogIndex(),
                             appendEntriesRequest.getPrevLogTerm(), log.hasEntry(appendEntriesRequest.getPrevLogIndex()));
                     cluster.sendAppendEntriesResponse(persistentState.getCurrentTerm(), appendEntriesRequest.getLeaderId(), false, Optional.of(log.getLastLogIndex() + 1));

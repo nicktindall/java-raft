@@ -29,4 +29,5 @@ public interface Cluster<I> {
     void sendInstallSnapshotRequest(Term currentTerm, I destinationId, int lastIndex, Term lastTerm,
                                     ConfigurationEntry lastConfiguration, int snapshotOffset, int offset, byte[] data, boolean done);
 
+    boolean processNextMessage(MessageProcessor<I> messageProcessor);
 }

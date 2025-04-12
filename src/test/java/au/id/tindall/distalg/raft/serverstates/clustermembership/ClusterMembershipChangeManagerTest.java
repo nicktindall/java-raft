@@ -29,11 +29,11 @@ class ClusterMembershipChangeManagerTest {
     @Mock
     private AddServer<Integer> addServer;
     @Mock
-    private CompletableFuture<AddServerResponse> addServerResponseFuture;
+    private CompletableFuture<AddServerResponse<Integer>> addServerResponseFuture;
     @Mock
     private RemoveServer<Integer> removeServer;
     @Mock
-    private CompletableFuture<RemoveServerResponse> removeServerResponseFuture;
+    private CompletableFuture<RemoveServerResponse<Integer>> removeServerResponseFuture;
     @Mock
     private LogEntry logEntry;
 

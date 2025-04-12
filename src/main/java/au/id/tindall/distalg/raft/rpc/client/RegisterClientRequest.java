@@ -5,7 +5,7 @@ import au.id.tindall.distalg.raft.serialisation.Streamable;
 import au.id.tindall.distalg.raft.serialisation.StreamingInput;
 import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 
-public class RegisterClientRequest<I> implements ClientRequestMessage<RegisterClientResponse<I>>, Streamable {
+public class RegisterClientRequest<I> implements ClientRequestMessage<I, RegisterClientResponse<I>>, Streamable {
 
     private static final MessageIdentifier MESSAGE_IDENTIFIER = MessageIdentifier.registerMessageIdentifier("RegisterClientRequest", RegisterClientRequest.class);
 

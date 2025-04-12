@@ -25,14 +25,14 @@ public class ClusterMembershipChangeManager<I> implements EntryCommittedEventHan
         currentMembershipChange = null;
     }
 
-    public CompletableFuture<AddServerResponse> addServer(I newServerId) {
+    public CompletableFuture<AddServerResponse<I>> addServer(I newServerId) {
         final AddServer<I> addServer = clusterMembershipChangeFactory.createAddServer(newServerId);
         membershipChangeQueue.add(addServer);
         startNextMembershipChangeIfReady();
         return addServer.getResponseFuture();
     }
 
-    public CompletableFuture<RemoveServerResponse> removeServer(I serverId) {
+    public CompletableFuture<RemoveServerResponse<I>> removeServer(I serverId) {
         final RemoveServer<I> removeServer = clusterMembershipChangeFactory.createRemoveServer(serverId);
         membershipChangeQueue.add(removeServer);
         startNextMembershipChangeIfReady();

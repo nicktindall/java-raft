@@ -1,7 +1,7 @@
 package au.id.tindall.distalg.raft;
 
 import au.id.tindall.distalg.raft.client.sessions.ClientSessionStore;
-import au.id.tindall.distalg.raft.comms.Inbox;
+import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.comms.MessageProcessor;
 import au.id.tindall.distalg.raft.log.Log;
 import au.id.tindall.distalg.raft.log.Term;
@@ -36,7 +36,7 @@ public interface Server<I> extends MessageProcessor<I>, Closeable {
     @Override
     void close();
 
-    Inbox<I> getInbox();
+    Cluster<I> getCluster();
 
     Term getTerm();
 }

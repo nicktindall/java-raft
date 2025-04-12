@@ -1,96 +1,60 @@
 package au.id.tindall.distalg.raft.monotoniccounter;
 
-import au.id.tindall.distalg.raft.Server;
-import au.id.tindall.distalg.raft.comms.AbstractClusterClient;
-import au.id.tindall.distalg.raft.comms.ConnectionClosedException;
+import au.id.tindall.distalg.raft.clusterclient.AbstractClusterClient;
+import au.id.tindall.distalg.raft.clusterclient.ClusterClient;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestRequest;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestResponse;
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestStatus;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientRequest;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientResponse;
 import au.id.tindall.distalg.raft.rpc.client.RegisterClientStatus;
-import org.apache.logging.log4j.Logger;
 
 import java.math.BigInteger;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
-import static au.id.tindall.distalg.raft.util.ThreadUtil.pauseMillis;
-import static org.apache.logging.log4j.LogManager.getLogger;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * "client" for the Monotonic counter state machine
  * <p>
  * it increments the counter repeatedly checking that the current value is what it expects it to be
  */
-public class MonotonicCounterClient extends AbstractClusterClient {
-
-    public static final int MAX_RETRIES = 20;
-    private final Logger LOGGER = getLogger();
+public class MonotonicCounterClient extends AbstractClusterClient<Long> {
 
     private Integer clientId;
     private int clientSequenceNumber;
     private BigInteger counterValue;
 
-    public MonotonicCounterClient(Map<Long, Server<Long>> servers, BigInteger startingValue) {
-        super(servers);
+    public MonotonicCounterClient(ClusterClient<Long> clusterClient, BigInteger startingValue) {
+        super(clusterClient);
         this.counterValue = startingValue;
     }
 
-    public void register() throws ExecutionException, InterruptedException {
-        int retries = 0;
-        while (retries < MAX_RETRIES) {
-            try {
-                RegisterClientResponse<Long> response = sendClientRequest(new RegisterClientRequest<Long>()).get(1, TimeUnit.SECONDS);
-                if (response.getStatus() == RegisterClientStatus.OK) {
-                    this.clientId = response.getClientId().get();
-                    return;
-                } else {
-                    LOGGER.debug("Server responded with {}, retrying", response.getStatus());
-
-                }
-            } catch (ExecutionException e) {
-                if (e.getCause() instanceof ConnectionClosedException) {
-                    LOGGER.debug("Connection was closed, retrying");
-                } else {
-                    throw e;
-                }
-            } catch (TimeoutException e) {
-                LOGGER.debug("No response received, retrying");
+    public void register() throws InterruptedException {
+        try {
+            RegisterClientResponse<Long> response = sendClientRequest(new RegisterClientRequest<>(), 10_000).get();
+            if (response.getStatus() == RegisterClientStatus.OK) {
+                this.clientId = response.getClientId().get();
+            } else {
+                fail(String.format("Server responded with %s, failing", response.getStatus()));
             }
-            retries++;
-            pauseMillis(100);
+        } catch (ExecutionException e) {
+            fail(e);
         }
-        throw new IllegalStateException("Couldn't register client!");
     }
 
-    public void increment(Runnable failureChecker) throws ExecutionException, InterruptedException {
-        int retries = 0;
-        while (retries < MAX_RETRIES) {
-            failureChecker.run();
-            try {
-                ClientRequestResponse<Long> commandResponse = sendClientRequest(new ClientRequestRequest<Long>(clientId, clientSequenceNumber, clientSequenceNumber - 1, counterValue.toByteArray())).get(1, TimeUnit.SECONDS);
-                if (commandResponse.getStatus() == ClientRequestStatus.OK) {
-                    this.counterValue = new BigInteger(commandResponse.getResponse());
-                    clientSequenceNumber++;
-                    return;
-                } else {
-                    LOGGER.debug("Server responded with status {}, retrying (counterValue={})", commandResponse.getStatus(), counterValue);
-                }
-            } catch (ExecutionException e) {
-                if (e.getCause() instanceof ConnectionClosedException) {
-                    LOGGER.debug("Connection was closed, retrying");
-                } else {
-                    throw e;
-                }
-            } catch (TimeoutException e) {
-                LOGGER.debug("No response received, retrying");
+    public void increment(Runnable failureChecker) throws InterruptedException {
+        failureChecker.run();
+        try {
+            ClientRequestResponse<Long> commandResponse = sendClientRequest(new ClientRequestRequest<>(clientId, clientSequenceNumber, clientSequenceNumber - 1, counterValue.toByteArray()), 10_000).get();
+            if (commandResponse.getStatus() == ClientRequestStatus.OK) {
+                this.counterValue = new BigInteger(commandResponse.getResponse());
+                clientSequenceNumber++;
+            } else {
+                fail(String.format("Server responded with status %s, retrying (counterValue=%s)", commandResponse.getStatus(), counterValue));
             }
-            retries++;
-            pauseMillis(100L);
+        } catch (ExecutionException e) {
+            fail(e);
         }
-        throw new IllegalStateException("Maximum retries exceeded!");
     }
 }
