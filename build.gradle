@@ -57,7 +57,7 @@ test {
 }
 
 // Repeat the LiveServerTest (long run) until failure
-task longRunTest(type: JavaExec) {
+tasks.register('longRunTest', JavaExec) {
     doFirst {
         standardOutput = new TeeOutputStream(
                 new FileOutputStream("longRunTest.out.txt"), System.out);
@@ -65,7 +65,7 @@ task longRunTest(type: JavaExec) {
     dependsOn classes
     jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:+FlightRecorder", "-XX:StartFlightRecording=disk=true,maxsize=128MB,filename=" + project.projectDir + "/longRunTest.jfr", "-Xlog:jfr=debug")
     systemProperties("LiveServerTest.longRun": "true")
-    workingDir = file(buildDir)
+    workingDir = file(layout.buildDirectory)
     classpath = sourceSets.test.runtimeClasspath
-    main = "au.id.tindall.distalg.raft.LiveServerTest"
+    mainClass = "au.id.tindall.distalg.raft.LiveServerTest"
 }
