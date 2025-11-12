@@ -3,7 +3,7 @@ package au.id.tindall.distalg.raft.comms.simulated;
 import au.id.tindall.distalg.raft.rpc.server.AppendEntriesRequest;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
 import au.id.tindall.distalg.raft.serialisation.ByteBufferIO;
-import au.id.tindall.distalg.raft.serialisation.LongIDSerializer;
+import au.id.tindall.distalg.raft.serialisation.IntegerIDSerializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -20,7 +20,7 @@ class MessageStats {
     private static final Logger LOGGER = LogManager.getLogger();
 
     private final Map<String, Integer> messageCounts = new ConcurrentSkipListMap<>();
-    private final ThreadLocal<ByteBufferIO> bbioTL = ThreadLocal.withInitial(() -> ByteBufferIO.elastic(LongIDSerializer.INSTANCE));
+    private final ThreadLocal<ByteBufferIO> bbioTL = ThreadLocal.withInitial(() -> ByteBufferIO.elastic(IntegerIDSerializer.INSTANCE));
     private long totalMessageBytes = 0;
     private long managementOverheadMessageBytes = 0;
 

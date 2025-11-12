@@ -19,20 +19,20 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <p>
  * it increments the counter repeatedly checking that the current value is what it expects it to be
  */
-public class MonotonicCounterClient extends AbstractClusterClient<Long> {
+public class MonotonicCounterClient<T> extends AbstractClusterClient<T> {
 
     private Integer clientId;
     private int clientSequenceNumber;
     private BigInteger counterValue;
 
-    public MonotonicCounterClient(ClusterClient<Long> clusterClient, BigInteger startingValue) {
+    public MonotonicCounterClient(ClusterClient<T> clusterClient, BigInteger startingValue) {
         super(clusterClient);
         this.counterValue = startingValue;
     }
 
     public void register() throws InterruptedException {
         try {
-            RegisterClientResponse<Long> response = sendClientRequest(new RegisterClientRequest<>(), 10_000).get();
+            RegisterClientResponse<T> response = sendClientRequest(new RegisterClientRequest<>(), 10_000).get();
             if (response.getStatus() == RegisterClientStatus.OK) {
                 this.clientId = response.getClientId().get();
             } else {
@@ -46,7 +46,7 @@ public class MonotonicCounterClient extends AbstractClusterClient<Long> {
     public void increment(Runnable failureChecker) throws InterruptedException {
         failureChecker.run();
         try {
-            ClientRequestResponse<Long> commandResponse = sendClientRequest(new ClientRequestRequest<>(clientId, clientSequenceNumber, clientSequenceNumber - 1, counterValue.toByteArray()), 10_000).get();
+            ClientRequestResponse<T> commandResponse = sendClientRequest(new ClientRequestRequest<>(clientId, clientSequenceNumber, clientSequenceNumber - 1, counterValue.toByteArray()), 10_000).get();
             if (commandResponse.getStatus() == ClientRequestStatus.OK) {
                 this.counterValue = new BigInteger(commandResponse.getResponse());
                 clientSequenceNumber++;

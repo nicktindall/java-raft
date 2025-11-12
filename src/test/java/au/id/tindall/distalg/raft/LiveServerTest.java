@@ -16,7 +16,7 @@ import au.id.tindall.distalg.raft.processors.SleepStrategies;
 import au.id.tindall.distalg.raft.replication.HeartbeatReplicationSchedulerFactory;
 import au.id.tindall.distalg.raft.rpc.clustermembership.AddServerResponse;
 import au.id.tindall.distalg.raft.rpc.clustermembership.RemoveServerResponse;
-import au.id.tindall.distalg.raft.serialisation.LongIDSerializer;
+import au.id.tindall.distalg.raft.serialisation.IntegerIDSerializer;
 import au.id.tindall.distalg.raft.serverstates.ServerStateType;
 import au.id.tindall.distalg.raft.snapshotting.DumbRegularIntervalSnapshotHeuristic;
 import au.id.tindall.distalg.raft.snapshotting.Snapshotter;
@@ -67,7 +67,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -100,17 +100,17 @@ class LiveServerTest {
     private static final int TIMEOUT_MINUTES = LONG_RUN_TEST ? 200 : 1;
 
     private static final int MAX_BATCH_SIZE = 20;
-    private static final Set<Long> ALL_SERVER_IDS = Set.of(1L, 2L, 3L);
+    private static final Set<Integer> ALL_SERVER_IDS = Set.of(1, 2, 3);
     private static final float PACKET_DROP_PROBABILITY = 0.001f;    // 0.1% which is quite high
     private static final int WARNING_THRESHOLD_MILLIS = 25;
 
-    private TestInfrastructureFactory<Long> clusterFactory;
-    private Map<Long, Server<Long>> allServers;
-    private ClusterClient<Long> testClusterClient;
-    private ServerFactory<Long> serverFactory;
+    private TestInfrastructureFactory<Integer> clusterFactory;
+    private Map<Integer, Server<Integer>> allServers;
+    private ClusterClient<Integer> testClusterClient;
+    private ServerFactory<Integer> serverFactory;
     private ScheduledExecutorService testExecutorService;
     private AtomicReference<RuntimeException> testFailure;
-    private ClusterAdminClient<Long> clusterAdminClient;
+    private ClusterAdminClient<Integer> clusterAdminClient;
     @TempDir
     Path stateFileDirectory;
 
@@ -141,7 +141,7 @@ class LiveServerTest {
         testFailure = new AtomicReference<>();
         testExecutorService = newScheduledThreadPool(10, forThreadGroup("test-threads"));
         setUpFactories();
-        for (long serverId : ALL_SERVER_IDS) {
+        for (int serverId : ALL_SERVER_IDS) {
             createServerAndState(serverId, ALL_SERVER_IDS);
         }
         startServers();
@@ -170,16 +170,16 @@ class LiveServerTest {
         );
     }
 
-    protected TestInfrastructureFactory<Long> getInfrastructureFactory() {
+    protected TestInfrastructureFactory<Integer> getInfrastructureFactory() {
         return NetworkSimulation.createDelayingReordering(
                 allServers,
                 PACKET_DROP_PROBABILITY, MINIMUM_MESSAGE_DELAY_MICROS, MAXIMUM_MESSAGE_DELAY_MICROS, TimeUnit.MICROSECONDS);
     }
 
-    private Server<Long> createServerAndState(long id, Set<Long> serverIds) {
+    private Server<Integer> createServerAndState(int id, Set<Integer> serverIds) {
         try {
-            PersistentState<Long> persistentState = FileBasedPersistentState.createOrOpen(LongIDSerializer.INSTANCE, stateDirectoryForServer(id), id);
-            Server<Long> server = TimingWrappers.wrap(serverFactory.create(persistentState, serverIds, new DumbRegularIntervalSnapshotHeuristic()), WARNING_THRESHOLD_MILLIS);
+            PersistentState<Integer> persistentState = FileBasedPersistentState.createOrOpen(IntegerIDSerializer.INSTANCE, stateDirectoryForServer(id), id);
+            Server<Integer> server = TimingWrappers.wrap(serverFactory.create(persistentState, serverIds, new DumbRegularIntervalSnapshotHeuristic()), WARNING_THRESHOLD_MILLIS);
             allServers.put(id, server);
             return server;
         } catch (IOException e) {
@@ -187,7 +187,7 @@ class LiveServerTest {
         }
     }
 
-    private Path stateDirectoryForServer(long id) {
+    private Path stateDirectoryForServer(int id) {
         try {
             final Path resolve = stateFileDirectory.resolve(String.valueOf(id));
             Files.createDirectories(resolve);
@@ -215,7 +215,7 @@ class LiveServerTest {
     @Test
     void willElectANewLeader_WhenTheExistingLeaderFails() {
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
-        Server<Long> oldLeader = getLeaderWithRetries();
+        Server<Integer> oldLeader = getLeaderWithRetries();
         oldLeader.stop();
         await().atMost(10, SECONDS).until(this::aLeaderIsElected);
         oldLeader.start();
@@ -283,7 +283,7 @@ class LiveServerTest {
             }
         });
 
-        AtomicLong newServerIdCounter = new AtomicLong(ALL_SERVER_IDS.size() + 1);
+        AtomicInteger newServerIdCounter = new AtomicInteger(ALL_SERVER_IDS.size() + 1);
         final ScheduledFuture<?> clusterChanger = testExecutorService.scheduleAtFixedRate(addOrRemoveAServer(newServerIdCounter), 3, 3, SECONDS);
         counterClientThread.get();
         clusterChanger.cancel(false);
@@ -305,8 +305,8 @@ class LiveServerTest {
             }
         }).get();
 
-        long newServerId = ALL_SERVER_IDS.size() + 1;
-        try (final Server<Long> server = createServerAndState(newServerId, allServers.keySet())) {
+        int newServerId = ALL_SERVER_IDS.size() + 1;
+        try (final Server<Integer> server = createServerAndState(newServerId, allServers.keySet())) {
             server.start();
             testExecutorService.submit(() -> {
                 try {
@@ -317,9 +317,9 @@ class LiveServerTest {
             }).get();
         }
 
-        Optional<Server<Long>> optionalLeader = getLeader();
+        Optional<Server<Integer>> optionalLeader = getLeader();
         assertThat(optionalLeader).isPresent();
-        Server<Long> leader = optionalLeader.get();
+        Server<Integer> leader = optionalLeader.get();
         assertThat(leader.getId()).isNotEqualTo(newServerId);
         assertThat(leader.getTerm().getNumber()).isLessThanOrEqualTo((int) Math.ceil(allServers.get(newServerId).getTerm().getNumber() * 0.1));
     }
@@ -330,7 +330,7 @@ class LiveServerTest {
         fail(e);
     }
 
-    private Runnable addOrRemoveAServer(AtomicLong newServerIdCounter) {
+    private Runnable addOrRemoveAServer(AtomicInteger newServerIdCounter) {
         return () -> {
             try {
                 if (allServers.size() <= 3) {
@@ -350,15 +350,15 @@ class LiveServerTest {
         };
     }
 
-    private void addNewServer(long newServerId) {
+    private void addNewServer(int newServerId) {
         try {
-            Set<Long> newServersView = new HashSet<>(allServers.keySet());
+            Set<Integer> newServersView = new HashSet<>(allServers.keySet());
             newServersView.add(newServerId);
-            final Server<Long> server = createServerAndState(newServerId, newServersView);
+            final Server<Integer> server = createServerAndState(newServerId, newServersView);
 
             LOGGER.info("Adding server {}, (new set={})", newServerId, newServersView);
             server.start();
-            AddServerResponse<Long> response = clusterAdminClient.addNewServer(newServerId);
+            AddServerResponse<Integer> response = clusterAdminClient.addNewServer(newServerId);
             switch (response.getStatus()) {
                 case TIMEOUT:
                 case NOT_LEADER:
@@ -379,9 +379,9 @@ class LiveServerTest {
 
     private void removeRandomServer() {
         try {
-            Server<Long> server = chooseRandomServer();
+            Server<Integer> server = chooseRandomServer();
             LOGGER.info("Removing server {}", server.getId());
-            final RemoveServerResponse<Long> response = clusterAdminClient.removeServer(server.getId());
+            final RemoveServerResponse<Integer> response = clusterAdminClient.removeServer(server.getId());
             if (response.getStatus() == OK) {
                 LOGGER.info("Server {} remove succeeded, shutting down", server.getId());
                 allServers.remove(server.getId());
@@ -395,10 +395,10 @@ class LiveServerTest {
         }
     }
 
-    private Server<Long> chooseRandomServer() {
-        final List<Server<Long>> servers = new ArrayList<>(allServers.values());
+    private Server<Integer> chooseRandomServer() {
+        final List<Server<Integer>> servers = new ArrayList<>(allServers.values());
         while (true) {
-            final Server<Long> server = servers.get(ThreadLocalRandom.current().nextInt(servers.size()));
+            final Server<Integer> server = servers.get(ThreadLocalRandom.current().nextInt(servers.size()));
             final Optional<ServerStateType> state = server.getState();
             if (state.isPresent() && state.get() != LEADER) {
                 return server;
@@ -412,21 +412,21 @@ class LiveServerTest {
         );
     }
 
-    private boolean serverHasCaughtUp(Server<Long> server) {
+    private boolean serverHasCaughtUp(Server<Integer> server) {
         MonotonicCounter counter = (MonotonicCounter) server.getStateMachine();
         return counter.getCounter().intValue() == COUNT_UP_TARGET;
     }
 
     private void killThenResurrectCurrentLeader() {
         try {
-            Server<Long> currentLeader = getLeaderWithRetries();
-            Long killedServerId = currentLeader.getId();
+            Server<Integer> currentLeader = getLeaderWithRetries();
+            Integer killedServerId = currentLeader.getId();
             LOGGER.info("Killing server " + killedServerId);
             currentLeader.close();
             await().atMost(10, SECONDS).until(this::aLeaderIsElected);
 
             // Start a new node pointing to the same persistent state files
-            Server<Long> newCurrentLeader = createServerAndState(killedServerId, ALL_SERVER_IDS);
+            Server<Integer> newCurrentLeader = createServerAndState(killedServerId, ALL_SERVER_IDS);
             allServers.put(killedServerId, newCurrentLeader);
             newCurrentLeader.start();
             LOGGER.info("Server " + killedServerId + " restarted");
@@ -437,8 +437,8 @@ class LiveServerTest {
 
     private void triggerLeadershipTransfer() {
         try {
-            Server<Long> currentLeader = getLeaderWithRetries();
-            long currentLeaderId = currentLeader.getId();
+            Server<Integer> currentLeader = getLeaderWithRetries();
+            int currentLeaderId = currentLeader.getId();
             LOGGER.info("Telling server {} to transfer leadership", currentLeaderId);
             clusterAdminClient.deposeLeader();
             await().atMost(10, SECONDS).until(() -> this.serverIsNoLongerLeader(currentLeaderId));
@@ -447,7 +447,7 @@ class LiveServerTest {
         }
     }
 
-    private boolean serverIsNoLongerLeader(long serverId) {
+    private boolean serverIsNoLongerLeader(int serverId) {
         return getLeader()
                 .filter(server -> server.getId() != serverId)
                 .isPresent();
@@ -458,7 +458,7 @@ class LiveServerTest {
     }
 
     private void countUp(int fromValue, int amountToAdd) throws Exception {
-        try (MonotonicCounterClient counterClient = new MonotonicCounterClient(testClusterClient, BigInteger.valueOf(fromValue))) {
+        try (MonotonicCounterClient<Integer> counterClient = new MonotonicCounterClient<>(testClusterClient, BigInteger.valueOf(fromValue))) {
             counterClient.register();
             for (int i = 0; i < amountToAdd; i++) {
                 counterClient.increment(this::checkFailed);
@@ -477,15 +477,15 @@ class LiveServerTest {
         return getLeader().isPresent();
     }
 
-    private Optional<Server<Long>> getLeader() {
+    private Optional<Server<Integer>> getLeader() {
         return allServers.values().stream()
                 .filter(server -> server.getState().isPresent() && server.getState().get() == LEADER)
                 .findAny();
     }
 
-    private Server<Long> getLeaderWithRetries() {
+    private Server<Integer> getLeaderWithRetries() {
         for (int i = 0; i < 5; i++) {
-            final Optional<Server<Long>> leader = getLeader();
+            final Optional<Server<Integer>> leader = getLeader();
             if (leader.isPresent()) {
                 return leader.get();
             } else {

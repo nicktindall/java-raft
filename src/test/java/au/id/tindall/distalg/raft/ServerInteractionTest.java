@@ -41,7 +41,7 @@ import static au.id.tindall.distalg.raft.serverstates.ServerStateType.CANDIDATE;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.FOLLOWER;
 import static au.id.tindall.distalg.raft.serverstates.ServerStateType.LEADER;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,38 +52,38 @@ class ServerInteractionTest {
     private static final int MAX_CLIENT_SESSIONS = 10;
     private static final int MAX_BATCH_SIZE = 10;
     private static final int LAST_RESPONSE_RECEIVED = -1;
-    private static final Set<Long> ALL_SERVER_IDS = Set.of(1L, 2L, 3L);
+    private static final Set<Integer> ALL_SERVER_IDS = Set.of(1, 2, 3);
 
-    private Server<Long> server1;
-    private Server<Long> server2;
-    private Server<Long> server3;
-    private Map<Long, Server<Long>> allServers;
-    private ServerFactory<Long> serverFactory;
+    private Server<Integer> server1;
+    private Server<Integer> server2;
+    private Server<Integer> server3;
+    private Map<Integer, Server<Integer>> allServers;
+    private ServerFactory<Integer> serverFactory;
     @Mock
-    private ElectionSchedulerFactory<Long> electionSchedulerFactory;
+    private ElectionSchedulerFactory<Integer> electionSchedulerFactory;
     private List<ManualProcessorDriver<RaftProcessorGroup>> pms;
-    private Map<Long, ElectionScheduler> electionSchedulers;
-    private NetworkSimulation<Long> testClusterFactory;
+    private Map<Integer, ElectionScheduler> electionSchedulers;
+    private NetworkSimulation<Integer> testClusterFactory;
 
     @BeforeEach
     void setUp() {
         electionSchedulers = new HashMap<>();
         pms = new ArrayList<>();
         setUpFactories();
-        server1 = createAndAddServer(1L);
-        server2 = createAndAddServer(2L);
-        server3 = createAndAddServer(3L);
+        server1 = createAndAddServer(1);
+        server2 = createAndAddServer(2);
+        server3 = createAndAddServer(3);
     }
 
-    private void timeoutServer(long serverId) {
+    private void timeoutServer(int serverId) {
         when(electionSchedulers.get(serverId).shouldTimeout()).thenReturn(true, false);
         allServers.get(serverId).timeoutNowIfDue();
     }
 
     private void setUpFactories() {
         allServers = new HashMap<>();
-        when(electionSchedulerFactory.createElectionScheduler(anyLong())).thenAnswer(iom -> {
-            long serverId = iom.getArgument(0);
+        when(electionSchedulerFactory.createElectionScheduler(anyInt())).thenAnswer(iom -> {
+            int serverId = iom.getArgument(0);
             final ElectionScheduler es = mock(ElectionScheduler.class);
             electionSchedulers.put(serverId, es);
             return es;
@@ -112,8 +112,8 @@ class ServerInteractionTest {
         );
     }
 
-    private Server<Long> createAndAddServer(long id) {
-        Server<Long> server = serverFactory.create(new InMemoryPersistentState<>(id), ALL_SERVER_IDS);
+    private Server<Integer> createAndAddServer(int id) {
+        Server<Integer> server = serverFactory.create(new InMemoryPersistentState<>(id), ALL_SERVER_IDS);
         server.start();
         allServers.put(id, server);
         fullyFlush();
