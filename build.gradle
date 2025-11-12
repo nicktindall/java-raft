@@ -42,6 +42,7 @@ def mockitoVersion = '5.18.0'
 def log4jVersion = '2.25.1'
 
 dependencies {
+    implementation group: 'io.netty', name: 'netty-all', version: '4.1.121.Final'
     implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: log4jVersion
     testImplementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: log4jVersion
     testImplementation group: 'org.mockito', name: 'mockito-core', version: mockitoVersion
