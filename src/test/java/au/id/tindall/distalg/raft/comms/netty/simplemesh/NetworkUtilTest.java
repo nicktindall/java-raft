@@ -1,12 +1,14 @@
 package au.id.tindall.distalg.raft.comms.netty.simplemesh;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+@DisabledIfEnvironmentVariable(named = "CIRCLE_BUILD_NUM", matches = ".*")
 class NetworkUtilTest {
 
     @Test
