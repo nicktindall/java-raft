@@ -1,7 +1,5 @@
 package au.id.tindall.distalg.raft.serialisation;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -72,14 +70,6 @@ public interface StreamingInput {
     }
 
     default <T extends Streamable> T readStreamable() {
-        final Class<T> streamableClass = readMessageIdentifier().getMessageClass();
-        try {
-            Constructor<T> constructor = streamableClass.getDeclaredConstructor(StreamingInput.class);
-            return constructor.newInstance(this);
-        } catch (NoSuchMethodException e) {
-            throw new IllegalStateException("No streaming constructor. class=" + streamableClass.getName(), e);
-        } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
-            throw new IllegalStateException("Error deserializing streamable, class=" + streamableClass.getName(), e);
-        }
+        return readMessageIdentifier().parseMessage(this);
     }
 }
