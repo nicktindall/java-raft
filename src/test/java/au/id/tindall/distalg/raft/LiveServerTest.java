@@ -29,6 +29,7 @@ import au.id.tindall.distalg.raft.util.ExecutorUtil;
 import au.id.tindall.distalg.raft.util.FileUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.io.IoBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -88,6 +89,7 @@ class LiveServerTest {
     private static final Duration LONG_RUN_TEST_LENGTH = Duration.ofDays(1);
 
     private static final Logger LOGGER = LogManager.getLogger();
+    private static final Logger TEST_LOGGER = LogManager.getLogger("testLogger");
 
     private static final int MINIMUM_MESSAGE_DELAY_MICROS = 350;
     private static final int MAXIMUM_MESSAGE_DELAY_MICROS = 1500;
@@ -114,17 +116,17 @@ class LiveServerTest {
     @TempDir
     Path stateFileDirectory;
 
-    public static void main(String[] args) {
+    protected static void longRunTest(Class<?> testClass) {
         Instant startTime = Instant.now();
-        try (final PrintWriter writer = new PrintWriter(System.out)) {
+        try (final PrintWriter writer = IoBuilder.forLogger(TEST_LOGGER).buildPrintWriter()) {
             while (Instant.now().isBefore(startTime.plus(LONG_RUN_TEST_LENGTH))) {
                 LauncherDiscoveryRequest ldr = LauncherDiscoveryRequestBuilder.request()
-                        .selectors(selectClass(LiveServerTest.class))
+                        .selectors(selectClass(testClass))
                         .build();
                 final Launcher launcher = LauncherFactory.create();
                 launcher.discover(ldr);
                 final SummaryGeneratingListener summaryGeneratingListener = new SummaryGeneratingListener();
-                launcher.registerTestExecutionListeners(LoggingListener.forJavaUtilLogging(), summaryGeneratingListener);
+                launcher.registerTestExecutionListeners(LoggingListener.forBiConsumer((throwable, supplier) -> TEST_LOGGER.info(supplier.get(), throwable)), summaryGeneratingListener);
                 launcher.execute(ldr);
                 final TestExecutionSummary summary = summaryGeneratingListener.getSummary();
                 summary.printTo(writer);
@@ -134,6 +136,10 @@ class LiveServerTest {
                 }
             }
         }
+    }
+
+    public static void main(String[] args) {
+        longRunTest(LiveServerTest.class);
     }
 
     @BeforeEach

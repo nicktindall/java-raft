@@ -62,22 +62,24 @@ public abstract class AbstractClusterClient<I> implements Closeable {
     }
 
     private <R extends ClientResponseMessage<I>> CompletableFuture<R> attemptSend(Function<I, CompletableFuture<R>> messageSender, long requestTimeoutMs, int retriesRemaining, long delay, List<Exception> suppressed) {
-        ConnectMetadata leaderConnection = getLeaderConnection();
-        leaderConnection.lastAttemptedSendTimestamp = System.currentTimeMillis();
-        I leaderId = leaderConnection.nodeId;
-        return messageSender.apply(leaderId).orTimeout(requestTimeoutMs, TimeUnit.MILLISECONDS)
-                .thenComposeAsync(res -> {
-                    if (res.isFromLeader()) {
-                        leader.set(leaderConnection);
-                        return CompletableFuture.completedFuture(res);
-                    }
-                    if (!Objects.equals(leaderId, res.getLeaderHint())) {
-                        leader.compareAndSet(leaderConnection, getConnectMetadata(res.getLeaderHint()));
-                    } else {
-                        leader.compareAndSet(leaderConnection, null);
-                    }
-                    throw new NotLeaderException();
-                }, executor)
+        return getLeaderConnectionAsync()
+                .thenComposeAsync(
+                        leaderConnection -> {
+                            I leaderId = leaderConnection.nodeId;
+                            return messageSender.apply(leaderId).orTimeout(requestTimeoutMs, TimeUnit.MILLISECONDS)
+                                    .thenComposeAsync(res -> {
+                                        if (res.isFromLeader()) {
+                                            leader.set(leaderConnection);
+                                            return CompletableFuture.completedFuture(res);
+                                        }
+                                        if (!Objects.equals(leaderId, res.getLeaderHint())) {
+                                            leader.compareAndSet(leaderConnection, getConnectMetadata(res.getLeaderHint()));
+                                        } else {
+                                            leader.compareAndSet(leaderConnection, null);
+                                        }
+                                        throw new NotLeaderException();
+                                    }, executor);
+                        })
                 .exceptionallyComposeAsync(t -> {
                     final Throwable cause = unwrapCause(t);
                     if (cause instanceof Exception exception && retriesRemaining > 0 && !closed.get()) {
@@ -89,6 +91,14 @@ public abstract class AbstractClusterClient<I> implements Closeable {
                         return CompletableFuture.failedFuture(sendFailedException);
                     }
                 }, retriesRemaining > 0 ? CompletableFuture.delayedExecutor(delay, TimeUnit.MILLISECONDS, executor) : executor);
+    }
+
+    private CompletableFuture<ConnectMetadata> getLeaderConnectionAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            ConnectMetadata leaderConnection = getLeaderConnection();
+            leaderConnection.lastAttemptedSendTimestamp = System.currentTimeMillis();
+            return leaderConnection;
+        });
     }
 
     private Throwable unwrapCause(Throwable e) {

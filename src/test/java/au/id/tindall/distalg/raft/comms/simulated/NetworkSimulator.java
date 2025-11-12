@@ -3,6 +3,7 @@ package au.id.tindall.distalg.raft.comms.simulated;
 import au.id.tindall.distalg.raft.comms.Cluster;
 import au.id.tindall.distalg.raft.processors.SleepStrategy;
 import au.id.tindall.distalg.raft.rpc.server.RpcMessage;
+import au.id.tindall.distalg.raft.util.ExceptionUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -48,8 +49,9 @@ class NetworkSimulator<I> implements Runnable, Closeable {
                 sleepStrategy.sleep();
             }
             LOGGER.info("Network simulator stopped");
-        } catch (Throwable e) {
-            LOGGER.error("Network simulator failed", e);
+        } catch (Throwable t) {
+            LOGGER.error("Network simulator failed", t);
+            ExceptionUtil.rethrowErrors(t);
         }
     }
 

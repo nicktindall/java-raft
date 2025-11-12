@@ -44,6 +44,7 @@ def log4jVersion = '2.25.1'
 dependencies {
     implementation group: 'io.netty', name: 'netty-all', version: '4.1.121.Final'
     implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: log4jVersion
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-iostreams', version: log4jVersion
     testImplementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: log4jVersion
     testImplementation group: 'org.mockito', name: 'mockito-core', version: mockitoVersion
     testImplementation group: 'org.mockito', name: 'mockito-junit-jupiter', version: mockitoVersion
@@ -57,8 +58,8 @@ test {
     useJUnitPlatform()
 }
 
-// Repeat the LiveServerTest (long run) until failure
-tasks.register('longRunTest', JavaExec) {
+// Repeat the LiveServerTest (long run) for a long time
+tasks.register('longRunSimulated', JavaExec) {
     doFirst {
         standardOutput = new TeeOutputStream(
                 new FileOutputStream("longRunTest.out.txt"), System.out);
@@ -69,4 +70,18 @@ tasks.register('longRunTest', JavaExec) {
     workingDir = file(layout.buildDirectory)
     classpath = sourceSets.test.runtimeClasspath
     mainClass = "au.id.tindall.distalg.raft.LiveServerTest"
+}
+
+// Repeat the LiveServerTest (long run) for a long time
+tasks.register('longRunNetty', JavaExec) {
+    doFirst {
+        standardOutput = new TeeOutputStream(
+                new FileOutputStream("longRunTest.out.txt"), System.out);
+    }
+    dependsOn classes
+    jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:+FlightRecorder", "-XX:StartFlightRecording=disk=true,maxsize=128MB,filename=" + project.projectDir + "/longRunTest.jfr", "-Xlog:jfr=debug")
+    systemProperties("LiveServerTest.longRun": "true")
+    workingDir = file(layout.buildDirectory)
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "au.id.tindall.distalg.raft.NettyLiveServerTest"
 }

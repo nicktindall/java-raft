@@ -1,5 +1,6 @@
 package au.id.tindall.distalg.raft.processors;
 
+import au.id.tindall.distalg.raft.util.ExceptionUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
@@ -32,10 +33,12 @@ class ExecutorServiceProcessGroupDriver implements Runnable {
                     sleepStrategy.sleep();
                 }
             }
+            LOGGER.debug("Processor for group {} ended gracefully", processorGroup.getGroup());
             processorGroup.finalise();
             ThreadContext.clearAll();
-        } catch (RuntimeException e) {
-            LOGGER.error("Exception thrown by group executor", e);
+        } catch (Throwable t) {
+            LOGGER.error("Exception thrown by group executor", t);
+            ExceptionUtil.rethrowErrors(t);
         }
     }
 
