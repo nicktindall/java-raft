@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image "eclipse-temurin:21.0.6_7-jdk-alpine-3.21"
-            args '-v $HOME/.gradle:/var/lib/jenkins/.gradle:rw -e GRADLE_USER_HOME=/var/lib/jenkins/.gradle'
-        }
-    }
+    agent any
     options {
         disableConcurrentBuilds abortPrevious: true
         buildDiscarder(logRotator(numToKeepStr: '2', artifactNumToKeepStr: '2'))
