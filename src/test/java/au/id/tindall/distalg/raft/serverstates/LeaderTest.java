@@ -527,7 +527,7 @@ class LeaderTest {
 
         @Test
         void willStartLeadershipTransferAndReturnOK() {
-            CompletableFuture<AbdicateLeadershipResponse<Long>> handle = leader.handle(new AbdicateLeadershipRequest<>());
+            CompletableFuture<AbdicateLeadershipResponse<Long>> handle = leader.handle(AbdicateLeadershipRequest.instance());
 
             assertThat(handle).isCompletedWithValue(AbdicateLeadershipResponse.getOK());
             verify(leadershipTransfer).start();

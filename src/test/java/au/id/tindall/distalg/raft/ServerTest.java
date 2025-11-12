@@ -57,6 +57,8 @@ class ServerTest {
     private Cluster<Long> cluster;
     @Mock
     private ElectionScheduler electionScheduler;
+    @Mock
+    private ClientRequestMessage<Long, ?> clientRequestMessage;
     private TestProcessorManager processorManager;
 
     private Server<Long> server;
@@ -165,9 +167,7 @@ class ServerTest {
 
             @Test
             void willThrowWhenServerIsNotStarted() {
-                var clientRequest = new ClientRequestMessage() {
-                };
-                assertThatThrownBy(() -> server.handle(clientRequest))
+                assertThatThrownBy(() -> server.handle(clientRequestMessage))
                         .isInstanceOf(IllegalStateException.class);
             }
         }
@@ -185,11 +185,9 @@ class ServerTest {
             @Test
             @SuppressWarnings("unchecked")
             void willBeHandledByTheCurrentState() {
-                var clientRequest = new ClientRequestMessage() {
-                };
                 var clientResponse = new CompletableFuture();
-                when(serverState.handle(clientRequest)).thenReturn(clientResponse);
-                assertThat(server.handle(clientRequest)).isSameAs(clientResponse);
+                when(serverState.handle(clientRequestMessage)).thenReturn(clientResponse);
+                assertThat(server.handle(clientRequestMessage)).isSameAs(clientResponse);
             }
         }
     }

@@ -308,7 +308,7 @@ class ServerStateTest {
         @Test
         void willReturnNotLeader() {
             var serverState = new MinimalServerState(persistentState, logContaining(), cluster, serverStateFactory, LEADER_ID, electionScheduler);
-            CompletableFuture<AbdicateLeadershipResponse> handle = serverState.handle(new AbdicateLeadershipRequest());
+            CompletableFuture<AbdicateLeadershipResponse<Long>> handle = serverState.handle(AbdicateLeadershipRequest.instance());
 
             assertThat(handle).isCompletedWithValue(AbdicateLeadershipResponse.getNotLeader());
         }

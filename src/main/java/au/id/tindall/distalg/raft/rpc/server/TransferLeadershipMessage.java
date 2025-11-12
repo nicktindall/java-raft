@@ -2,6 +2,7 @@ package au.id.tindall.distalg.raft.rpc.server;
 
 import au.id.tindall.distalg.raft.log.Term;
 import au.id.tindall.distalg.raft.serialisation.MessageIdentifier;
+import au.id.tindall.distalg.raft.serialisation.StreamingInput;
 
 public class TransferLeadershipMessage<I> extends RpcMessage<I> {
 
@@ -9,6 +10,11 @@ public class TransferLeadershipMessage<I> extends RpcMessage<I> {
 
     public TransferLeadershipMessage(Term term, I serverId) {
         super(term, serverId);
+    }
+
+    @SuppressWarnings("unused")
+    public TransferLeadershipMessage(StreamingInput streamingInput) {
+        super(streamingInput);
     }
 
     @Override

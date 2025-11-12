@@ -2,6 +2,8 @@ package au.id.tindall.distalg.raft.clusterclient;
 
 import au.id.tindall.distalg.raft.rpc.client.ClientRequestMessage;
 import au.id.tindall.distalg.raft.rpc.client.ClientResponseMessage;
+import au.id.tindall.distalg.raft.serialisation.MessageIdentifier;
+import au.id.tindall.distalg.raft.serialisation.StreamingOutput;
 import au.id.tindall.distalg.raft.util.ThreadUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -227,8 +229,27 @@ class AbstractClusterClientTest {
         public Integer getLeaderHint() {
             return leaderHint;
         }
+
+        @Override
+        public MessageIdentifier getMessageIdentifier() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void writeTo(StreamingOutput streamingOutput) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static class TestMessage implements ClientRequestMessage<Integer, TestResponse> {
+        @Override
+        public MessageIdentifier getMessageIdentifier() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void writeTo(StreamingOutput streamingOutput) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

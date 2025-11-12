@@ -26,6 +26,6 @@ public class ClusterAdminClient<I> extends AbstractClusterClient<I> {
     }
 
     public void deposeLeader() throws ExecutionException, InterruptedException {
-        sendClientRequest(new AbdicateLeadershipRequest<>(), requestTimeoutMs).get();
+        sendClientRequest(AbdicateLeadershipRequest.instance(), requestTimeoutMs).get();
     }
 }

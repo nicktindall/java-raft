@@ -1,6 +1,8 @@
 package au.id.tindall.distalg.raft.rpc.client;
 
-public interface ClientResponseMessage<I> {
+import au.id.tindall.distalg.raft.serialisation.Streamable;
+
+public interface ClientResponseMessage<I> extends Streamable {
 
     boolean isFromLeader();
 
